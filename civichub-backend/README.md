@@ -150,7 +150,7 @@ Create department sample:
 
 ## Report Workflow
 
-Sprint 2.5 supports report URL-image management only. Binary file upload, multipart upload, cloud storage, notification delivery, dashboard statistics, and map integration are not included.
+Sprint 2.6 supports report workflow and dashboard statistics for the MVP. Binary file upload, multipart upload, cloud storage, notification delivery, map integration, and AI are not included.
 
 ### Citizen Report Endpoints
 
@@ -221,6 +221,43 @@ Assign department sample:
 ```
 
 Admin can view all reports and assign or reassign an active department. Assignment does not automatically change the report status.
+
+## Dashboard API
+
+Dashboard endpoints require a JWT. Aggregations are performed by repository queries using database `COUNT`, `GROUP BY`, and status-based conditional counts. The backend does not load all reports into memory for dashboard statistics.
+
+### Admin Dashboard
+
+Requires an `ADMIN` JWT:
+
+- `GET /api/admin/dashboard/summary`
+- `GET /api/admin/dashboard/category`
+- `GET /api/admin/dashboard/department`
+- `GET /api/admin/dashboard/monthly?year=2026`
+- `GET /api/admin/dashboard/recent`
+- `GET /api/admin/dashboard/recent?size=10`
+
+`/summary` returns:
+
+- total reports by status: `PENDING`, `RECEIVED`, `IN_PROGRESS`, `RESOLVED`, `REJECTED`, `CANCELLED`
+- total citizens
+- total staff
+- total departments
+- total categories
+
+`/monthly` always returns 12 records, one for each month. Months without reports return zero counts.
+
+`/recent` returns the latest reports sorted by `createdAt DESC`. The default size is 10.
+
+### Staff Dashboard
+
+Requires a `STAFF` JWT and the staff user must belong to an active department:
+
+- `GET /api/staff/dashboard/summary`
+- `GET /api/staff/dashboard/recent`
+- `GET /api/staff/dashboard/recent?size=10`
+
+Staff dashboard statistics and recent reports are scoped to the staff user's current department. A citizen receives `403 Forbidden`; an anonymous request receives `401 Unauthorized`.
 
 ### Report Status Lifecycle
 
