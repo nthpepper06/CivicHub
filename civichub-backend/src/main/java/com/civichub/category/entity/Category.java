@@ -2,7 +2,6 @@ package com.civichub.category.entity;
 
 import com.civichub.common.BaseEntity;
 import com.civichub.report.entity.Report;
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -49,6 +48,6 @@ public class Category extends BaseEntity {
     @Builder.Default
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "category")
     private List<Report> reports = new ArrayList<>();
 }

@@ -2,7 +2,6 @@ package com.civichub.department.entity;
 
 import com.civichub.common.BaseEntity;
 import com.civichub.user.entity.User;
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -46,6 +45,6 @@ public class Department extends BaseEntity {
     @Builder.Default
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @OneToMany(mappedBy = "department", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "department")
     private List<User> users = new ArrayList<>();
 }

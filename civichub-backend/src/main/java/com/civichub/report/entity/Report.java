@@ -85,6 +85,20 @@ public class Report extends BaseEntity {
     @Builder.Default
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @OneToMany(mappedBy = "report", cascade = CascadeType.ALL)
+    @OneToMany(
+            mappedBy = "report",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
     private List<ReportImage> images = new ArrayList<>();
+
+    public void addImage(ReportImage image) {
+        images.add(image);
+        image.setReport(this);
+    }
+
+    public void removeImage(ReportImage image) {
+        images.remove(image);
+        image.setReport(null);
+    }
 }
