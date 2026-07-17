@@ -39,7 +39,7 @@ public class Category extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(length = 100)
+    @Column(length = 500)
     private String icon;
 
     @Column(name = "is_active", nullable = false)

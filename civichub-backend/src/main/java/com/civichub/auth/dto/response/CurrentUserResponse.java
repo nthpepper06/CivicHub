@@ -2,6 +2,7 @@ package com.civichub.auth.dto.response;
 
 import com.civichub.common.enums.UserRole;
 import com.civichub.common.enums.UserStatus;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -22,6 +23,7 @@ public class CurrentUserResponse {
     private String avatar;
     private UserRole role;
     private UserStatus status;
+    @JsonProperty("isActive")
     private boolean isActive;
     private Long departmentId;
     private String departmentName;
