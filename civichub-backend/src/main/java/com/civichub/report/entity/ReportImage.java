@@ -32,7 +32,7 @@ public class ReportImage extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "image_url", nullable = false, length = 500)
+    @Column(name = "image_url", nullable = false, length = 2000)
     private String imageUrl;
 
     @Column(name = "display_order", nullable = false)

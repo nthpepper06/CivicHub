@@ -46,6 +46,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers("/api/admin/**")
                         .hasRole("ADMIN")
+                        .requestMatchers("/api/staff/**")
+                        .hasRole("STAFF")
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(exception -> exception

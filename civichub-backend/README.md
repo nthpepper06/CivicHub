@@ -100,8 +100,10 @@ Authorization: Bearer <accessToken>
 In Swagger UI, use the `Authorize` button and paste:
 
 ```text
-Bearer <accessToken>
+<accessToken>
 ```
+
+Because the OpenAPI scheme is HTTP Bearer, paste only the raw token in Swagger. For manual HTTP clients, use `Authorization: Bearer <accessToken>`.
 
 ### Category Management
 
@@ -145,6 +147,138 @@ Create department sample:
   "description": "Handles local civic service issues"
 }
 ```
+
+## Report Workflow
+
+Sprint 2.5 supports report URL-image management only. Binary file upload, multipart upload, cloud storage, notification delivery, dashboard statistics, and map integration are not included.
+
+### Citizen Report Endpoints
+
+Requires a `CITIZEN` JWT:
+
+- `POST /api/reports`
+- `GET /api/reports/my?page=0&size=10&status=PENDING&categoryId=1&sortBy=createdAt&direction=DESC`
+- `GET /api/reports/my/{id}`
+- `PUT /api/reports/my/{id}`
+- `PATCH /api/reports/my/{id}/cancel`
+
+Create report sample:
+
+```json
+{
+  "title": "Broken street light",
+  "description": "The street light is not working at night.",
+  "address": "123 Main Street",
+  "latitude": 10.762622,
+  "longitude": 106.660172,
+  "categoryId": 1,
+  "imageUrls": [
+    "https://example.com/report-image-1.jpg"
+  ]
+}
+```
+
+Rules:
+
+- New reports start as `PENDING`.
+- Citizens can update or cancel only their own `PENDING` reports.
+- Citizens cannot assign departments or change processing status.
+- Citizens cannot access another citizen's report.
+- `imageUrls` accepts at most 5 URL strings. Each URL is trimmed, must be unique after trimming, and must not exceed 2000 characters.
+
+### Staff Report Endpoints
+
+Requires a `STAFF` JWT and the staff user must belong to a department:
+
+- `GET /api/staff/reports?page=0&size=10&status=RECEIVED&categoryId=1`
+- `GET /api/staff/reports/{id}`
+- `PATCH /api/staff/reports/{id}/status`
+
+Update status sample:
+
+```json
+{
+  "status": "IN_PROGRESS"
+}
+```
+
+Staff can view and update only reports assigned to their own department.
+
+### Admin Report Endpoints
+
+Requires an `ADMIN` JWT:
+
+- `GET /api/admin/reports?page=0&size=10&status=PENDING&assigned=false`
+- `GET /api/admin/reports/{id}`
+- `PATCH /api/admin/reports/{id}/department`
+
+Assign department sample:
+
+```json
+{
+  "departmentId": 1
+}
+```
+
+Admin can view all reports and assign or reassign an active department. Assignment does not automatically change the report status.
+
+### Report Status Lifecycle
+
+Supported statuses:
+
+- `PENDING`
+- `RECEIVED`
+- `IN_PROGRESS`
+- `RESOLVED`
+- `REJECTED`
+- `CANCELLED`
+
+Staff status transitions:
+
+- `PENDING` -> `RECEIVED`
+- `PENDING` -> `REJECTED`
+- `RECEIVED` -> `IN_PROGRESS`
+- `RECEIVED` -> `REJECTED`
+- `IN_PROGRESS` -> `RESOLVED`
+- `IN_PROGRESS` -> `REJECTED`
+
+Terminal statuses cannot transition:
+
+- `RESOLVED`
+- `REJECTED`
+- `CANCELLED`
+
+### Local PostgreSQL Report Workflow Check
+
+Use fake local users only. After changing a user's role or department directly in the database, login again so JWT claims are refreshed.
+
+Local-development-only SQL examples:
+
+```sql
+UPDATE users
+SET role = 'ADMIN'
+WHERE email = 'admin.dev@example.com';
+
+UPDATE users
+SET role = 'STAFF',
+    department_id = 1
+WHERE email = 'staff.dev@example.com';
+```
+
+Suggested manual flow:
+
+1. Start with the `local` profile and PostgreSQL environment variables.
+2. Register a fake ADMIN user, then promote it using local SQL and login again.
+3. Create an active category.
+4. Create an active department.
+5. Register and login a fake CITIZEN user.
+6. Create a report with a category and image URL.
+7. List the citizen's reports.
+8. Login as ADMIN and assign the report to a department.
+9. Register a fake STAFF user, assign role and department using local SQL, then login again.
+10. List staff department reports.
+11. Move the report through valid statuses and verify invalid transitions return `409`.
+12. Verify the citizen cannot edit after the report leaves `PENDING`.
 
 ## Local Development Admin Setup
 

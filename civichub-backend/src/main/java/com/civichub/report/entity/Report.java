@@ -4,6 +4,7 @@ import com.civichub.category.entity.Category;
 import com.civichub.common.BaseEntity;
 import com.civichub.common.enums.Priority;
 import com.civichub.common.enums.ReportStatus;
+import com.civichub.department.entity.Department;
 import com.civichub.user.entity.User;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -29,6 +30,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.BatchSize;
 
 @Entity
 @Table(name = "reports")
@@ -82,6 +84,12 @@ public class Report extends BaseEntity {
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id")
+    private Department department;
+
     @Builder.Default
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
@@ -90,6 +98,7 @@ public class Report extends BaseEntity {
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
+    @BatchSize(size = 50)
     private List<ReportImage> images = new ArrayList<>();
 
     public void addImage(ReportImage image) {
@@ -100,5 +109,10 @@ public class Report extends BaseEntity {
     public void removeImage(ReportImage image) {
         images.remove(image);
         image.setReport(null);
+    }
+
+    public void clearImages() {
+        images.forEach(image -> image.setReport(null));
+        images.clear();
     }
 }

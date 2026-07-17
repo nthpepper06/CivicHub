@@ -1,6 +1,7 @@
 package com.civichub.common;
 
 import com.civichub.common.exception.AccountDisabledException;
+import com.civichub.common.exception.InvalidReportStateException;
 import com.civichub.common.exception.ResourceAlreadyExistsException;
 import com.civichub.common.exception.ResourceNotFoundException;
 import jakarta.validation.ConstraintViolationException;
@@ -85,6 +86,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of("Resource already exists or violates data constraints"));
+    }
+
+    @ExceptionHandler(InvalidReportStateException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidReportState(InvalidReportStateException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(exception.getMessage()));
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
