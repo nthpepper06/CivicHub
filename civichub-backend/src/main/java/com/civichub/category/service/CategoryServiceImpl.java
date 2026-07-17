@@ -1,5 +1,6 @@
 package com.civichub.category.service;
 
+import com.civichub.audit.service.AuditService;
 import com.civichub.category.dto.request.CategoryCreateRequest;
 import com.civichub.category.dto.request.CategoryStatusRequest;
 import com.civichub.category.dto.request.CategoryUpdateRequest;
@@ -12,7 +13,9 @@ import com.civichub.common.exception.ResourceAlreadyExistsException;
 import com.civichub.common.exception.ResourceNotFoundException;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -31,6 +34,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final CategoryMapper categoryMapper;
+    private final AuditService auditService;
 
     @Override
     @Transactional(readOnly = true)
@@ -70,7 +74,9 @@ public class CategoryServiceImpl implements CategoryService {
                 .isActive(true)
                 .build();
         try {
-            return categoryMapper.toResponse(categoryRepository.save(category));
+            Category savedCategory = categoryRepository.save(category);
+            auditService.recordCategoryCreated(savedCategory);
+            return categoryMapper.toResponse(savedCategory);
         } catch (DataIntegrityViolationException exception) {
             throw new ResourceAlreadyExistsException("Category name already exists");
         }
@@ -85,11 +91,14 @@ public class CategoryServiceImpl implements CategoryService {
             throw new ResourceAlreadyExistsException("Category name already exists");
         }
 
+        Map<String, Object> oldValues = categorySnapshot(category);
         category.setName(name);
         category.setDescription(normalizeOptional(request.getDescription()));
         category.setIcon(normalizeOptional(request.getIcon()));
         try {
-            return categoryMapper.toResponse(categoryRepository.save(category));
+            Category savedCategory = categoryRepository.save(category);
+            auditService.recordCategoryUpdated(savedCategory, oldValues);
+            return categoryMapper.toResponse(savedCategory);
         } catch (DataIntegrityViolationException exception) {
             throw new ResourceAlreadyExistsException("Category name already exists");
         }
@@ -99,8 +108,11 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional
     public CategoryResponse updateCategoryStatus(Long id, CategoryStatusRequest request) {
         Category category = findCategory(id);
+        boolean oldActive = category.isActive();
         category.setActive(request.getIsActive());
-        return categoryMapper.toResponse(categoryRepository.save(category));
+        Category savedCategory = categoryRepository.save(category);
+        auditService.recordCategoryStatusChanged(savedCategory, oldActive, savedCategory.isActive());
+        return categoryMapper.toResponse(savedCategory);
     }
 
     private Category findCategory(Long id) {
@@ -149,5 +161,14 @@ public class CategoryServiceImpl implements CategoryService {
             return null;
         }
         return value.trim();
+    }
+
+    private Map<String, Object> categorySnapshot(Category category) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("name", category.getName());
+        snapshot.put("description", category.getDescription());
+        snapshot.put("icon", category.getIcon());
+        snapshot.put("isActive", category.isActive());
+        return snapshot;
     }
 }

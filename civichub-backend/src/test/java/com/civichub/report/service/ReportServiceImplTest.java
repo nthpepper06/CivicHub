@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.civichub.audit.service.AuditService;
 import com.civichub.category.entity.Category;
 import com.civichub.category.repository.CategoryRepository;
 import com.civichub.common.enums.ReportStatus;
@@ -65,6 +66,9 @@ class ReportServiceImplTest {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private AuditService auditService;
+
     private ReportServiceImpl reportService;
 
     @BeforeEach
@@ -75,7 +79,8 @@ class ReportServiceImplTest {
                 categoryRepository,
                 departmentRepository,
                 reportMapper,
-                notificationService);
+                notificationService,
+                auditService);
     }
 
     @AfterEach
@@ -211,6 +216,7 @@ class ReportServiceImplTest {
         reportService.cancelMyReport(99L);
 
         assertThat(report.getStatus()).isEqualTo(ReportStatus.CANCELLED);
+        verify(auditService).recordReportCancelled(99L, "Report");
     }
 
     @Test
@@ -221,6 +227,7 @@ class ReportServiceImplTest {
 
         assertThatThrownBy(() -> reportService.cancelMyReport(99L))
                 .isInstanceOf(InvalidReportStateException.class);
+        verify(auditService, never()).recordReportCancelled(any(), any());
     }
 
     @Test
@@ -308,6 +315,7 @@ class ReportServiceImplTest {
                 report,
                 ReportStatus.RECEIVED,
                 ReportStatus.IN_PROGRESS);
+        verify(auditService).recordReportStatusChanged(99L, "Report", ReportStatus.RECEIVED, ReportStatus.IN_PROGRESS);
     }
 
     @Test
@@ -324,6 +332,7 @@ class ReportServiceImplTest {
                 new ReportStatusUpdateRequest(ReportStatus.RESOLVED)))
                 .isInstanceOf(InvalidReportStateException.class);
         verify(notificationService, never()).createReportStatusChangedNotification(any(), any(), any());
+        verify(auditService, never()).recordReportStatusChanged(any(), any(), any(), any());
     }
 
     @Test
@@ -340,6 +349,7 @@ class ReportServiceImplTest {
                 new ReportStatusUpdateRequest(ReportStatus.REJECTED)))
                 .isInstanceOf(InvalidReportStateException.class);
         verify(notificationService, never()).createReportStatusChangedNotification(any(), any(), any());
+        verify(auditService, never()).recordReportStatusChanged(any(), any(), any(), any());
     }
 
     @Test
@@ -356,6 +366,7 @@ class ReportServiceImplTest {
         assertThat(report.getDepartment()).isEqualTo(department);
         assertThat(report.getStatus()).isEqualTo(ReportStatus.PENDING);
         verify(notificationService).createReportAssignedNotifications(report, department);
+        verify(auditService).recordReportAssignment(99L, "Report", null, department);
     }
 
     @Test
@@ -370,6 +381,7 @@ class ReportServiceImplTest {
 
         verify(reportRepository, never()).save(any(Report.class));
         verify(notificationService, never()).createReportAssignedNotifications(any(), any());
+        verify(auditService, never()).recordReportAssignment(any(), any(), any(), any());
     }
 
     @Test
@@ -391,6 +403,7 @@ class ReportServiceImplTest {
         assertThatThrownBy(() -> reportService.assignDepartment(99L, new ReportDepartmentAssignRequest(5L)))
                 .isInstanceOf(ResourceNotFoundException.class);
         verify(notificationService, never()).createReportAssignedNotifications(any(), any());
+        verify(auditService, never()).recordReportAssignment(any(), any(), any(), any());
     }
 
     @Test
@@ -401,6 +414,7 @@ class ReportServiceImplTest {
         assertThatThrownBy(() -> reportService.assignDepartment(99L, new ReportDepartmentAssignRequest(5L)))
                 .isInstanceOf(InvalidReportStateException.class);
         verify(notificationService, never()).createReportAssignedNotifications(any(), any());
+        verify(auditService, never()).recordReportAssignment(any(), any(), any(), any());
     }
 
     @Test

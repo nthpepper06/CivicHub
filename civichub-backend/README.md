@@ -343,6 +343,108 @@ Suggested manual flow:
 13. Confirm another authenticated user receives `404 Not Found` when requesting the citizen's notification ID.
 14. Confirm invalid status transitions do not create notifications.
 
+## Audit Logging
+
+Sprint 2.8 adds secure append-only audit logging for important business actions. Audit logs are created server-side inside the same transaction as the business operation. There are no public create, update, or delete audit APIs.
+
+Audit logs store scalar snapshots:
+
+- action
+- entity type and entity id
+- actor id, actor name, and actor role at the time of the action
+- safe description
+- whitelisted old/new values as JSON text
+- created timestamp
+
+Audit logs do not store passwords, password hashes, JWT values, authorization headers, request headers, database credentials, secret keys, full request bodies, stack traces, SQL errors, or private internal exception messages.
+
+### Audited Actions
+
+| Area | Business event | Audit action |
+| --- | --- | --- |
+| Category | Created | `CATEGORY_CREATED` |
+| Category | Updated | `CATEGORY_UPDATED` |
+| Category | Activated | `CATEGORY_ACTIVATED` |
+| Category | Deactivated | `CATEGORY_DEACTIVATED` |
+| Department | Created | `DEPARTMENT_CREATED` |
+| Department | Updated | `DEPARTMENT_UPDATED` |
+| Department | Activated | `DEPARTMENT_ACTIVATED` |
+| Department | Deactivated | `DEPARTMENT_DEACTIVATED` |
+| Report | Assigned to a department for the first time | `REPORT_ASSIGNED` |
+| Report | Reassigned to another department | `REPORT_REASSIGNED` |
+| Report | Status changed by staff | `REPORT_STATUS_CHANGED` |
+| Report | Cancelled by citizen | `REPORT_CANCELLED` |
+
+No audit log is created for invalid report transitions, failed assignments, failed cancellations, unauthorized attempts, or unchanged department assignments.
+
+### Admin Audit Endpoints
+
+Requires an `ADMIN` JWT:
+
+- `GET /api/admin/audit-logs`
+- `GET /api/admin/audit-logs/{id}`
+
+In Swagger UI, use the `Authorize` button and paste only the raw JWT token. For manual clients, use:
+
+```http
+Authorization: Bearer <accessToken>
+```
+
+List filters:
+
+- `action`: `AuditAction`
+- `entityType`: `CATEGORY`, `DEPARTMENT`, or `REPORT`
+- `entityId`: target entity id
+- `actorId`: actor user id snapshot
+- `actorRole`: existing `UserRole`
+- `createdFrom`: ISO date/time
+- `createdTo`: ISO date/time
+- `search`: case-insensitive search over `actorName` and `description`
+
+Pagination and sorting:
+
+- `page`: zero-based, default `0`
+- `size`: default `20`, capped at `100`
+- `sortBy`: `createdAt`, `action`, `entityType`, or `actorName`
+- `direction`: `ASC` or `DESC`
+- default sort: `createdAt DESC`
+
+If `createdFrom` is after `createdTo`, the API returns `400 Bad Request`. `STAFF` and `CITIZEN` receive `403 Forbidden`; unauthenticated requests receive `401 Unauthorized`.
+
+### Transaction Consistency
+
+Audit logs are saved in the same transaction as the business change:
+
+- if category update fails, no audit log remains
+- if department status change fails, no audit log remains
+- if report assignment rolls back, no audit log remains
+- if report status transition is invalid, no audit log is created
+
+The implementation does not use async processing, a separate transaction, Redis, Kafka, or scheduled cleanup in this sprint.
+
+### Local PostgreSQL Audit Check
+
+Use fake local users only. Do not add insecure APIs solely for manual testing.
+
+Suggested manual flow:
+
+1. Start the backend with the `local` profile and PostgreSQL environment variables.
+2. Register a fake ADMIN user, promote it through local-development SQL, then login again.
+3. Login as ADMIN and create a category.
+4. Update the category.
+5. Deactivate and reactivate the category.
+6. Create or update a department.
+7. Login as a fake CITIZEN and create a report.
+8. Login as ADMIN and assign the report to an active department.
+9. Reassign the report if another active department exists.
+10. Login as STAFF and change the report status through a valid transition.
+11. Login as CITIZEN and cancel another eligible `PENDING` report.
+12. Login as ADMIN and call `GET /api/admin/audit-logs`.
+13. Call `GET /api/admin/audit-logs/{id}` for one record.
+14. Verify actions, actor snapshots, entity ids, old/new values, and `createdAt DESC` ordering.
+15. Verify STAFF and CITIZEN receive `403 Forbidden`.
+16. Verify POST, PUT, and DELETE audit endpoints are not available.
+
 ### Report Status Lifecycle
 
 Supported statuses:

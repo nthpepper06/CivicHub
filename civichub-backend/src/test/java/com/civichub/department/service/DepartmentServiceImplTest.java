@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.civichub.audit.service.AuditService;
 import com.civichub.common.exception.ResourceAlreadyExistsException;
 import com.civichub.common.exception.ResourceNotFoundException;
 import com.civichub.department.dto.request.DepartmentCreateRequest;
@@ -33,11 +34,14 @@ class DepartmentServiceImplTest {
     @Mock
     private DepartmentMapper departmentMapper;
 
+    @Mock
+    private AuditService auditService;
+
     private DepartmentServiceImpl departmentService;
 
     @BeforeEach
     void setUp() {
-        departmentService = new DepartmentServiceImpl(departmentRepository, departmentMapper);
+        departmentService = new DepartmentServiceImpl(departmentRepository, departmentMapper, auditService);
     }
 
     @Test
@@ -56,6 +60,7 @@ class DepartmentServiceImplTest {
         assertThat(saved.getName()).isEqualTo("Urban Services");
         assertThat(saved.getDescription()).isEqualTo("Handles issues");
         assertThat(saved.isActive()).isTrue();
+        verify(auditService).recordDepartmentCreated(saved);
     }
 
     @Test
@@ -66,6 +71,7 @@ class DepartmentServiceImplTest {
         assertThatThrownBy(() -> departmentService.createDepartment(request))
                 .isInstanceOf(ResourceAlreadyExistsException.class);
         verify(departmentRepository, never()).save(any(Department.class));
+        verify(auditService, never()).recordDepartmentCreated(any(Department.class));
     }
 
     @Test
@@ -82,6 +88,7 @@ class DepartmentServiceImplTest {
 
         assertThat(department.getName()).isEqualTo("New Name");
         assertThat(department.isActive()).isFalse();
+        verify(auditService).recordDepartmentUpdated(org.mockito.ArgumentMatchers.eq(department), any());
     }
 
     @Test
@@ -96,6 +103,7 @@ class DepartmentServiceImplTest {
         departmentService.updateDepartmentStatus(1L, request);
 
         assertThat(department.isActive()).isFalse();
+        verify(auditService).recordDepartmentStatusChanged(department, true, false);
     }
 
     @Test

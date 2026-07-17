@@ -1,5 +1,6 @@
 package com.civichub.department.service;
 
+import com.civichub.audit.service.AuditService;
 import com.civichub.common.PageResponse;
 import com.civichub.common.exception.ResourceAlreadyExistsException;
 import com.civichub.common.exception.ResourceNotFoundException;
@@ -12,7 +13,9 @@ import com.civichub.department.mapper.DepartmentMapper;
 import com.civichub.department.repository.DepartmentRepository;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -31,6 +34,7 @@ public class DepartmentServiceImpl implements DepartmentService {
 
     private final DepartmentRepository departmentRepository;
     private final DepartmentMapper departmentMapper;
+    private final AuditService auditService;
 
     @Override
     @Transactional(readOnly = true)
@@ -60,7 +64,9 @@ public class DepartmentServiceImpl implements DepartmentService {
                 .isActive(true)
                 .build();
         try {
-            return departmentMapper.toResponse(departmentRepository.save(department));
+            Department savedDepartment = departmentRepository.save(department);
+            auditService.recordDepartmentCreated(savedDepartment);
+            return departmentMapper.toResponse(savedDepartment);
         } catch (DataIntegrityViolationException exception) {
             throw new ResourceAlreadyExistsException("Department name already exists");
         }
@@ -75,10 +81,13 @@ public class DepartmentServiceImpl implements DepartmentService {
             throw new ResourceAlreadyExistsException("Department name already exists");
         }
 
+        Map<String, Object> oldValues = departmentSnapshot(department);
         department.setName(name);
         department.setDescription(normalizeOptional(request.getDescription()));
         try {
-            return departmentMapper.toResponse(departmentRepository.save(department));
+            Department savedDepartment = departmentRepository.save(department);
+            auditService.recordDepartmentUpdated(savedDepartment, oldValues);
+            return departmentMapper.toResponse(savedDepartment);
         } catch (DataIntegrityViolationException exception) {
             throw new ResourceAlreadyExistsException("Department name already exists");
         }
@@ -88,8 +97,11 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Transactional
     public DepartmentResponse updateDepartmentStatus(Long id, DepartmentStatusRequest request) {
         Department department = findDepartment(id);
+        boolean oldActive = department.isActive();
         department.setActive(request.getIsActive());
-        return departmentMapper.toResponse(departmentRepository.save(department));
+        Department savedDepartment = departmentRepository.save(department);
+        auditService.recordDepartmentStatusChanged(savedDepartment, oldActive, savedDepartment.isActive());
+        return departmentMapper.toResponse(savedDepartment);
     }
 
     private Department findDepartment(Long id) {
@@ -138,5 +150,13 @@ public class DepartmentServiceImpl implements DepartmentService {
             return null;
         }
         return value.trim();
+    }
+
+    private Map<String, Object> departmentSnapshot(Department department) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("name", department.getName());
+        snapshot.put("description", department.getDescription());
+        snapshot.put("isActive", department.isActive());
+        return snapshot;
     }
 }

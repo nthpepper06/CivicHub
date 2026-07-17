@@ -1,5 +1,6 @@
 package com.civichub.report.service;
 
+import com.civichub.audit.service.AuditService;
 import com.civichub.category.entity.Category;
 import com.civichub.category.repository.CategoryRepository;
 import com.civichub.common.PageResponse;
@@ -62,6 +63,7 @@ public class ReportServiceImpl implements ReportService {
     private final DepartmentRepository departmentRepository;
     private final ReportMapper reportMapper;
     private final NotificationService notificationService;
+    private final AuditService auditService;
 
     @Override
     @Transactional
@@ -133,7 +135,9 @@ public class ReportServiceImpl implements ReportService {
         Report report = getOwnedReport(id);
         ensurePending(report, "Only pending reports can be cancelled");
         report.setStatus(ReportStatus.CANCELLED);
-        return reportMapper.toDetailResponse(reportRepository.save(report));
+        Report savedReport = reportRepository.save(report);
+        auditService.recordReportCancelled(savedReport.getId(), savedReport.getTitle());
+        return reportMapper.toDetailResponse(savedReport);
     }
 
     @Override
@@ -180,6 +184,7 @@ public class ReportServiceImpl implements ReportService {
         }
         Report savedReport = reportRepository.save(report);
         notificationService.createReportStatusChangedNotification(savedReport, oldStatus, nextStatus);
+        auditService.recordReportStatusChanged(savedReport.getId(), savedReport.getTitle(), oldStatus, nextStatus);
         return reportMapper.toDetailResponse(savedReport);
     }
 
@@ -221,13 +226,15 @@ public class ReportServiceImpl implements ReportService {
         if (!department.isActive()) {
             throw new InvalidReportStateException("Department is inactive");
         }
-        Long currentDepartmentId = report.getDepartment() == null ? null : report.getDepartment().getId();
+        Department oldDepartment = report.getDepartment();
+        Long currentDepartmentId = oldDepartment == null ? null : oldDepartment.getId();
         if (department.getId().equals(currentDepartmentId)) {
             return reportMapper.toDetailResponse(report);
         }
         report.setDepartment(department);
         Report savedReport = reportRepository.save(report);
         notificationService.createReportAssignedNotifications(savedReport, department);
+        auditService.recordReportAssignment(savedReport.getId(), savedReport.getTitle(), oldDepartment, department);
         return reportMapper.toDetailResponse(savedReport);
     }
 

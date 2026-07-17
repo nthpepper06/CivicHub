@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.civichub.audit.service.AuditService;
 import com.civichub.category.dto.request.CategoryCreateRequest;
 import com.civichub.category.dto.request.CategoryStatusRequest;
 import com.civichub.category.dto.request.CategoryUpdateRequest;
@@ -34,11 +35,14 @@ class CategoryServiceImplTest {
     @Mock
     private CategoryMapper categoryMapper;
 
+    @Mock
+    private AuditService auditService;
+
     private CategoryServiceImpl categoryService;
 
     @BeforeEach
     void setUp() {
-        categoryService = new CategoryServiceImpl(categoryRepository, categoryMapper);
+        categoryService = new CategoryServiceImpl(categoryRepository, categoryMapper, auditService);
     }
 
     @Test
@@ -72,6 +76,7 @@ class CategoryServiceImplTest {
         assertThat(saved.getDescription()).isEqualTo("Clean city");
         assertThat(saved.getIcon()).isEqualTo("leaf");
         assertThat(saved.isActive()).isTrue();
+        verify(auditService).recordCategoryCreated(saved);
     }
 
     @Test
@@ -82,6 +87,7 @@ class CategoryServiceImplTest {
         assertThatThrownBy(() -> categoryService.createCategory(request))
                 .isInstanceOf(ResourceAlreadyExistsException.class);
         verify(categoryRepository, never()).save(any(Category.class));
+        verify(auditService, never()).recordCategoryCreated(any(Category.class));
     }
 
     @Test
@@ -93,6 +99,7 @@ class CategoryServiceImplTest {
         assertThatThrownBy(() -> categoryService.updateCategory(2L, request))
                 .isInstanceOf(ResourceAlreadyExistsException.class);
         verify(categoryRepository, never()).save(any(Category.class));
+        verify(auditService, never()).recordCategoryUpdated(any(Category.class), any());
     }
 
     @Test
@@ -108,6 +115,7 @@ class CategoryServiceImplTest {
 
         assertThat(category.getName()).isEqualTo("Environment");
         assertThat(category.isActive()).isFalse();
+        verify(auditService).recordCategoryStatusChanged(category, true, false);
     }
 
     @Test
