@@ -271,9 +271,49 @@ Ghi chú: Sau khi cập nhật, tài khoản vẫn phải có ít nhất `email`
 }
 ```
 
-## 5. Report API
+## 5. Category API
 
-### 5.1. Tạo phản ánh
+### 5.1. Lấy danh mục đang hoạt động
+
+| Thuộc tính | Nội dung |
+| --- | --- |
+| Mục đích | Cho phép Flutter Mobile lấy danh sách danh mục đang hoạt động để `USER` chọn khi tạo phản ánh. |
+| HTTP Method | `GET` |
+| URL | `/api/categories` |
+| Quyền truy cập | `USER` |
+
+**Request Parameters**
+
+Không có trong phạm vi MVP.
+
+**Response**
+
+API chỉ trả các category có `isActive = true` và department liên quan còn hoạt động.
+
+```json
+{
+  "success": true,
+  "message": "Lấy danh sách danh mục thành công",
+  "data": [
+    {
+      "id": 1,
+      "code": "TRAFFIC_ROAD",
+      "name": "Giao thông và đường bộ",
+      "description": "Các phản ánh liên quan đến giao thông và hạ tầng đường bộ."
+    },
+    {
+      "id": 2,
+      "code": "PUBLIC_LIGHTING",
+      "name": "Chiếu sáng công cộng",
+      "description": "Các phản ánh liên quan đến hệ thống chiếu sáng công cộng."
+    }
+  ]
+}
+```
+
+## 6. Report API
+
+### 6.1. Tạo phản ánh
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -312,7 +352,7 @@ Có thể sử dụng `multipart/form-data` nếu gửi kèm hình ảnh.
 }
 ```
 
-### 5.2. Xem danh sách phản ánh của tôi
+### 6.2. Xem danh sách phản ánh của tôi
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -355,7 +395,7 @@ Có thể sử dụng `multipart/form-data` nếu gửi kèm hình ảnh.
 }
 ```
 
-### 5.3. Xem chi tiết phản ánh
+### 6.3. Xem chi tiết phản ánh
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -408,7 +448,7 @@ Ghi chú quyền truy cập:
 }
 ```
 
-### 5.4. Hủy phản ánh
+### 6.4. Hủy phản ánh
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -440,9 +480,9 @@ Request body không bắt buộc.
 }
 ```
 
-## 6. Notification API
+## 7. Notification API
 
-### 6.1. Xem danh sách thông báo
+### 7.1. Xem danh sách thông báo
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -485,7 +525,7 @@ Request body không bắt buộc.
 }
 ```
 
-### 6.2. Đánh dấu đã đọc thông báo
+### 7.2. Đánh dấu đã đọc thông báo
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -516,9 +556,9 @@ Request body không bắt buộc.
 }
 ```
 
-## 7. Staff API
+## 8. Staff API
 
-### 7.1. Xem danh sách phản ánh thuộc phạm vi xử lý
+### 8.1. Xem danh sách phản ánh thuộc phạm vi xử lý
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -563,7 +603,7 @@ Request body không bắt buộc.
 }
 ```
 
-### 7.2. Tiếp nhận phản ánh
+### 8.2. Tiếp nhận phản ánh
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -596,7 +636,7 @@ Request body không bắt buộc.
 }
 ```
 
-### 7.3. Cập nhật trạng thái phản ánh
+### 8.3. Cập nhật trạng thái phản ánh
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -640,7 +680,7 @@ Ghi chú: API này tuân thủ luồng trạng thái hợp lệ:
 }
 ```
 
-### 7.4. Xem công việc xử lý cá nhân
+### 8.4. Xem công việc xử lý cá nhân
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -681,9 +721,9 @@ Ghi chú: API này tuân thủ luồng trạng thái hợp lệ:
 }
 ```
 
-## 8. Admin API
+## 9. Admin API
 
-### 8.1. Xem dashboard tổng quan
+### 9.1. Xem dashboard tổng quan
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -730,7 +770,7 @@ Không có.
 }
 ```
 
-### 8.2. Xem danh sách tài khoản
+### 9.2. Xem danh sách tài khoản
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -753,7 +793,7 @@ Không có.
 
 Trả về danh sách tài khoản theo format phân trang chuẩn.
 
-### 8.3. Tạo tài khoản
+### 9.3. Tạo tài khoản
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -780,7 +820,7 @@ Ghi chú: Tài khoản phải có ít nhất `email` hoặc `phone`.
 
 Trả về thông tin tài khoản vừa tạo, không trả về mật khẩu.
 
-### 8.4. Cập nhật tài khoản
+### 9.4. Cập nhật tài khoản
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -810,7 +850,7 @@ Trả về thông tin tài khoản vừa tạo, không trả về mật khẩu.
 
 Trả về thông tin tài khoản sau khi cập nhật.
 
-### 8.5. Xem danh sách danh mục
+### 9.5. Xem danh sách danh mục
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -832,7 +872,7 @@ Trả về thông tin tài khoản sau khi cập nhật.
 
 Trả về danh sách danh mục theo format phân trang chuẩn.
 
-### 8.6. Tạo danh mục
+### 9.6. Tạo danh mục
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -855,7 +895,7 @@ Trả về danh sách danh mục theo format phân trang chuẩn.
 
 Trả về thông tin danh mục vừa tạo.
 
-### 8.7. Cập nhật danh mục
+### 9.7. Cập nhật danh mục
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -884,7 +924,7 @@ Trả về thông tin danh mục vừa tạo.
 
 Trả về thông tin danh mục sau khi cập nhật.
 
-### 8.8. Xem danh sách đơn vị xử lý
+### 9.8. Xem danh sách đơn vị xử lý
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -906,7 +946,7 @@ Trả về thông tin danh mục sau khi cập nhật.
 
 Trả về danh sách đơn vị xử lý theo format phân trang chuẩn.
 
-### 8.9. Tạo đơn vị xử lý
+### 9.9. Tạo đơn vị xử lý
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -928,7 +968,7 @@ Trả về danh sách đơn vị xử lý theo format phân trang chuẩn.
 
 Trả về thông tin đơn vị xử lý vừa tạo.
 
-### 8.10. Cập nhật đơn vị xử lý
+### 9.10. Cập nhật đơn vị xử lý
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -956,7 +996,7 @@ Trả về thông tin đơn vị xử lý vừa tạo.
 
 Trả về thông tin đơn vị xử lý sau khi cập nhật.
 
-### 8.11. Xem danh sách toàn bộ phản ánh
+### 9.11. Xem danh sách toàn bộ phản ánh
 
 | Thuộc tính | Nội dung |
 | --- | --- |
@@ -980,9 +1020,9 @@ Trả về thông tin đơn vị xử lý sau khi cập nhật.
 
 Trả về danh sách toàn bộ phản ánh theo format phân trang chuẩn.
 
-## 9. Response format chuẩn
+## 10. Response format chuẩn
 
-### 9.1. Response thành công
+### 10.1. Response thành công
 
 ```json
 {
@@ -992,7 +1032,7 @@ Trả về danh sách toàn bộ phản ánh theo format phân trang chuẩn.
 }
 ```
 
-### 9.2. Response lỗi
+### 10.2. Response lỗi
 
 ```json
 {
@@ -1007,7 +1047,7 @@ Trả về danh sách toàn bộ phản ánh theo format phân trang chuẩn.
 }
 ```
 
-### 9.3. Response phân trang
+### 10.3. Response phân trang
 
 ```json
 {
@@ -1023,7 +1063,7 @@ Trả về danh sách toàn bộ phản ánh theo format phân trang chuẩn.
 }
 ```
 
-## 10. HTTP Status Code
+## 11. HTTP Status Code
 
 | HTTP Status | Ý nghĩa | Trường hợp sử dụng |
 | --- | --- | --- |
@@ -1036,7 +1076,7 @@ Trả về danh sách toàn bộ phản ánh theo format phân trang chuẩn.
 | `409 Conflict` | Xung đột dữ liệu | Email, phone, code hoặc report code bị trùng. |
 | `500 Internal Server Error` | Lỗi hệ thống | Lỗi không mong muốn phía server. |
 
-## 11. Bảng mapping Use Case ↔ API
+## 12. Bảng mapping Use Case ↔ API
 
 | Use Case | API liên quan |
 | --- | --- |
@@ -1045,7 +1085,7 @@ Trả về danh sách toàn bộ phản ánh theo format phân trang chuẩn.
 | UC-USER-03: Đăng xuất | `POST /api/auth/logout` |
 | UC-USER-04: Quản lý thông tin cá nhân | `GET /api/users/me`, `PUT /api/users/me` |
 | UC-USER-05: Đổi mật khẩu | `PUT /api/auth/change-password` |
-| UC-USER-06: Gửi phản ánh | `POST /api/reports` |
+| UC-USER-06: Gửi phản ánh | `GET /api/categories`, `POST /api/reports` |
 | UC-USER-07: Xem danh sách phản ánh đã gửi | `GET /api/reports/my` |
 | UC-USER-08: Xem chi tiết phản ánh | `GET /api/reports/{id}` |
 | UC-USER-09: Tìm kiếm và lọc phản ánh | `GET /api/reports/my` |
