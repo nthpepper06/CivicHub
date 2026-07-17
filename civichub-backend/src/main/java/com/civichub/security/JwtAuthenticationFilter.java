@@ -1,6 +1,8 @@
 package com.civichub.security;
 
 import com.civichub.common.Constants;
+import com.civichub.common.ErrorResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -8,6 +10,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -23,6 +27,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final ObjectMapper objectMapper;
 
     @Override
     protected void doFilterInternal(
@@ -41,13 +46,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             authenticateRequest(request, token);
         } catch (JwtException | IllegalArgumentException | UsernameNotFoundException exception) {
             SecurityContextHolder.clearContext();
+            writeUnauthorizedResponse(response);
+            return;
         }
 
         filterChain.doFilter(request, response);
     }
 
     private void authenticateRequest(HttpServletRequest request, String token) {
-        String subject = jwtService.extractSubject(token);
+        String subject = jwtService.extractUsername(token);
 
         if (subject == null || SecurityContextHolder.getContext().getAuthentication() != null) {
             return;
@@ -64,5 +71,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 userDetails.getAuthorities());
         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
         SecurityContextHolder.getContext().setAuthentication(authentication);
+    }
+
+    private void writeUnauthorizedResponse(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        objectMapper.writeValue(response.getWriter(), ErrorResponse.of("Invalid or expired authentication token"));
     }
 }

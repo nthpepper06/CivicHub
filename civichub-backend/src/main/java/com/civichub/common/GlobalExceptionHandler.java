@@ -2,9 +2,14 @@ package com.civichub.common;
 
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
+import com.civichub.common.exception.AccountDisabledException;
+import com.civichub.common.exception.ResourceAlreadyExistsException;
+import com.civichub.common.exception.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -40,7 +45,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponse> handleAuthentication(AuthenticationException exception) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ErrorResponse.of("Unauthenticated request"));
+                .body(ErrorResponse.of("Invalid email or password"));
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException exception) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse.of("Invalid email or password"));
+    }
+
+    @ExceptionHandler({AccountDisabledException.class, DisabledException.class})
+    public ResponseEntity<ErrorResponse> handleAccountDisabled(RuntimeException exception) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ErrorResponse.of("Account is disabled or blocked"));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -52,6 +69,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException exception) {
         return ResponseEntity.badRequest()
+                .body(ErrorResponse.of(exception.getMessage()));
+    }
+
+    @ExceptionHandler(ResourceAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleAlreadyExists(ResourceAlreadyExistsException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(exception.getMessage()));
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.of(exception.getMessage()));
     }
 
