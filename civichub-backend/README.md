@@ -259,6 +259,90 @@ Requires a `STAFF` JWT and the staff user must belong to an active department:
 
 Staff dashboard statistics and recent reports are scoped to the staff user's current department. A citizen receives `403 Forbidden`; an anonymous request receives `401 Unauthorized`.
 
+## Notification Center
+
+Sprint 2.7 adds in-app notifications for report workflow events. Notifications are stored in PostgreSQL and are available through authenticated API calls only. Email, SMS, Firebase, Apple Push Notification Service, browser push, WebSocket, Server-Sent Events, Redis, Kafka, scheduled delivery, notification preferences, deletion, and admin broadcast notifications are not included.
+
+### Notification Events
+
+| Event | Type | Citizen recipient | Staff recipient |
+| --- | --- | --- | --- |
+| Admin assigns or reassigns a report to an active department | `REPORT_ASSIGNED` | Report owner | Active `STAFF` users in the target department |
+| Staff changes a report status successfully | `REPORT_STATUS_CHANGED` | Report owner | Not sent |
+
+Assignment notifications are not created when the selected department is unchanged. If a department has no active staff, the assignment still succeeds and the citizen notification is still created.
+
+Status-change notifications are created only after authorization and state-transition validation pass. Invalid transitions, unchanged status, unauthorized staff access, and rolled-back transactions do not leave notifications behind.
+
+### Notification Endpoints
+
+All notification endpoints require:
+
+```http
+Authorization: Bearer <accessToken>
+```
+
+In Swagger UI, use the `Authorize` button and paste only the raw JWT token.
+
+- `GET /api/notifications?page=0&size=10&unread=true&type=REPORT_ASSIGNED&sortBy=createdAt&direction=DESC`
+- `GET /api/notifications/{id}`
+- `GET /api/notifications/unread-count`
+- `PATCH /api/notifications/{id}/read`
+- `PATCH /api/notifications/read-all`
+
+Supported list filters:
+
+- `unread`: optional boolean
+- `type`: `REPORT_ASSIGNED` or `REPORT_STATUS_CHANGED`
+
+Supported sort fields:
+
+- `createdAt`
+- `readAt`
+- `read`
+
+Default sort is `createdAt DESC`. Page indexes start at `0`, default size is `10`, and maximum size is capped at `100`.
+
+### Ownership Rules
+
+All authenticated roles can use their own notification center:
+
+- `CITIZEN`
+- `STAFF`
+- `ADMIN`
+
+Users can access only their own notifications. If a notification belongs to another user, the API returns `404 Not Found` to avoid revealing that it exists.
+
+### Read Behavior
+
+`PATCH /api/notifications/{id}/read` is idempotent:
+
+- unread notification: sets `read=true` and writes `readAt`
+- already-read notification: returns the current notification and keeps the original `readAt`
+
+`PATCH /api/notifications/read-all` marks all unread notifications owned by the current user as read using a recipient-scoped bulk update and returns `updatedCount`.
+
+### Local PostgreSQL Notification Check
+
+Use fake local users only. Do not add insecure APIs solely for changing roles or departments.
+
+Suggested manual flow:
+
+1. Start the backend with the `local` profile and PostgreSQL environment variables.
+2. Register a fake ADMIN user, promote it through local-development SQL, then login again.
+3. Create an active category and active department.
+4. Register and login a fake CITIZEN user.
+5. Register a fake STAFF user, assign role `STAFF` and the active department through local-development SQL, then login again.
+6. Login as the CITIZEN and create a `PENDING` report.
+7. Login as ADMIN and assign the report to the staff department.
+8. Confirm the citizen receives `REPORT_ASSIGNED`.
+9. Confirm the active staff user receives `REPORT_ASSIGNED`.
+10. Login as STAFF and change the report status from `PENDING` to `RECEIVED`.
+11. Confirm the citizen receives `REPORT_STATUS_CHANGED`.
+12. As the citizen, call `GET /api/notifications`, `GET /api/notifications/unread-count`, `PATCH /api/notifications/{id}/read`, and `PATCH /api/notifications/read-all`.
+13. Confirm another authenticated user receives `404 Not Found` when requesting the citizen's notification ID.
+14. Confirm invalid status transitions do not create notifications.
+
 ### Report Status Lifecycle
 
 Supported statuses:

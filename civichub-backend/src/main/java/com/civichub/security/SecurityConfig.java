@@ -44,6 +44,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/categories")
                         .permitAll()
+                        .requestMatchers("/api/notifications/**")
+                        .authenticated()
                         .requestMatchers("/api/admin/**")
                         .hasRole("ADMIN")
                         .requestMatchers("/api/staff/**")

@@ -16,6 +16,7 @@ import com.civichub.common.exception.InvalidReportStateException;
 import com.civichub.common.exception.ResourceNotFoundException;
 import com.civichub.department.entity.Department;
 import com.civichub.department.repository.DepartmentRepository;
+import com.civichub.notification.service.NotificationService;
 import com.civichub.report.dto.request.ReportCreateRequest;
 import com.civichub.report.dto.request.ReportDepartmentAssignRequest;
 import com.civichub.report.dto.request.ReportStatusUpdateRequest;
@@ -61,6 +62,9 @@ class ReportServiceImplTest {
     @Mock
     private ReportMapper reportMapper;
 
+    @Mock
+    private NotificationService notificationService;
+
     private ReportServiceImpl reportService;
 
     @BeforeEach
@@ -70,7 +74,8 @@ class ReportServiceImplTest {
                 userRepository,
                 categoryRepository,
                 departmentRepository,
-                reportMapper);
+                reportMapper,
+                notificationService);
     }
 
     @AfterEach
@@ -299,6 +304,10 @@ class ReportServiceImplTest {
         reportService.updateStaffReportStatus(99L, new ReportStatusUpdateRequest(ReportStatus.IN_PROGRESS));
 
         assertThat(report.getStatus()).isEqualTo(ReportStatus.IN_PROGRESS);
+        verify(notificationService).createReportStatusChangedNotification(
+                report,
+                ReportStatus.RECEIVED,
+                ReportStatus.IN_PROGRESS);
     }
 
     @Test
@@ -314,6 +323,7 @@ class ReportServiceImplTest {
                 99L,
                 new ReportStatusUpdateRequest(ReportStatus.RESOLVED)))
                 .isInstanceOf(InvalidReportStateException.class);
+        verify(notificationService, never()).createReportStatusChangedNotification(any(), any(), any());
     }
 
     @Test
@@ -329,6 +339,7 @@ class ReportServiceImplTest {
                 99L,
                 new ReportStatusUpdateRequest(ReportStatus.REJECTED)))
                 .isInstanceOf(InvalidReportStateException.class);
+        verify(notificationService, never()).createReportStatusChangedNotification(any(), any(), any());
     }
 
     @Test
@@ -344,6 +355,21 @@ class ReportServiceImplTest {
 
         assertThat(report.getDepartment()).isEqualTo(department);
         assertThat(report.getStatus()).isEqualTo(ReportStatus.PENDING);
+        verify(notificationService).createReportAssignedNotifications(report, department);
+    }
+
+    @Test
+    void adminAssignShouldNotNotifyWhenDepartmentIsUnchanged() {
+        Department department = department(5L, true);
+        Report report = report(ReportStatus.PENDING, department);
+        when(reportRepository.findDetailById(99L)).thenReturn(Optional.of(report));
+        when(departmentRepository.findById(5L)).thenReturn(Optional.of(department));
+        when(reportMapper.toDetailResponse(report)).thenReturn(ReportDetailResponse.builder().id(99L).build());
+
+        reportService.assignDepartment(99L, new ReportDepartmentAssignRequest(5L));
+
+        verify(reportRepository, never()).save(any(Report.class));
+        verify(notificationService, never()).createReportAssignedNotifications(any(), any());
     }
 
     @Test
@@ -364,6 +390,7 @@ class ReportServiceImplTest {
 
         assertThatThrownBy(() -> reportService.assignDepartment(99L, new ReportDepartmentAssignRequest(5L)))
                 .isInstanceOf(ResourceNotFoundException.class);
+        verify(notificationService, never()).createReportAssignedNotifications(any(), any());
     }
 
     @Test
@@ -373,6 +400,7 @@ class ReportServiceImplTest {
 
         assertThatThrownBy(() -> reportService.assignDepartment(99L, new ReportDepartmentAssignRequest(5L)))
                 .isInstanceOf(InvalidReportStateException.class);
+        verify(notificationService, never()).createReportAssignedNotifications(any(), any());
     }
 
     @Test

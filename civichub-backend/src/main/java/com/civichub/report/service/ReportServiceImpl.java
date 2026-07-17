@@ -10,6 +10,7 @@ import com.civichub.common.exception.InvalidReportStateException;
 import com.civichub.common.exception.ResourceNotFoundException;
 import com.civichub.department.entity.Department;
 import com.civichub.department.repository.DepartmentRepository;
+import com.civichub.notification.service.NotificationService;
 import com.civichub.report.dto.request.ReportCreateRequest;
 import com.civichub.report.dto.request.ReportDepartmentAssignRequest;
 import com.civichub.report.dto.request.ReportStatusUpdateRequest;
@@ -60,6 +61,7 @@ public class ReportServiceImpl implements ReportService {
     private final CategoryRepository categoryRepository;
     private final DepartmentRepository departmentRepository;
     private final ReportMapper reportMapper;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -170,12 +172,15 @@ public class ReportServiceImpl implements ReportService {
         Report report = reportRepository.findDetailByIdAndDepartmentId(id, departmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Report not found"));
         ReportStatus nextStatus = request.getStatus();
+        ReportStatus oldStatus = report.getStatus();
         validateTransition(report.getStatus(), nextStatus);
         report.setStatus(nextStatus);
         if (ReportStatus.RESOLVED.equals(nextStatus)) {
             report.setResolvedAt(LocalDateTime.now());
         }
-        return reportMapper.toDetailResponse(reportRepository.save(report));
+        Report savedReport = reportRepository.save(report);
+        notificationService.createReportStatusChangedNotification(savedReport, oldStatus, nextStatus);
+        return reportMapper.toDetailResponse(savedReport);
     }
 
     @Override
@@ -216,8 +221,14 @@ public class ReportServiceImpl implements ReportService {
         if (!department.isActive()) {
             throw new InvalidReportStateException("Department is inactive");
         }
+        Long currentDepartmentId = report.getDepartment() == null ? null : report.getDepartment().getId();
+        if (department.getId().equals(currentDepartmentId)) {
+            return reportMapper.toDetailResponse(report);
+        }
         report.setDepartment(department);
-        return reportMapper.toDetailResponse(reportRepository.save(report));
+        Report savedReport = reportRepository.save(report);
+        notificationService.createReportAssignedNotifications(savedReport, department);
+        return reportMapper.toDetailResponse(savedReport);
     }
 
     private Report getOwnedReport(Long id) {
