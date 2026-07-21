@@ -3,9 +3,15 @@ import react from '@vitejs/plugin-react'
 import path from 'node:path'
 import autoprefixer from 'autoprefixer'
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const configuredApiUrl = env.VITE_API_URL || 'http://localhost:8080'
+  const configuredApiUrl = env.VITE_API_URL?.trim()
+
+  if (command === 'build' && !configuredApiUrl) {
+    throw new Error('VITE_API_URL is required for production builds')
+  }
+
+  const proxyTarget = configuredApiUrl || 'http://localhost:8080'
 
   return {
     base: './',
@@ -33,7 +39,7 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       proxy: {
         '/api': {
-          target: configuredApiUrl,
+          target: proxyTarget,
           changeOrigin: true,
         },
       },
