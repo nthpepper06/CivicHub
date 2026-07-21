@@ -44,6 +44,7 @@ import {
 } from '../../components/admin/AdminPageState'
 import AdminToast from '../../components/admin/AdminToast'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
+import { downloadCsv } from '../../utils/csvExport'
 import { booleanStatusColor, formatDateTime } from '../../utils/display'
 
 const emptyForm = { name: '', description: '' }
@@ -173,16 +174,41 @@ const Departments = () => {
     }
   }
 
+  const exportCurrentPage = () => {
+    downloadCsv({
+      filename: 'civichub-departments-current-page.csv',
+      columns: [
+        { header: 'ID', value: (department) => department.id },
+        { header: 'Name', value: (department) => department.name },
+        { header: 'Description', value: (department) => department.description },
+        { header: 'Active', value: (department) => (department.isActive ? 'Active' : 'Inactive') },
+        { header: 'Created At', value: (department) => department.createdAt },
+        { header: 'Updated At', value: (department) => department.updatedAt },
+      ],
+      rows: departments,
+    })
+  }
+
   return (
     <>
       <AdminToast message={success} onClose={() => setSuccess('')} />
       <CCard className="mb-4">
         <CCardHeader className="d-flex flex-wrap gap-2 align-items-center justify-content-between">
           <strong>Departments</strong>
-          <CButton color="primary" onClick={openCreate}>
-            <CIcon icon={cilPlus} className="me-2" />
-            Add department
-          </CButton>
+          <div className="d-flex flex-wrap gap-2">
+            <CButton
+              color="secondary"
+              variant="outline"
+              onClick={exportCurrentPage}
+              disabled={loading || departments.length === 0}
+            >
+              Export current page CSV
+            </CButton>
+            <CButton color="primary" onClick={openCreate}>
+              <CIcon icon={cilPlus} className="me-2" />
+              Add department
+            </CButton>
+          </div>
         </CCardHeader>
         <CCardBody>
           <ErrorAlert message={error} />

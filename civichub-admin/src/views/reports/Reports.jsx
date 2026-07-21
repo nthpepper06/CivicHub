@@ -41,6 +41,7 @@ import {
 } from '../../components/admin/AdminPageState'
 import AdminToast from '../../components/admin/AdminToast'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
+import { downloadCsv } from '../../utils/csvExport'
 import { formatDateTime, formatLabel } from '../../utils/display'
 
 const statuses = ['PENDING', 'RECEIVED', 'IN_PROGRESS', 'RESOLVED', 'REJECTED', 'CANCELLED']
@@ -174,12 +175,38 @@ const Reports = () => {
     }
   }
 
+  const exportCurrentPage = () => {
+    downloadCsv({
+      filename: 'civichub-reports-current-page.csv',
+      columns: [
+        { header: 'ID', value: (report) => report.id },
+        { header: 'Title', value: (report) => report.title },
+        { header: 'Citizen', value: (report) => report.citizenName },
+        { header: 'Category', value: (report) => report.categoryName },
+        { header: 'Department', value: (report) => report.departmentName },
+        { header: 'Status', value: (report) => report.status },
+        { header: 'Address', value: (report) => report.address },
+        { header: 'Created At', value: (report) => report.createdAt },
+        { header: 'Updated At', value: (report) => report.updatedAt },
+      ],
+      rows: reports,
+    })
+  }
+
   return (
     <>
       <AdminToast message={success} onClose={() => setSuccess('')} />
       <CCard className="mb-4">
-        <CCardHeader>
+        <CCardHeader className="d-flex flex-wrap gap-2 align-items-center justify-content-between">
           <strong>Reports</strong>
+          <CButton
+            color="secondary"
+            variant="outline"
+            onClick={exportCurrentPage}
+            disabled={loading || reports.length === 0}
+          >
+            Export current page CSV
+          </CButton>
         </CCardHeader>
         <CCardBody>
           <ErrorAlert message={error} />

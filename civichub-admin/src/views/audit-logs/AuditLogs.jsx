@@ -34,6 +34,7 @@ import {
   PagePagination,
 } from '../../components/admin/AdminPageState'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
+import { downloadCsv } from '../../utils/csvExport'
 import { formatDateTime, formatLabel } from '../../utils/display'
 
 const actions = [
@@ -131,11 +132,37 @@ const AuditLogs = () => {
     setCreatedTo('')
   }
 
+  const exportCurrentPage = () => {
+    downloadCsv({
+      filename: 'civichub-audit-logs-current-page.csv',
+      columns: [
+        { header: 'ID', value: (log) => log.id },
+        { header: 'Actor ID', value: (log) => log.actorId },
+        { header: 'Actor Name', value: (log) => log.actorName },
+        { header: 'Actor Role', value: (log) => log.actorRole },
+        { header: 'Action', value: (log) => log.action },
+        { header: 'Entity Type', value: (log) => log.entityType },
+        { header: 'Entity ID', value: (log) => log.entityId },
+        { header: 'Description', value: (log) => log.description },
+        { header: 'Created At', value: (log) => log.createdAt },
+      ],
+      rows: logs,
+    })
+  }
+
   return (
     <>
       <CCard className="mb-4">
-        <CCardHeader>
+        <CCardHeader className="d-flex flex-wrap gap-2 align-items-center justify-content-between">
           <strong>Audit Logs</strong>
+          <CButton
+            color="secondary"
+            variant="outline"
+            onClick={exportCurrentPage}
+            disabled={loading || logs.length === 0}
+          >
+            Export current page CSV
+          </CButton>
         </CCardHeader>
         <CCardBody>
           <ErrorAlert message={error} />

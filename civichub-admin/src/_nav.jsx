@@ -16,6 +16,7 @@ import {
   cilBuilding,
   cilDescription,
   cilInbox,
+  cilPeople,
   cilSpeedometer,
   cilTags,
 } from '@coreui/icons'
@@ -103,6 +104,12 @@ const _nav = [
     name: 'Audit Logs',
     to: '/audit-logs',
     icon: <CIcon icon={cilDescription} customClassName="nav-icon" />,
+  },
+  {
+    component: CNavItem,
+    name: 'Profile',
+    to: '/profile',
+    icon: <CIcon icon={cilPeople} customClassName="nav-icon" />,
   },
 ]
 

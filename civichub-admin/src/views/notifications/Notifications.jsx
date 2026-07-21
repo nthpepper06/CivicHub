@@ -31,6 +31,7 @@ import {
   PagePagination,
 } from '../../components/admin/AdminPageState'
 import AdminToast from '../../components/admin/AdminToast'
+import { downloadCsv } from '../../utils/csvExport'
 import { formatDateTime, formatLabel } from '../../utils/display'
 
 const Notifications = () => {
@@ -112,6 +113,22 @@ const Notifications = () => {
     }
   }
 
+  const exportCurrentPage = () => {
+    downloadCsv({
+      filename: 'civichub-notifications-current-page.csv',
+      columns: [
+        { header: 'ID', value: (notification) => notification.id },
+        { header: 'Title', value: (notification) => notification.title },
+        { header: 'Message', value: (notification) => notification.message },
+        { header: 'Type', value: (notification) => notification.type },
+        { header: 'Read', value: (notification) => (notification.read ? 'Read' : 'Unread') },
+        { header: 'Read At', value: (notification) => notification.readAt },
+        { header: 'Created At', value: (notification) => notification.createdAt },
+      ],
+      rows: notifications,
+    })
+  }
+
   return (
     <>
       <AdminToast message={success} onClose={() => setSuccess('')} />
@@ -123,23 +140,33 @@ const Notifications = () => {
               {unreadCount} unread
             </CBadge>
           </div>
-          <CButton
-            color="primary"
-            variant="outline"
-            onClick={markAllRead}
-            disabled={saving || unreadCount === 0}
-          >
-            {saving && <CSpinner component="span" size="sm" className="me-2" />}
-            Mark all read
-          </CButton>
-          <CButton
-            color="secondary"
-            variant="outline"
-            onClick={loadNotifications}
-            disabled={loading}
-          >
-            Refresh
-          </CButton>
+          <div className="d-flex flex-wrap gap-2">
+            <CButton
+              color="secondary"
+              variant="outline"
+              onClick={exportCurrentPage}
+              disabled={loading || notifications.length === 0}
+            >
+              Export current page CSV
+            </CButton>
+            <CButton
+              color="primary"
+              variant="outline"
+              onClick={markAllRead}
+              disabled={saving || unreadCount === 0}
+            >
+              {saving && <CSpinner component="span" size="sm" className="me-2" />}
+              Mark all read
+            </CButton>
+            <CButton
+              color="secondary"
+              variant="outline"
+              onClick={loadNotifications}
+              disabled={loading}
+            >
+              Refresh
+            </CButton>
+          </div>
         </CCardHeader>
         <CCardBody>
           <ErrorAlert message={error} />

@@ -22,8 +22,31 @@ export const cleanParams = (params = {}) =>
   )
 
 export const getApiErrorMessage = (error) => {
+  if (!error?.response) {
+    return 'Backend is unavailable. Check that the API server is running.'
+  }
+
+  if (error.response.status === 400) {
+    const data = error.response.data
+    const fieldError = Array.isArray(data?.errors) ? data.errors[0]?.message : ''
+
+    return fieldError || data?.message || 'Validation failed. Check the submitted values.'
+  }
+
+  if (error.response.status === 401) {
+    return 'Your session has expired. Please sign in again.'
+  }
+
   if (error?.response?.status === 403) {
     return 'You do not have permission to perform this action.'
+  }
+
+  if (error.response.status === 404) {
+    return 'The requested data was not found.'
+  }
+
+  if (error.response.status === 409) {
+    return error.response.data?.message || 'The request conflicts with existing data.'
   }
 
   if (error?.response?.status >= 500) {

@@ -21,6 +21,8 @@ const Departments = React.lazy(() => import('./views/departments/Departments'))
 const Reports = React.lazy(() => import('./views/reports/Reports'))
 const Notifications = React.lazy(() => import('./views/notifications/Notifications'))
 const AuditLogs = React.lazy(() => import('./views/audit-logs/AuditLogs'))
+const Profile = React.lazy(() => import('./views/profile/Profile'))
+const Page404 = React.lazy(() => import('./views/pages/page404/Page404'))
 
 /**
  * Array of route configuration objects
@@ -47,6 +49,8 @@ export const routes = [
   { path: '/reports', name: 'Reports', element: Reports },
   { path: '/notifications', name: 'Notifications', element: Notifications },
   { path: '/audit-logs', name: 'Audit Logs', element: AuditLogs },
+  { path: '/profile', name: 'Profile', element: Profile },
+  { path: '*', name: 'Not Found', element: Page404 },
 ]
 
 export default routes

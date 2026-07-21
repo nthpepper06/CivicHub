@@ -8,7 +8,7 @@
  * - Client-side routing with HashRouter
  * - Theme detection from URL parameters and Redux state
  * - Lazy loading for all routes with loading spinner fallback
- * - Public routes (login, register, error pages)
+ * - Public routes (login and error pages)
  * - Protected routes wrapped in DefaultLayout
  *
  * @module App
@@ -55,7 +55,7 @@ const Page500 = React.lazy(() => import('./views/pages/page500/Page500'))
  * ReactDOM.render(<App />, document.getElementById('root'))
  */
 const App = () => {
-  const { isColorModeSet, setColorMode } = useColorModes('coreui-free-react-admin-template-theme')
+  const { isColorModeSet, setColorMode } = useColorModes('civichub-admin-theme')
   const storedTheme = useSelector((state) => state.theme)
 
   useEffect(() => {

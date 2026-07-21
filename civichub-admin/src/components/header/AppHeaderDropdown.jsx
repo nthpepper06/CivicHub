@@ -1,4 +1,5 @@
 import React from 'react'
+import { Link } from 'react-router-dom'
 import {
   CDropdown,
   CDropdownHeader,
@@ -27,6 +28,10 @@ const AppHeaderDropdown = () => {
         <CDropdownHeader className="bg-body-secondary fw-semibold mb-2">
           CivicHub Admin
         </CDropdownHeader>
+        <CDropdownItem as={Link} to="/profile">
+          <CIcon icon={cilUser} className="me-2" />
+          Profile
+        </CDropdownItem>
         <CDropdownItem as="button" type="button" onClick={() => logout()}>
           <CIcon icon={cilAccountLogout} className="me-2" />
           Logout

@@ -1,81 +1,80 @@
 # CivicHub Admin
 
-CivicHub Admin is the React admin frontend for CivicHub. It is built on the existing CoreUI Free React Admin Template v5.6 with React 19, Vite, JavaScript, React Router, and the existing Redux UI state.
+CivicHub Admin is the React admin console for CivicHub. It uses React, Vite,
+React Router, Axios, and CoreUI components, but the reachable routes and sidebar
+are limited to CivicHub modules.
 
-## Installation
+## Requirements
 
-```bash
-npm install
-```
+- Node.js 18 or newer
+- npm
+- CivicHub backend running separately
 
 ## Environment
 
-Copy `.env.example` to `.env` and set the backend URL:
+Create a local `.env` from `.env.example`:
 
 ```bash
 VITE_API_URL=http://localhost:8080
 ```
 
-The frontend reads API URLs from `VITE_API_URL`; backend URLs should not be hardcoded in feature code.
+`.env` is ignored by Git. Do not place JWTs, passwords, or backend secrets in
+frontend env files. Production builds must provide `VITE_API_URL` for the real
+API origin.
 
-## Backend URL
-
-Sprint 3.1 expects the Spring Boot backend to be running at:
-
-```bash
-http://localhost:8080
-```
-
-## How to Login
-
-Start the frontend:
+## Run
 
 ```bash
+npm install
 npm start
 ```
 
-Open the app and sign in at `/login` with an existing CivicHub administrator account.
+The dev server runs on `http://localhost:3000`. API requests use
+`VITE_API_URL`; the Vite proxy also points `/api` at the same backend URL.
 
-Authentication uses the backend endpoint:
-
-```bash
-POST /api/auth/login
-```
-
-Request body:
-
-```json
-{
-  "email": "admin@example.com",
-  "password": "password"
-}
-```
-
-The response is the backend `ApiResponse<AuthResponse>` shape. The frontend uses `data.accessToken` and `data.user`.
-
-## Admin Only
-
-Only users whose role is `ADMIN` can access the admin application. Citizen and Staff accounts are rejected with:
-
-```text
-Admin access required.
-```
-
-## Current Sprint 3.1 Scope
-
-- Axios API client with JWT request interceptor and 401 session cleanup.
-- Auth storage with Remember Me support using localStorage or sessionStorage.
-- Auth context and `useAuth` hook.
-- CoreUI login page connected to the backend login endpoint.
-- Protected admin routes.
-- CivicHub Admin branding.
-- Sidebar limited to Dashboard, Categories, Departments, Reports, Notifications, and Audit Logs.
-- Header shows admin identity, role, theme switcher, and logout.
-- Categories, Departments, Reports, Notifications, and Audit Logs currently render a reusable Coming Soon page.
-
-## Verification
+## Build
 
 ```bash
 npm run lint
 npm run build
 ```
+
+Preview a production build:
+
+```bash
+npm run serve
+```
+
+## Backend
+
+Start the Spring Boot backend from `../civichub-backend`:
+
+```bash
+.\mvnw.cmd spring-boot:run
+```
+
+Backend tests:
+
+```bash
+.\mvnw.cmd test
+```
+
+Use local fake test accounts only. Do not document or commit real passwords.
+
+## Admin Modules
+
+- Dashboard
+- Categories
+- Departments
+- Reports
+- Notifications
+- Audit Logs
+- Admin Profile
+
+The profile page is read-only because the backend currently exposes
+`GET /api/auth/me` only. There is no backend endpoint for profile update,
+change password, user management, full-database export, selected notification
+bulk mark-read, admin report status update, or report priority update.
+
+CSV export buttons export only the data already loaded in the current table
+page. They do not represent a full database export.

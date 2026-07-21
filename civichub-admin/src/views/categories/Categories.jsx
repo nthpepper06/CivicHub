@@ -44,6 +44,7 @@ import {
 } from '../../components/admin/AdminPageState'
 import AdminToast from '../../components/admin/AdminToast'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
+import { downloadCsv } from '../../utils/csvExport'
 import { booleanStatusColor, formatDateTime } from '../../utils/display'
 
 const emptyForm = { name: '', description: '', icon: '' }
@@ -180,16 +181,42 @@ const Categories = () => {
     }
   }
 
+  const exportCurrentPage = () => {
+    downloadCsv({
+      filename: 'civichub-categories-current-page.csv',
+      columns: [
+        { header: 'ID', value: (category) => category.id },
+        { header: 'Name', value: (category) => category.name },
+        { header: 'Description', value: (category) => category.description },
+        { header: 'Icon', value: (category) => category.icon },
+        { header: 'Active', value: (category) => (category.isActive ? 'Active' : 'Inactive') },
+        { header: 'Created At', value: (category) => category.createdAt },
+        { header: 'Updated At', value: (category) => category.updatedAt },
+      ],
+      rows: categories,
+    })
+  }
+
   return (
     <>
       <AdminToast message={success} onClose={() => setSuccess('')} />
       <CCard className="mb-4">
         <CCardHeader className="d-flex flex-wrap gap-2 align-items-center justify-content-between">
           <strong>Categories</strong>
-          <CButton color="primary" onClick={openCreate}>
-            <CIcon icon={cilPlus} className="me-2" />
-            Add category
-          </CButton>
+          <div className="d-flex flex-wrap gap-2">
+            <CButton
+              color="secondary"
+              variant="outline"
+              onClick={exportCurrentPage}
+              disabled={loading || categories.length === 0}
+            >
+              Export current page CSV
+            </CButton>
+            <CButton color="primary" onClick={openCreate}>
+              <CIcon icon={cilPlus} className="me-2" />
+              Add category
+            </CButton>
+          </div>
         </CCardHeader>
         <CCardBody>
           <ErrorAlert message={error} />
