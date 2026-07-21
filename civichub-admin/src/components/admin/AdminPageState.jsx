@@ -2,7 +2,13 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import {
   CAlert,
+  CBadge,
   CButton,
+  CCard,
+  CCardBody,
+  CCol,
+  CFormInput,
+  CInputGroup,
   CModal,
   CModalBody,
   CModalFooter,
@@ -12,6 +18,10 @@ import {
   CPaginationItem,
   CSpinner,
 } from '@coreui/react'
+import CIcon from '@coreui/icons-react'
+import { cilSearch } from '@coreui/icons'
+
+import { booleanStatusColor, formatLabel, reportStatusColor } from '../../utils/display'
 
 export const LoadingState = ({ label = 'Loading...' }) => (
   <div className="py-5 text-center">
@@ -35,6 +45,8 @@ ErrorAlert.propTypes = {
   message: PropTypes.string,
 }
 
+export const ErrorState = ErrorAlert
+
 export const EmptyState = ({ title, description }) => (
   <div className="py-5 text-center text-body-secondary">
     <div className="fw-semibold text-body mb-1">{title}</div>
@@ -45,6 +57,76 @@ export const EmptyState = ({ title, description }) => (
 EmptyState.propTypes = {
   title: PropTypes.string.isRequired,
   description: PropTypes.string,
+}
+
+export const LoadingSkeleton = ({ rows = 4 }) => (
+  <div aria-label="Loading content">
+    {Array.from({ length: rows }, (_, index) => (
+      <div className="placeholder-glow mb-3" key={index}>
+        <span className="placeholder col-12 mb-2"></span>
+        <span className="placeholder col-8"></span>
+      </div>
+    ))}
+  </div>
+)
+
+LoadingSkeleton.propTypes = {
+  rows: PropTypes.number,
+}
+
+export const StatusBadge = ({ value, type = 'generic' }) => {
+  const color =
+    type === 'report'
+      ? reportStatusColor(value)
+      : type === 'active'
+        ? booleanStatusColor(value)
+        : 'secondary'
+  const label = type === 'active' ? (value ? 'Active' : 'Inactive') : formatLabel(value)
+
+  return <CBadge color={color}>{label}</CBadge>
+}
+
+StatusBadge.propTypes = {
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]),
+  type: PropTypes.oneOf(['generic', 'report', 'active']),
+}
+
+export const SearchToolbar = ({ value, onChange, placeholder = 'Search', children }) => (
+  <div className="d-flex flex-wrap gap-2 mb-3 align-items-center">
+    <CInputGroup className="flex-grow-1" style={{ minWidth: 240 }}>
+      <span className="input-group-text">
+        <CIcon icon={cilSearch} />
+      </span>
+      <CFormInput
+        value={value}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </CInputGroup>
+    {children}
+  </div>
+)
+
+SearchToolbar.propTypes = {
+  value: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
+  placeholder: PropTypes.string,
+  children: PropTypes.node,
+}
+
+export const FilterBar = ({ children }) => (
+  <CCard className="mb-4">
+    <CCardBody>
+      <CCol xs={12} className="d-flex flex-wrap gap-2">
+        {children}
+      </CCol>
+    </CCardBody>
+  </CCard>
+)
+
+FilterBar.propTypes = {
+  children: PropTypes.node.isRequired,
 }
 
 export const ConfirmModal = ({
@@ -84,6 +166,8 @@ ConfirmModal.propTypes = {
   onCancel: PropTypes.func.isRequired,
   onConfirm: PropTypes.func.isRequired,
 }
+
+export const ConfirmDialog = ConfirmModal
 
 export const PagePagination = ({ page, totalPages, onChange }) => {
   if (!totalPages || totalPages <= 1) {

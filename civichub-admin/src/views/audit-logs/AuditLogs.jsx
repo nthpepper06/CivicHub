@@ -59,6 +59,9 @@ const AuditLogs = () => {
   const [search, setSearch] = useState('')
   const [action, setAction] = useState('')
   const [entityType, setEntityType] = useState('')
+  const [actorId, setActorId] = useState('')
+  const [createdFrom, setCreatedFrom] = useState('')
+  const [createdTo, setCreatedTo] = useState('')
   const [loading, setLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
   const [error, setError] = useState('')
@@ -66,6 +69,12 @@ const AuditLogs = () => {
   const debouncedSearch = useDebouncedValue(search, 400)
 
   const loadLogs = useCallback(async () => {
+    if (createdFrom && createdTo && createdFrom > createdTo) {
+      setError('From date must be before or equal to To date.')
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setError('')
 
@@ -76,6 +85,9 @@ const AuditLogs = () => {
         search: debouncedSearch.trim(),
         action,
         entityType,
+        actorId,
+        createdFrom: createdFrom ? `${createdFrom}T00:00:00` : '',
+        createdTo: createdTo ? `${createdTo}T23:59:59` : '',
         sortBy: 'createdAt',
         direction: 'DESC',
       })
@@ -86,7 +98,7 @@ const AuditLogs = () => {
     } finally {
       setLoading(false)
     }
-  }, [action, debouncedSearch, entityType, page])
+  }, [action, actorId, createdFrom, createdTo, debouncedSearch, entityType, page])
 
   useEffect(() => {
     const loadTimer = window.setTimeout(() => {
@@ -109,6 +121,16 @@ const AuditLogs = () => {
     }
   }
 
+  const clearFilters = () => {
+    setPage(0)
+    setSearch('')
+    setAction('')
+    setEntityType('')
+    setActorId('')
+    setCreatedFrom('')
+    setCreatedTo('')
+  }
+
   return (
     <>
       <CCard className="mb-4">
@@ -119,7 +141,7 @@ const AuditLogs = () => {
           <ErrorAlert message={error} />
 
           <CRow className="g-2 mb-3">
-            <CCol md={5}>
+            <CCol md={4}>
               <CInputGroup>
                 <span className="input-group-text">
                   <CIcon icon={cilSearch} />
@@ -134,7 +156,7 @@ const AuditLogs = () => {
                 />
               </CInputGroup>
             </CCol>
-            <CCol md={4}>
+            <CCol md={3}>
               <CFormSelect
                 value={action}
                 onChange={(event) => {
@@ -150,7 +172,7 @@ const AuditLogs = () => {
                 ))}
               </CFormSelect>
             </CCol>
-            <CCol md={3}>
+            <CCol md={2}>
               <CFormSelect
                 value={entityType}
                 onChange={(event) => {
@@ -166,13 +188,53 @@ const AuditLogs = () => {
                 ))}
               </CFormSelect>
             </CCol>
+            <CCol md={3}>
+              <CFormInput
+                type="number"
+                min={1}
+                placeholder="Actor user ID"
+                aria-label="Filter by actor user ID"
+                value={actorId}
+                onChange={(event) => {
+                  setPage(0)
+                  setActorId(event.target.value)
+                }}
+              />
+            </CCol>
+            <CCol md={3}>
+              <CFormInput
+                type="date"
+                label="From"
+                value={createdFrom}
+                onChange={(event) => {
+                  setPage(0)
+                  setCreatedFrom(event.target.value)
+                }}
+              />
+            </CCol>
+            <CCol md={3}>
+              <CFormInput
+                type="date"
+                label="To"
+                value={createdTo}
+                onChange={(event) => {
+                  setPage(0)
+                  setCreatedTo(event.target.value)
+                }}
+              />
+            </CCol>
+            <CCol md={3} className="d-flex align-items-end">
+              <CButton color="secondary" variant="outline" onClick={clearFilters}>
+                Clear filters
+              </CButton>
+            </CCol>
           </CRow>
 
           {loading ? (
             <LoadingState label="Loading audit logs..." />
           ) : logs.length ? (
             <>
-              <CTable align="middle" responsive hover>
+              <CTable align="middle" responsive hover aria-label="Audit logs table">
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>Actor</CTableHeaderCell>
@@ -205,6 +267,7 @@ const AuditLogs = () => {
                           color="primary"
                           variant="outline"
                           size="sm"
+                          aria-label={`View audit log ${log.id}`}
                           onClick={() => openDetail(log.id)}
                         >
                           <CIcon icon={cilInfo} />

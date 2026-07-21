@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
-  CBadge,
+  CButton,
+  CButtonGroup,
   CCard,
   CCardBody,
   CCardHeader,
   CCol,
+  CFormInput,
   CRow,
+  CSpinner,
   CTable,
   CTableBody,
   CTableDataCell,
@@ -20,11 +23,16 @@ import {
   getDashboardSummary,
   getDepartmentStatistics,
   getMonthlyStatistics,
-  getRecentReports,
 } from '../../api/dashboardService'
+import { getReports } from '../../api/reportService'
 import { getApiErrorMessage } from '../../api/apiUtils'
-import { EmptyState, ErrorAlert, LoadingState } from '../../components/admin/AdminPageState'
-import { formatDateTime, formatLabel, reportStatusColor } from '../../utils/display'
+import {
+  EmptyState,
+  ErrorAlert,
+  LoadingSkeleton,
+  StatusBadge,
+} from '../../components/admin/AdminPageState'
+import { formatDateTime } from '../../utils/display'
 
 const monthLabels = [
   'Jan',
@@ -52,6 +60,42 @@ const StatCard = ({ label, value, color = 'primary' }) => (
   </CCol>
 )
 
+const toDateInputValue = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+const toApiDateTime = (dateInput, endOfDay = false) =>
+  `${dateInput}${endOfDay ? 'T23:59:59' : 'T00:00:00'}`
+
+const getPresetRange = (preset) => {
+  const now = new Date()
+  const start = new Date(now)
+  const end = new Date(now)
+
+  if (preset === 'week') {
+    const day = start.getDay() || 7
+    start.setDate(start.getDate() - day + 1)
+  }
+
+  if (preset === 'month') {
+    start.setDate(1)
+  }
+
+  if (preset === 'year') {
+    start.setMonth(0, 1)
+  }
+
+  return {
+    preset,
+    from: toDateInputValue(start),
+    to: toDateInputValue(end),
+  }
+}
+
 const Dashboard = () => {
   const [summary, setSummary] = useState({})
   const [categories, setCategories] = useState([])
@@ -59,22 +103,30 @@ const Dashboard = () => {
   const [monthly, setMonthly] = useState([])
   const [recentReports, setRecentReports] = useState([])
   const [loading, setLoading] = useState(true)
+  const [recentLoading, setRecentLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [sectionErrors, setSectionErrors] = useState({})
+  const [range, setRange] = useState(() => getPresetRange('month'))
 
   useEffect(() => {
-    const loadDashboard = async () => {
+    const loadDashboardStats = async () => {
       setLoading(true)
-      setSectionErrors({})
+      setSectionErrors((current) => ({
+        ...current,
+        summary: '',
+        categories: '',
+        departments: '',
+        monthly: '',
+      }))
 
       const results = await Promise.allSettled([
         getDashboardSummary(),
         getCategoryStatistics(),
         getDepartmentStatistics(),
         getMonthlyStatistics(new Date().getFullYear()),
-        getRecentReports(10),
       ])
 
-      const [summaryResult, categoryResult, departmentResult, monthlyResult, recentResult] = results
+      const [summaryResult, categoryResult, departmentResult, monthlyResult] = results
       const nextErrors = {}
 
       if (summaryResult.status === 'fulfilled') {
@@ -105,23 +157,61 @@ const Dashboard = () => {
         nextErrors.monthly = getApiErrorMessage(monthlyResult.reason)
       }
 
-      if (recentResult.status === 'fulfilled') {
-        setRecentReports(recentResult.value.content)
-      } else {
-        setRecentReports([])
-        nextErrors.recent = getApiErrorMessage(recentResult.reason)
-      }
-
-      setSectionErrors(nextErrors)
+      setSectionErrors((current) => ({ ...current, ...nextErrors }))
       setLoading(false)
     }
 
     const loadTimer = window.setTimeout(() => {
-      loadDashboard()
+      loadDashboardStats()
     }, 0)
 
     return () => window.clearTimeout(loadTimer)
   }, [])
+
+  useEffect(() => {
+    const loadRecentReports = async () => {
+      setRecentLoading(true)
+      setRefreshing(true)
+      setSectionErrors((current) => ({ ...current, recent: '' }))
+
+      if (range.from && range.to && range.from > range.to) {
+        setRecentReports([])
+        setSectionErrors((current) => ({
+          ...current,
+          recent: 'From date must be before or equal to To date.',
+        }))
+        setRecentLoading(false)
+        setRefreshing(false)
+        return
+      }
+
+      try {
+        const createdFrom = range.from ? toApiDateTime(range.from) : undefined
+        const createdTo = range.to ? toApiDateTime(range.to, true) : undefined
+        const recentData = await getReports({
+          page: 0,
+          size: 10,
+          createdFrom,
+          createdTo,
+          sortBy: 'createdAt',
+          direction: 'DESC',
+        })
+        setRecentReports(recentData.content)
+      } catch (recentError) {
+        setRecentReports([])
+        setSectionErrors((current) => ({ ...current, recent: getApiErrorMessage(recentError) }))
+      } finally {
+        setRecentLoading(false)
+        setRefreshing(false)
+      }
+    }
+
+    const loadTimer = window.setTimeout(() => {
+      loadRecentReports()
+    }, 0)
+
+    return () => window.clearTimeout(loadTimer)
+  }, [range])
 
   const monthlyChart = useMemo(() => {
     const byMonth = new Map(monthly.map((item) => [item.month, item]))
@@ -129,12 +219,64 @@ const Dashboard = () => {
     return monthLabels.map((_, index) => byMonth.get(index + 1) || {})
   }, [monthly])
 
+  const handlePreset = (preset) => {
+    setRange(getPresetRange(preset))
+  }
+
+  const handleRangeChange = (field, value) => {
+    setRange((current) => ({ ...current, preset: 'custom', [field]: value }))
+  }
+
   if (loading) {
-    return <LoadingState label="Loading dashboard..." />
+    return <LoadingSkeleton rows={8} />
   }
 
   return (
     <>
+      <CCard className="mb-4">
+        <CCardBody className="d-flex flex-wrap gap-2 align-items-end justify-content-between">
+          <div className="d-flex flex-wrap gap-2 align-items-end">
+            <div className="w-100 small text-body-secondary">Recent reports date range</div>
+            <CButtonGroup role="group" aria-label="Recent reports date presets">
+              {[
+                ['today', 'Today'],
+                ['week', 'This Week'],
+                ['month', 'This Month'],
+                ['year', 'This Year'],
+              ].map(([value, label]) => (
+                <CButton
+                  key={value}
+                  color="outline-primary"
+                  active={range.preset === value}
+                  onClick={() => handlePreset(value)}
+                >
+                  {label}
+                </CButton>
+              ))}
+            </CButtonGroup>
+            <CFormInput
+              type="date"
+              label="From"
+              value={range.from}
+              onChange={(event) => handleRangeChange('from', event.target.value)}
+            />
+            <CFormInput
+              type="date"
+              label="To"
+              value={range.to}
+              onChange={(event) => handleRangeChange('to', event.target.value)}
+            />
+          </div>
+          <CButton
+            color="primary"
+            onClick={() => setRange((current) => ({ ...current }))}
+            disabled={refreshing}
+          >
+            {refreshing && <CSpinner component="span" size="sm" className="me-2" />}
+            Refresh
+          </CButton>
+        </CCardBody>
+      </CCard>
       <ErrorAlert message={sectionErrors.summary} />
       <CRow>
         <StatCard
@@ -251,7 +393,9 @@ const Dashboard = () => {
             <CCardHeader>Recent reports</CCardHeader>
             <CCardBody>
               <ErrorAlert message={sectionErrors.recent} />
-              {recentReports.length ? (
+              {recentLoading ? (
+                <LoadingSkeleton rows={3} />
+              ) : recentReports.length ? (
                 <CTable align="middle" responsive hover className="mb-0">
                   <CTableHead>
                     <CTableRow>
@@ -274,9 +418,7 @@ const Dashboard = () => {
                         </CTableDataCell>
                         <CTableDataCell>{report.citizenName || '-'}</CTableDataCell>
                         <CTableDataCell>
-                          <CBadge color={reportStatusColor(report.status)}>
-                            {formatLabel(report.status)}
-                          </CBadge>
+                          <StatusBadge type="report" value={report.status} />
                         </CTableDataCell>
                         <CTableDataCell>{formatDateTime(report.createdAt)}</CTableDataCell>
                       </CTableRow>

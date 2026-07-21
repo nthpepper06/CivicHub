@@ -19,7 +19,7 @@
  * )
  */
 
-import React from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 
 import {
@@ -38,6 +38,7 @@ import { sygnet } from 'src/assets/brand/sygnet'
 
 // sidebar nav config
 import navigation from '../_nav'
+import { getUnreadNotificationCount } from '../api/notificationService'
 
 /**
  * AppSidebar functional component
@@ -55,6 +56,45 @@ const AppSidebar = () => {
   const dispatch = useDispatch()
   const unfoldable = useSelector((state) => state.sidebarUnfoldable)
   const sidebarShow = useSelector((state) => state.sidebarShow)
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  const loadUnreadCount = useCallback(async () => {
+    try {
+      const data = await getUnreadNotificationCount()
+      setUnreadCount(data?.count || 0)
+    } catch {
+      setUnreadCount(0)
+    }
+  }, [])
+
+  useEffect(() => {
+    const loadTimer = window.setTimeout(() => {
+      loadUnreadCount()
+    }, 0)
+
+    window.addEventListener('civichub:notifications-updated', loadUnreadCount)
+
+    return () => {
+      window.clearTimeout(loadTimer)
+      window.removeEventListener('civichub:notifications-updated', loadUnreadCount)
+    }
+  }, [loadUnreadCount])
+
+  const sidebarNavigation = useMemo(
+    () =>
+      navigation.map((item) =>
+        item.to === '/notifications' && unreadCount > 0
+          ? {
+              ...item,
+              badge: {
+                color: 'warning',
+                text: unreadCount > 99 ? '99+' : String(unreadCount),
+              },
+            }
+          : item,
+      ),
+    [unreadCount],
+  )
 
   return (
     <CSidebar
@@ -78,7 +118,7 @@ const AppSidebar = () => {
           onClick={() => dispatch({ type: 'set', sidebarShow: false })}
         />
       </CSidebarHeader>
-      <AppSidebarNav items={navigation} />
+      <AppSidebarNav items={sidebarNavigation} />
       <CSidebarFooter className="border-top d-none d-lg-flex">
         <CSidebarToggler
           onClick={() => dispatch({ type: 'set', sidebarUnfoldable: !unfoldable })}

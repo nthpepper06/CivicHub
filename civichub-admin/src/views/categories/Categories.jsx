@@ -42,6 +42,7 @@ import {
   LoadingState,
   PagePagination,
 } from '../../components/admin/AdminPageState'
+import AdminToast from '../../components/admin/AdminToast'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { booleanStatusColor, formatDateTime } from '../../utils/display'
 
@@ -181,6 +182,7 @@ const Categories = () => {
 
   return (
     <>
+      <AdminToast message={success} onClose={() => setSuccess('')} />
       <CCard className="mb-4">
         <CCardHeader className="d-flex flex-wrap gap-2 align-items-center justify-content-between">
           <strong>Categories</strong>
@@ -191,7 +193,6 @@ const Categories = () => {
         </CCardHeader>
         <CCardBody>
           <ErrorAlert message={error} />
-          {success && <div className="alert alert-success">{success}</div>}
 
           <CRow className="g-2 mb-3">
             <CCol md={8}>

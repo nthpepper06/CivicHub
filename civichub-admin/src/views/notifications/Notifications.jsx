@@ -30,6 +30,7 @@ import {
   LoadingState,
   PagePagination,
 } from '../../components/admin/AdminPageState'
+import AdminToast from '../../components/admin/AdminToast'
 import { formatDateTime, formatLabel } from '../../utils/display'
 
 const Notifications = () => {
@@ -86,6 +87,7 @@ const Notifications = () => {
       await markNotificationAsRead(id)
       setSuccess('Notification marked as read.')
       await loadNotifications()
+      window.dispatchEvent(new Event('civichub:notifications-updated'))
     } catch (readError) {
       setError(getApiErrorMessage(readError))
     } finally {
@@ -102,6 +104,7 @@ const Notifications = () => {
       const result = await markAllNotificationsAsRead()
       setSuccess(`${result?.updatedCount || 0} notifications marked as read.`)
       await loadNotifications()
+      window.dispatchEvent(new Event('civichub:notifications-updated'))
     } catch (readError) {
       setError(getApiErrorMessage(readError))
     } finally {
@@ -110,100 +113,112 @@ const Notifications = () => {
   }
 
   return (
-    <CCard className="mb-4">
-      <CCardHeader className="d-flex flex-wrap gap-2 align-items-center justify-content-between">
-        <div>
-          <strong>Notifications</strong>
-          <CBadge color="warning" className="ms-2">
-            {unreadCount} unread
-          </CBadge>
-        </div>
-        <CButton
-          color="primary"
-          variant="outline"
-          onClick={markAllRead}
-          disabled={saving || unreadCount === 0}
-        >
-          {saving && <CSpinner component="span" size="sm" className="me-2" />}
-          Mark all read
-        </CButton>
-      </CCardHeader>
-      <CCardBody>
-        <ErrorAlert message={error} />
-        {success && <div className="alert alert-success">{success}</div>}
+    <>
+      <AdminToast message={success} onClose={() => setSuccess('')} />
+      <CCard className="mb-4">
+        <CCardHeader className="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+          <div>
+            <strong>Notifications</strong>
+            <CBadge color="warning" className="ms-2">
+              {unreadCount} unread
+            </CBadge>
+          </div>
+          <CButton
+            color="primary"
+            variant="outline"
+            onClick={markAllRead}
+            disabled={saving || unreadCount === 0}
+          >
+            {saving && <CSpinner component="span" size="sm" className="me-2" />}
+            Mark all read
+          </CButton>
+          <CButton
+            color="secondary"
+            variant="outline"
+            onClick={loadNotifications}
+            disabled={loading}
+          >
+            Refresh
+          </CButton>
+        </CCardHeader>
+        <CCardBody>
+          <ErrorAlert message={error} />
 
-        <CRow className="mb-3">
-          <CCol md={4}>
-            <CFormSelect
-              value={unread}
-              onChange={(event) => {
-                setPage(0)
-                setUnread(event.target.value)
-              }}
-            >
-              <option value="">All notifications</option>
-              <option value="true">Unread only</option>
-              <option value="false">Read only</option>
-            </CFormSelect>
-          </CCol>
-        </CRow>
+          <CRow className="mb-3">
+            <CCol md={4}>
+              <CFormSelect
+                value={unread}
+                onChange={(event) => {
+                  setPage(0)
+                  setUnread(event.target.value)
+                }}
+              >
+                <option value="">All notifications</option>
+                <option value="true">Unread only</option>
+                <option value="false">Read only</option>
+              </CFormSelect>
+            </CCol>
+          </CRow>
 
-        {loading ? (
-          <LoadingState label="Loading notifications..." />
-        ) : notifications.length ? (
-          <>
-            <CTable align="middle" responsive hover>
-              <CTableHead>
-                <CTableRow>
-                  <CTableHeaderCell>Title</CTableHeaderCell>
-                  <CTableHeaderCell>Message</CTableHeaderCell>
-                  <CTableHeaderCell>Type</CTableHeaderCell>
-                  <CTableHeaderCell>Status</CTableHeaderCell>
-                  <CTableHeaderCell>Created</CTableHeaderCell>
-                  <CTableHeaderCell className="text-end">Actions</CTableHeaderCell>
-                </CTableRow>
-              </CTableHead>
-              <CTableBody>
-                {notifications.map((notification) => (
-                  <CTableRow key={notification.id}>
-                    <CTableDataCell className="fw-semibold">
-                      {notification.title || '-'}
-                    </CTableDataCell>
-                    <CTableDataCell>{notification.message || '-'}</CTableDataCell>
-                    <CTableDataCell>{formatLabel(notification.type)}</CTableDataCell>
-                    <CTableDataCell>
-                      <CBadge color={notification.read ? 'secondary' : 'warning'}>
-                        {notification.read ? 'Read' : 'Unread'}
-                      </CBadge>
-                    </CTableDataCell>
-                    <CTableDataCell>{formatDateTime(notification.createdAt)}</CTableDataCell>
-                    <CTableDataCell className="text-end">
-                      <CButton
-                        color="primary"
-                        variant="outline"
-                        size="sm"
-                        disabled={saving || notification.read}
-                        onClick={() => markRead(notification.id)}
-                      >
-                        Mark read
-                      </CButton>
-                    </CTableDataCell>
+          {loading ? (
+            <LoadingState label="Loading notifications..." />
+          ) : notifications.length ? (
+            <>
+              <CTable align="middle" responsive hover aria-label="Notifications table">
+                <CTableHead>
+                  <CTableRow>
+                    <CTableHeaderCell>Title</CTableHeaderCell>
+                    <CTableHeaderCell>Message</CTableHeaderCell>
+                    <CTableHeaderCell>Type</CTableHeaderCell>
+                    <CTableHeaderCell>Status</CTableHeaderCell>
+                    <CTableHeaderCell>Created</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Actions</CTableHeaderCell>
                   </CTableRow>
-                ))}
-              </CTableBody>
-            </CTable>
-            <div className="small text-body-secondary">{pageInfo.totalElements} notifications</div>
-            <PagePagination
-              page={pageInfo.page}
-              totalPages={pageInfo.totalPages}
-              onChange={setPage}
-            />
-          </>
-        ) : (
-          <EmptyState title="No notifications found" />
-        )}
-      </CCardBody>
-    </CCard>
+                </CTableHead>
+                <CTableBody>
+                  {notifications.map((notification) => (
+                    <CTableRow key={notification.id}>
+                      <CTableDataCell className="fw-semibold">
+                        {notification.title || '-'}
+                      </CTableDataCell>
+                      <CTableDataCell>{notification.message || '-'}</CTableDataCell>
+                      <CTableDataCell>{formatLabel(notification.type)}</CTableDataCell>
+                      <CTableDataCell>
+                        <CBadge color={notification.read ? 'secondary' : 'warning'}>
+                          {notification.read ? 'Read' : 'Unread'}
+                        </CBadge>
+                      </CTableDataCell>
+                      <CTableDataCell>{formatDateTime(notification.createdAt)}</CTableDataCell>
+                      <CTableDataCell className="text-end">
+                        <CButton
+                          color="primary"
+                          variant="outline"
+                          size="sm"
+                          disabled={saving || notification.read}
+                          onClick={() => markRead(notification.id)}
+                        >
+                          Mark read
+                        </CButton>
+                      </CTableDataCell>
+                    </CTableRow>
+                  ))}
+                </CTableBody>
+              </CTable>
+              <div className="small text-body-secondary">
+                {pageInfo.totalElements} notifications
+              </div>
+              <PagePagination
+                page={pageInfo.page}
+                totalPages={pageInfo.totalPages}
+                onChange={setPage}
+              />
+            </>
+          ) : (
+            <EmptyState title="No notifications found" />
+          )}
+        </CCardBody>
+      </CCard>
+    </>
   )
 }
 
