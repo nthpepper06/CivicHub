@@ -2,9 +2,8 @@ import axios from 'axios'
 
 import { clearAuthStorage, getAccessToken } from '../utils/authStorage'
 
-const apiBaseUrl = import.meta.env.DEV
-  ? ''
-  : import.meta.env.VITE_API_URL || 'http://localhost:8080'
+const configuredApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+const apiBaseUrl = import.meta.env.DEV ? '' : configuredApiUrl
 
 const apiClient = axios.create({
   baseURL: apiBaseUrl,

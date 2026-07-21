@@ -16,7 +16,11 @@
 import React from 'react'
 
 const Dashboard = React.lazy(() => import('./views/dashboard/Dashboard'))
-const ComingSoon = React.lazy(() => import('./views/coming-soon/ComingSoon'))
+const Categories = React.lazy(() => import('./views/categories/Categories'))
+const Departments = React.lazy(() => import('./views/departments/Departments'))
+const Reports = React.lazy(() => import('./views/reports/Reports'))
+const Notifications = React.lazy(() => import('./views/notifications/Notifications'))
+const AuditLogs = React.lazy(() => import('./views/audit-logs/AuditLogs'))
 
 /**
  * Array of route configuration objects
@@ -38,11 +42,11 @@ const ComingSoon = React.lazy(() => import('./views/coming-soon/ComingSoon'))
 export const routes = [
   { path: '/', exact: true, name: 'Home' },
   { path: '/dashboard', name: 'Dashboard', element: Dashboard },
-  { path: '/categories', name: 'Categories', element: ComingSoon },
-  { path: '/departments', name: 'Departments', element: ComingSoon },
-  { path: '/reports', name: 'Reports', element: ComingSoon },
-  { path: '/notifications', name: 'Notifications', element: ComingSoon },
-  { path: '/audit-logs', name: 'Audit Logs', element: ComingSoon },
+  { path: '/categories', name: 'Categories', element: Categories },
+  { path: '/departments', name: 'Departments', element: Departments },
+  { path: '/reports', name: 'Reports', element: Reports },
+  { path: '/notifications', name: 'Notifications', element: Notifications },
+  { path: '/audit-logs', name: 'Audit Logs', element: AuditLogs },
 ]
 
 export default routes

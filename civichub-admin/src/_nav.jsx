@@ -13,11 +13,11 @@
 import CIcon from '@coreui/icons-react'
 import {
   cilBell,
-  cilCalculator,
-  cilChartPie,
+  cilBuilding,
   cilDescription,
-  cilNotes,
+  cilInbox,
   cilSpeedometer,
+  cilTags,
 } from '@coreui/icons'
 import { CNavItem } from '@coreui/react'
 
@@ -78,19 +78,19 @@ const _nav = [
     component: CNavItem,
     name: 'Categories',
     to: '/categories',
-    icon: <CIcon icon={cilCalculator} customClassName="nav-icon" />,
+    icon: <CIcon icon={cilTags} customClassName="nav-icon" />,
   },
   {
     component: CNavItem,
     name: 'Departments',
     to: '/departments',
-    icon: <CIcon icon={cilNotes} customClassName="nav-icon" />,
+    icon: <CIcon icon={cilBuilding} customClassName="nav-icon" />,
   },
   {
     component: CNavItem,
     name: 'Reports',
     to: '/reports',
-    icon: <CIcon icon={cilChartPie} customClassName="nav-icon" />,
+    icon: <CIcon icon={cilInbox} customClassName="nav-icon" />,
   },
   {
     component: CNavItem,

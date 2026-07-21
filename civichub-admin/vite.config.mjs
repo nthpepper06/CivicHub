@@ -5,7 +5,7 @@ import autoprefixer from 'autoprefixer'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const apiUrl = env.VITE_API_URL || 'http://localhost:8080'
+  const configuredApiUrl = env.VITE_API_URL || 'http://localhost:8080'
 
   return {
     base: './',
@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       proxy: {
         '/api': {
-          target: apiUrl,
+          target: configuredApiUrl,
           changeOrigin: true,
         },
       },
