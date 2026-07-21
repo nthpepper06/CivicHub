@@ -16,6 +16,7 @@
 import React from 'react'
 
 const Dashboard = React.lazy(() => import('./views/dashboard/Dashboard'))
+const Users = React.lazy(() => import('./views/users/Users'))
 const Categories = React.lazy(() => import('./views/categories/Categories'))
 const Departments = React.lazy(() => import('./views/departments/Departments'))
 const Reports = React.lazy(() => import('./views/reports/Reports'))
@@ -44,6 +45,7 @@ const Page404 = React.lazy(() => import('./views/pages/page404/Page404'))
 export const routes = [
   { path: '/', exact: true, name: 'Home' },
   { path: '/dashboard', name: 'Dashboard', element: Dashboard },
+  { path: '/users', name: 'Users', element: Users },
   { path: '/categories', name: 'Categories', element: Categories },
   { path: '/departments', name: 'Departments', element: Departments },
   { path: '/reports', name: 'Reports', element: Reports },

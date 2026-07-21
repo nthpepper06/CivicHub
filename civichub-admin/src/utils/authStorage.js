@@ -41,6 +41,14 @@ export const setStoredUser = (user, rememberMe = false) => {
   storage.setItem(USER_KEY, JSON.stringify(user))
 }
 
+export const replaceStoredUser = (user) => {
+  const storage = localStorage.getItem(USER_KEY) ? localStorage : sessionStorage
+
+  if (getAccessToken()) {
+    storage.setItem(USER_KEY, JSON.stringify(user))
+  }
+}
+
 export const clearAuthStorage = () => {
   storageTargets.forEach((storage) => {
     storage.removeItem(ACCESS_TOKEN_KEY)

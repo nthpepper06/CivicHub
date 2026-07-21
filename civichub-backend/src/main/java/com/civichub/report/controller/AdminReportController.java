@@ -4,6 +4,7 @@ import com.civichub.common.ApiResponse;
 import com.civichub.common.PageResponse;
 import com.civichub.common.enums.ReportStatus;
 import com.civichub.report.dto.request.ReportDepartmentAssignRequest;
+import com.civichub.report.dto.request.ReportStatusUpdateRequest;
 import com.civichub.report.dto.response.ReportDetailResponse;
 import com.civichub.report.dto.response.ReportSummaryResponse;
 import com.civichub.report.service.ReportService;
@@ -14,6 +15,8 @@ import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -53,6 +56,35 @@ public class AdminReportController {
                         createdFrom, createdTo, assigned, sortBy, direction)));
     }
 
+    @Operation(summary = "Export all filtered reports as CSV")
+    @GetMapping(value = "/export", produces = "text/csv")
+    public ResponseEntity<String> exportAdminReports(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) ReportStatus status,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long departmentId,
+            @RequestParam(required = false) Long citizenId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime createdFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime createdTo,
+            @RequestParam(required = false) Boolean assigned,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String direction) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"civichub-reports.csv\"")
+                .contentType(new MediaType("text", "csv"))
+                .body(reportService.exportAdminReportsCsv(
+                        search,
+                        status,
+                        categoryId,
+                        departmentId,
+                        citizenId,
+                        createdFrom,
+                        createdTo,
+                        assigned,
+                        sortBy,
+                        direction));
+    }
+
     @Operation(summary = "Get admin report detail")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ReportDetailResponse>> getAdminReport(@PathVariable Long id) {
@@ -67,5 +99,15 @@ public class AdminReportController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Report department assigned",
                 reportService.assignDepartment(id, request)));
+    }
+
+    @Operation(summary = "Update report status as an admin override")
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<ApiResponse<ReportDetailResponse>> updateReportStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody ReportStatusUpdateRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Report status updated",
+                reportService.updateAdminReportStatus(id, request)));
     }
 }

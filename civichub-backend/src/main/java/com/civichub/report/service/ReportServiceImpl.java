@@ -4,6 +4,7 @@ import com.civichub.audit.service.AuditService;
 import com.civichub.category.entity.Category;
 import com.civichub.category.repository.CategoryRepository;
 import com.civichub.common.PageResponse;
+import com.civichub.common.CsvUtils;
 import com.civichub.common.enums.Priority;
 import com.civichub.common.enums.ReportStatus;
 import com.civichub.common.enums.UserStatus;
@@ -47,6 +48,7 @@ public class ReportServiceImpl implements ReportService {
 
     private static final int DEFAULT_PAGE_SIZE = 10;
     private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_EXPORT_SIZE = 5000;
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("createdAt", "updatedAt", "title", "status");
     private static final Map<ReportStatus, Set<ReportStatus>> ALLOWED_STAFF_TRANSITIONS =
             new EnumMap<>(ReportStatus.class);
@@ -213,6 +215,50 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     @Transactional(readOnly = true)
+    public String exportAdminReportsCsv(
+            String search,
+            ReportStatus status,
+            Long categoryId,
+            Long departmentId,
+            Long citizenId,
+            LocalDateTime createdFrom,
+            LocalDateTime createdTo,
+            Boolean assigned,
+            String sortBy,
+            String direction) {
+        validateDateRange(createdFrom, createdTo);
+        Page<Report> reports = reportRepository.findAll(
+                ReportSpecification.filter(null, departmentId, status, categoryId, citizenId, search,
+                        createdFrom, createdTo, assigned),
+                pageable(0, MAX_EXPORT_SIZE, sortBy, direction));
+        StringBuilder csv = new StringBuilder('\ufeff' + CsvUtils.row(
+                CsvUtils.trusted("ID"),
+                CsvUtils.trusted("Title"),
+                CsvUtils.trusted("Address"),
+                CsvUtils.trusted("Status"),
+                CsvUtils.trusted("Category"),
+                CsvUtils.trusted("Department"),
+                CsvUtils.trusted("Citizen"),
+                CsvUtils.trusted("Priority"),
+                CsvUtils.trusted("Created At"),
+                CsvUtils.trusted("Updated At")));
+        reports.getContent()
+                .forEach(report -> csv.append('\n').append(CsvUtils.row(
+                        CsvUtils.trusted(report.getId()),
+                        CsvUtils.text(report.getTitle()),
+                        CsvUtils.text(report.getAddress()),
+                        CsvUtils.trusted(report.getStatus()),
+                        CsvUtils.text(report.getCategory().getName()),
+                        CsvUtils.text(report.getDepartment() == null ? null : report.getDepartment().getName()),
+                        CsvUtils.text(report.getUser().getFullName()),
+                        CsvUtils.trusted(report.getPriority()),
+                        CsvUtils.trusted(report.getCreatedAt()),
+                        CsvUtils.trusted(report.getUpdatedAt()))));
+        return csv.toString();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public ReportDetailResponse getAdminReport(Long id) {
         return reportMapper.toDetailResponse(findReportDetail(id));
     }
@@ -235,6 +281,21 @@ public class ReportServiceImpl implements ReportService {
         Report savedReport = reportRepository.save(report);
         notificationService.createReportAssignedNotifications(savedReport, department);
         auditService.recordReportAssignment(savedReport.getId(), savedReport.getTitle(), oldDepartment, department);
+        return reportMapper.toDetailResponse(savedReport);
+    }
+
+    @Override
+    @Transactional
+    public ReportDetailResponse updateAdminReportStatus(Long id, ReportStatusUpdateRequest request) {
+        Report report = findReportDetail(id);
+        ReportStatus nextStatus = request.getStatus();
+        ReportStatus oldStatus = report.getStatus();
+        validateTransition(oldStatus, nextStatus);
+        report.setStatus(nextStatus);
+        report.setResolvedAt(ReportStatus.RESOLVED.equals(nextStatus) ? LocalDateTime.now() : null);
+        Report savedReport = reportRepository.save(report);
+        notificationService.createReportStatusChangedNotification(savedReport, oldStatus, nextStatus);
+        auditService.recordReportStatusChanged(savedReport.getId(), savedReport.getTitle(), oldStatus, nextStatus);
         return reportMapper.toDetailResponse(savedReport);
     }
 

@@ -11,8 +11,10 @@ import com.civichub.report.dto.response.ReportSummaryResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import java.time.Year;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,34 +33,48 @@ public class AdminDashboardController {
 
     @Operation(summary = "Get admin dashboard summary")
     @GetMapping("/summary")
-    public ResponseEntity<ApiResponse<DashboardSummaryResponse>> getSummary() {
-        return ResponseEntity.ok(ApiResponse.success("Dashboard summary", dashboardService.getAdminSummary()));
+    public ResponseEntity<ApiResponse<DashboardSummaryResponse>> getSummary(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
+        DashboardSummaryResponse response = from == null && to == null
+                ? dashboardService.getAdminSummary()
+                : dashboardService.getAdminSummary(from, to);
+        return ResponseEntity.ok(ApiResponse.success("Dashboard summary", response));
     }
 
     @Operation(summary = "Get report statistics grouped by category")
     @GetMapping("/category")
-    public ResponseEntity<ApiResponse<List<CategoryStatisticResponse>>> getCategoryStatistics() {
-        return ResponseEntity.ok(ApiResponse.success(
-                "Category statistics",
-                dashboardService.getCategoryStatistics()));
+    public ResponseEntity<ApiResponse<List<CategoryStatisticResponse>>> getCategoryStatistics(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
+        List<CategoryStatisticResponse> response = from == null && to == null
+                ? dashboardService.getCategoryStatistics()
+                : dashboardService.getCategoryStatistics(from, to);
+        return ResponseEntity.ok(ApiResponse.success("Category statistics", response));
     }
 
     @Operation(summary = "Get report statistics grouped by department")
     @GetMapping("/department")
-    public ResponseEntity<ApiResponse<List<DepartmentStatisticResponse>>> getDepartmentStatistics() {
-        return ResponseEntity.ok(ApiResponse.success(
-                "Department statistics",
-                dashboardService.getDepartmentStatistics()));
+    public ResponseEntity<ApiResponse<List<DepartmentStatisticResponse>>> getDepartmentStatistics(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
+        List<DepartmentStatisticResponse> response = from == null && to == null
+                ? dashboardService.getDepartmentStatistics()
+                : dashboardService.getDepartmentStatistics(from, to);
+        return ResponseEntity.ok(ApiResponse.success("Department statistics", response));
     }
 
     @Operation(summary = "Get monthly report statistics for a year")
     @GetMapping("/monthly")
     public ResponseEntity<ApiResponse<List<MonthlyStatisticResponse>>> getMonthlyStatistics(
-            @RequestParam(required = false) Integer year) {
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
         int selectedYear = year == null ? Year.now().getValue() : year;
-        return ResponseEntity.ok(ApiResponse.success(
-                "Monthly statistics",
-                dashboardService.getMonthlyStatistics(selectedYear)));
+        List<MonthlyStatisticResponse> response = from == null && to == null
+                ? dashboardService.getMonthlyStatistics(selectedYear)
+                : dashboardService.getMonthlyStatistics(selectedYear, from, to);
+        return ResponseEntity.ok(ApiResponse.success("Monthly statistics", response));
     }
 
     @Operation(summary = "Get recent reports for admin dashboard")

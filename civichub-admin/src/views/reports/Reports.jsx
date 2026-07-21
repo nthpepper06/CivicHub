@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import {
-  CAlert,
   CButton,
   CCard,
   CCardBody,
@@ -30,21 +29,32 @@ import { cilInfo, cilSearch } from '@coreui/icons'
 import { getAuditLogs } from '../../api/auditLogService'
 import { getCategories } from '../../api/categoryService'
 import { getDepartments } from '../../api/departmentService'
-import { assignReportDepartment, getReport, getReports } from '../../api/reportService'
+import {
+  assignReportDepartment,
+  exportReports,
+  getReport,
+  getReports,
+  updateReportStatus,
+} from '../../api/reportService'
 import { getApiErrorMessage } from '../../api/apiUtils'
 import {
   EmptyState,
   ErrorAlert,
+  ConfirmDialog,
   LoadingState,
   PagePagination,
   StatusBadge,
 } from '../../components/admin/AdminPageState'
 import AdminToast from '../../components/admin/AdminToast'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
-import { downloadCsv } from '../../utils/csvExport'
 import { formatDateTime, formatLabel } from '../../utils/display'
 
 const statuses = ['PENDING', 'RECEIVED', 'IN_PROGRESS', 'RESOLVED', 'REJECTED', 'CANCELLED']
+const reportTransitions = {
+  PENDING: ['RECEIVED', 'REJECTED'],
+  RECEIVED: ['IN_PROGRESS', 'REJECTED'],
+  IN_PROGRESS: ['RESOLVED', 'REJECTED'],
+}
 
 const Reports = () => {
   const [reports, setReports] = useState([])
@@ -61,11 +71,14 @@ const Reports = () => {
   const [detailLoading, setDetailLoading] = useState(false)
   const [timelineLoading, setTimelineLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [detail, setDetail] = useState(null)
   const [timeline, setTimeline] = useState([])
   const [assignDepartmentId, setAssignDepartmentId] = useState('')
+  const [nextStatus, setNextStatus] = useState('')
+  const [confirmStatus, setConfirmStatus] = useState(false)
   const debouncedSearch = useDebouncedValue(search, 400)
   const selectedSameDepartment =
     detail?.departmentId && Number(assignDepartmentId) === Number(detail.departmentId)
@@ -130,6 +143,7 @@ const Reports = () => {
       const data = await getReport(reportId)
       setDetail(data)
       setAssignDepartmentId(data?.departmentId || '')
+      setNextStatus('')
     } catch (detailError) {
       setError(getApiErrorMessage(detailError))
     } finally {
@@ -168,6 +182,7 @@ const Reports = () => {
       setAssignDepartmentId(updated?.departmentId || '')
       setSuccess('Report department assigned.')
       await loadReports()
+      await openDetail(updated.id)
     } catch (assignError) {
       setError(getApiErrorMessage(assignError))
     } finally {
@@ -175,23 +190,50 @@ const Reports = () => {
     }
   }
 
-  const exportCurrentPage = () => {
-    downloadCsv({
-      filename: 'civichub-reports-current-page.csv',
-      columns: [
-        { header: 'ID', value: (report) => report.id },
-        { header: 'Title', value: (report) => report.title },
-        { header: 'Citizen', value: (report) => report.citizenName },
-        { header: 'Category', value: (report) => report.categoryName },
-        { header: 'Department', value: (report) => report.departmentName },
-        { header: 'Status', value: (report) => report.status },
-        { header: 'Address', value: (report) => report.address },
-        { header: 'Created At', value: (report) => report.createdAt },
-        { header: 'Updated At', value: (report) => report.updatedAt },
-      ],
-      rows: reports,
-    })
+  const handleStatusUpdate = async () => {
+    if (!detail || !nextStatus || nextStatus === detail.status) {
+      return
+    }
+
+    setSaving(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const updated = await updateReportStatus(detail.id, nextStatus)
+      setConfirmStatus(false)
+      setSuccess('Report status updated.')
+      await loadReports()
+      await openDetail(updated.id)
+    } catch (statusError) {
+      setError(getApiErrorMessage(statusError))
+    } finally {
+      setSaving(false)
+    }
   }
+
+  const handleExport = async () => {
+    setExporting(true)
+    setError('')
+
+    try {
+      await exportReports({
+        search: debouncedSearch.trim(),
+        status,
+        categoryId,
+        departmentId,
+        sortBy: 'createdAt',
+        direction,
+      })
+      setSuccess('Reports CSV downloaded.')
+    } catch (exportError) {
+      setError(getApiErrorMessage(exportError))
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const availableStatuses = detail ? reportTransitions[detail.status] || [] : []
 
   return (
     <>
@@ -202,10 +244,11 @@ const Reports = () => {
           <CButton
             color="secondary"
             variant="outline"
-            onClick={exportCurrentPage}
-            disabled={loading || reports.length === 0}
+            onClick={handleExport}
+            disabled={exporting || loading}
           >
-            Export current page CSV
+            {exporting && <CSpinner component="span" size="sm" className="me-2" />}
+            Export CSV
           </CButton>
         </CCardHeader>
         <CCardBody>
@@ -394,10 +437,35 @@ const Reports = () => {
                 </CCol>
               </CRow>
 
-              <CAlert color="info">
-                Report status updates are available through the staff report workflow. The backend
-                does not expose an ADMIN status update endpoint.
-              </CAlert>
+              <CRow className="g-2 mb-4">
+                <CCol md={8}>
+                  <CFormSelect
+                    label="Update status"
+                    value={nextStatus}
+                    disabled={!availableStatuses.length || saving}
+                    onChange={(event) => setNextStatus(event.target.value)}
+                  >
+                    <option value="">
+                      {availableStatuses.length ? 'Select next status' : 'No valid next status'}
+                    </option>
+                    {availableStatuses.map((item) => (
+                      <option key={item} value={item}>
+                        {formatLabel(item)}
+                      </option>
+                    ))}
+                  </CFormSelect>
+                </CCol>
+                <CCol md={4} className="d-flex align-items-end">
+                  <CButton
+                    color="primary"
+                    className="w-100"
+                    disabled={saving || !nextStatus || nextStatus === detail.status}
+                    onClick={() => setConfirmStatus(true)}
+                  >
+                    Update status
+                  </CButton>
+                </CCol>
+              </CRow>
 
               <CRow className="g-2 mb-4">
                 <CCol md={8}>
@@ -494,6 +562,18 @@ const Reports = () => {
           </CButton>
         </CModalFooter>
       </CModal>
+      <ConfirmDialog
+        visible={confirmStatus}
+        title="Update report status"
+        message={`Change report #${detail?.id} from ${formatLabel(detail?.status)} to ${formatLabel(
+          nextStatus,
+        )}?`}
+        confirmLabel="Update status"
+        confirmColor="primary"
+        loading={saving}
+        onCancel={() => setConfirmStatus(false)}
+        onConfirm={handleStatusUpdate}
+      />
     </>
   )
 }

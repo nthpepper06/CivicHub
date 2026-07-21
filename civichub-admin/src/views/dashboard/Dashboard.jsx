@@ -106,7 +106,10 @@ const Dashboard = () => {
   const [recentLoading, setRecentLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [sectionErrors, setSectionErrors] = useState({})
-  const [range, setRange] = useState(() => getPresetRange('month'))
+  const [draftRange, setDraftRange] = useState(() => getPresetRange('month'))
+  const [appliedRange, setAppliedRange] = useState(() => getPresetRange('month'))
+  const [rangeError, setRangeError] = useState('')
+  const [refreshIndex, setRefreshIndex] = useState(0)
 
   useEffect(() => {
     const loadDashboardStats = async () => {
@@ -119,11 +122,16 @@ const Dashboard = () => {
         monthly: '',
       }))
 
+      const params = {
+        from: appliedRange.from ? toApiDateTime(appliedRange.from) : undefined,
+        to: appliedRange.to ? toApiDateTime(appliedRange.to, true) : undefined,
+      }
+
       const results = await Promise.allSettled([
-        getDashboardSummary(),
-        getCategoryStatistics(),
-        getDepartmentStatistics(),
-        getMonthlyStatistics(new Date().getFullYear()),
+        getDashboardSummary(params),
+        getCategoryStatistics(params),
+        getDepartmentStatistics(params),
+        getMonthlyStatistics(new Date().getFullYear(), params),
       ])
 
       const [summaryResult, categoryResult, departmentResult, monthlyResult] = results
@@ -166,7 +174,7 @@ const Dashboard = () => {
     }, 0)
 
     return () => window.clearTimeout(loadTimer)
-  }, [])
+  }, [appliedRange, refreshIndex])
 
   useEffect(() => {
     const loadRecentReports = async () => {
@@ -174,20 +182,9 @@ const Dashboard = () => {
       setRefreshing(true)
       setSectionErrors((current) => ({ ...current, recent: '' }))
 
-      if (range.from && range.to && range.from > range.to) {
-        setRecentReports([])
-        setSectionErrors((current) => ({
-          ...current,
-          recent: 'From date must be before or equal to To date.',
-        }))
-        setRecentLoading(false)
-        setRefreshing(false)
-        return
-      }
-
       try {
-        const createdFrom = range.from ? toApiDateTime(range.from) : undefined
-        const createdTo = range.to ? toApiDateTime(range.to, true) : undefined
+        const createdFrom = appliedRange.from ? toApiDateTime(appliedRange.from) : undefined
+        const createdTo = appliedRange.to ? toApiDateTime(appliedRange.to, true) : undefined
         const recentData = await getReports({
           page: 0,
           size: 10,
@@ -211,7 +208,7 @@ const Dashboard = () => {
     }, 0)
 
     return () => window.clearTimeout(loadTimer)
-  }, [range])
+  }, [appliedRange, refreshIndex])
 
   const monthlyChart = useMemo(() => {
     const byMonth = new Map(monthly.map((item) => [item.month, item]))
@@ -220,11 +217,42 @@ const Dashboard = () => {
   }, [monthly])
 
   const handlePreset = (preset) => {
-    setRange(getPresetRange(preset))
+    setDraftRange(getPresetRange(preset))
+    setRangeError('')
   }
 
   const handleRangeChange = (field, value) => {
-    setRange((current) => ({ ...current, preset: 'custom', [field]: value }))
+    setDraftRange((current) => ({ ...current, preset: 'custom', [field]: value }))
+    setRangeError('')
+  }
+
+  const applyRange = () => {
+    if (draftRange.from && draftRange.to && draftRange.from > draftRange.to) {
+      setRangeError('From date must be before or equal to To date.')
+      return
+    }
+
+    setRangeError('')
+    setAppliedRange(draftRange)
+  }
+
+  const resetRange = () => {
+    const nextRange = getPresetRange('month')
+
+    setDraftRange(nextRange)
+    setAppliedRange(nextRange)
+    setRangeError('')
+  }
+
+  const refreshDashboard = () => {
+    if (draftRange.from && draftRange.to && draftRange.from > draftRange.to) {
+      setRangeError('From date must be before or equal to To date.')
+      return
+    }
+
+    setRangeError('')
+    setAppliedRange(draftRange)
+    setRefreshIndex((current) => current + 1)
   }
 
   if (loading) {
@@ -236,8 +264,10 @@ const Dashboard = () => {
       <CCard className="mb-4">
         <CCardBody className="d-flex flex-wrap gap-2 align-items-end justify-content-between">
           <div className="d-flex flex-wrap gap-2 align-items-end">
-            <div className="w-100 small text-body-secondary">Recent reports date range</div>
-            <CButtonGroup role="group" aria-label="Recent reports date presets">
+            <div className="w-100 small text-body-secondary">
+              Dashboard date range: {appliedRange.from || 'Any'} to {appliedRange.to || 'Any'}
+            </div>
+            <CButtonGroup role="group" aria-label="Dashboard date presets">
               {[
                 ['today', 'Today'],
                 ['week', 'This Week'],
@@ -247,7 +277,7 @@ const Dashboard = () => {
                 <CButton
                   key={value}
                   color="outline-primary"
-                  active={range.preset === value}
+                  active={draftRange.preset === value}
                   onClick={() => handlePreset(value)}
                 >
                   {label}
@@ -257,26 +287,36 @@ const Dashboard = () => {
             <CFormInput
               type="date"
               label="From"
-              value={range.from}
+              value={draftRange.from}
               onChange={(event) => handleRangeChange('from', event.target.value)}
             />
             <CFormInput
               type="date"
               label="To"
-              value={range.to}
+              value={draftRange.to}
               onChange={(event) => handleRangeChange('to', event.target.value)}
             />
           </div>
-          <CButton
-            color="primary"
-            onClick={() => setRange((current) => ({ ...current }))}
-            disabled={refreshing}
-          >
-            {refreshing && <CSpinner component="span" size="sm" className="me-2" />}
-            Refresh
-          </CButton>
+          <div className="d-flex flex-wrap gap-2">
+            <CButton color="primary" onClick={applyRange} disabled={refreshing}>
+              Apply
+            </CButton>
+            <CButton color="secondary" variant="outline" onClick={resetRange} disabled={refreshing}>
+              Reset
+            </CButton>
+            <CButton
+              color="secondary"
+              variant="outline"
+              onClick={refreshDashboard}
+              disabled={refreshing}
+            >
+              {refreshing && <CSpinner component="span" size="sm" className="me-2" />}
+              Refresh
+            </CButton>
+          </div>
         </CCardBody>
       </CCard>
+      <ErrorAlert message={rangeError} />
       <ErrorAlert message={sectionErrors.summary} />
       <CRow>
         <StatCard

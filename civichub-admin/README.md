@@ -64,6 +64,7 @@ Use local fake test accounts only. Do not document or commit real passwords.
 ## Admin Modules
 
 - Dashboard
+- Users
 - Categories
 - Departments
 - Reports
@@ -71,10 +72,15 @@ Use local fake test accounts only. Do not document or commit real passwords.
 - Audit Logs
 - Admin Profile
 
-The profile page is read-only because the backend currently exposes
-`GET /api/auth/me` only. There is no backend endpoint for profile update,
-change password, user management, full-database export, selected notification
-bulk mark-read, admin report status update, or report priority update.
+Sprint 3.5 connects the admin UI to backend APIs for user management, profile
+update, change password, admin report status workflow, dashboard date-range
+analytics, backend CSV export, and selected notification mark-read.
 
-CSV export buttons export only the data already loaded in the current table
-page. They do not represent a full database export.
+Backend CSV export is used for Reports, Users, and Audit Logs and keeps the
+current filters. Categories, Departments, and Notifications still use
+current-page CSV export because backend export endpoints are not defined for
+those modules.
+
+Changing password logs out the frontend and asks the user to sign in again.
+The backend does not yet implement JWT revocation, so previously issued JWTs
+may remain technically valid until their normal expiry.

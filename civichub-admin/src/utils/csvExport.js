@@ -3,10 +3,20 @@ const escapeCsvValue = (value) => {
     return ''
   }
 
-  const text = String(value)
+  const text = sanitizeFormula(String(value))
 
   if (/[",\r\n]/.test(text)) {
     return `"${text.replaceAll('"', '""')}"`
+  }
+
+  return text
+}
+
+const sanitizeFormula = (text) => {
+  const firstValueIndex = text.search(/\S/)
+
+  if (firstValueIndex >= 0 && ['=', '+', '-', '@'].includes(text[firstValueIndex])) {
+    return `'${text}`
   }
 
   return text

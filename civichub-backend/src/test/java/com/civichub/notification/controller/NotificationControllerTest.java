@@ -1,5 +1,6 @@
 package com.civichub.notification.controller;
 
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -21,10 +22,12 @@ import com.civichub.security.RestAuthenticationEntryPoint;
 import com.civichub.security.SecurityConfig;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(NotificationController.class)
@@ -119,6 +122,34 @@ class NotificationControllerTest {
                         .with(user("citizen@example.com").roles("CITIZEN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.updatedCount").value(5));
+    }
+
+    @Test
+    void markSelectedReadReturnsOkAndPassesIdsToService() throws Exception {
+        when(notificationService.markSelectedAsRead(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(NotificationReadAllResponse.builder().updatedCount(2).build());
+
+        mockMvc.perform(patch("/api/notifications/read")
+                        .with(user("citizen@example.com").roles("CITIZEN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"notificationIds\":[10,11]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.updatedCount").value(2));
+
+        ArgumentCaptor<com.civichub.notification.dto.request.NotificationBulkReadRequest> requestCaptor =
+                ArgumentCaptor.forClass(com.civichub.notification.dto.request.NotificationBulkReadRequest.class);
+        verify(notificationService).markSelectedAsRead(requestCaptor.capture());
+        org.assertj.core.api.Assertions.assertThat(requestCaptor.getValue().getNotificationIds())
+                .containsExactly(10L, 11L);
+    }
+
+    @Test
+    void invalidSelectedReadRequestReturnsBadRequest() throws Exception {
+        mockMvc.perform(patch("/api/notifications/read")
+                        .with(user("citizen@example.com").roles("CITIZEN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"notificationIds\":[]}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

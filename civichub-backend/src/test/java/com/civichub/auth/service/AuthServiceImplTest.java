@@ -7,19 +7,24 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.civichub.audit.service.AuditService;
+import com.civichub.auth.dto.request.ChangePasswordRequest;
 import com.civichub.auth.dto.request.LoginRequest;
+import com.civichub.auth.dto.request.ProfileUpdateRequest;
 import com.civichub.auth.dto.request.RegisterRequest;
 import com.civichub.auth.dto.response.AuthResponse;
 import com.civichub.auth.dto.response.CurrentUserResponse;
 import com.civichub.auth.mapper.AuthMapper;
 import com.civichub.common.enums.UserRole;
 import com.civichub.common.enums.UserStatus;
+import com.civichub.common.exception.InvalidReportStateException;
 import com.civichub.common.exception.ResourceAlreadyExistsException;
 import com.civichub.security.CivicHubUserPrincipal;
 import com.civichub.security.JwtService;
 import com.civichub.user.entity.User;
 import com.civichub.user.repository.UserRepository;
 import java.util.Optional;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,6 +55,9 @@ class AuthServiceImplTest {
     @Mock
     private AuthMapper authMapper;
 
+    @Mock
+    private AuditService auditService;
+
     private AuthServiceImpl authService;
 
     @BeforeEach
@@ -58,7 +67,13 @@ class AuthServiceImplTest {
                 passwordEncoder,
                 authenticationManager,
                 jwtService,
-                authMapper);
+                authMapper,
+                auditService);
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -157,6 +172,87 @@ class AuthServiceImplTest {
                 .isInstanceOf(BadCredentialsException.class)
                 .hasMessage("Invalid email or password");
         verify(userRepository, never()).findByEmail(any());
+    }
+
+    @Test
+    void updateCurrentUserShouldOnlySaveAllowedProfileFieldsAndAudit() {
+        authenticate("citizen@example.com");
+        User user = citizenUser();
+        CurrentUserResponse mapped = CurrentUserResponse.builder()
+                .id(1L)
+                .fullName("Nguyen Van B")
+                .email("citizen@example.com")
+                .phone("0909111222")
+                .role(UserRole.CITIZEN)
+                .status(UserStatus.ACTIVE)
+                .isActive(true)
+                .build();
+        when(userRepository.findByEmail("citizen@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.save(user)).thenReturn(user);
+        when(authMapper.toCurrentUserResponse(user)).thenReturn(mapped);
+
+        CurrentUserResponse response = authService.updateCurrentUser(
+                new ProfileUpdateRequest(" Nguyen Van B ", " 0909111222 ", " "));
+
+        assertThat(response.getFullName()).isEqualTo("Nguyen Van B");
+        assertThat(user.getFullName()).isEqualTo("Nguyen Van B");
+        assertThat(user.getPhone()).isEqualTo("0909111222");
+        assertThat(user.getAvatar()).isNull();
+        assertThat(user.getEmail()).isEqualTo("citizen@example.com");
+        assertThat(user.getRole()).isEqualTo(UserRole.CITIZEN);
+        verify(auditService).recordProfileUpdated(any(User.class), any());
+    }
+
+    @Test
+    void changePasswordShouldRejectWrongCurrentPassword() {
+        authenticate("citizen@example.com");
+        User user = citizenUser();
+        when(userRepository.findByEmail("citizen@example.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong-password", "encoded-password")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.changePassword(
+                new ChangePasswordRequest("wrong-password", "new-password")))
+                .isInstanceOf(InvalidReportStateException.class)
+                .hasMessage("Current password is incorrect");
+        verify(userRepository, never()).save(any(User.class));
+        verify(auditService, never()).recordPasswordChanged(any(User.class));
+    }
+
+    @Test
+    void changePasswordShouldRejectSamePassword() {
+        authenticate("citizen@example.com");
+        User user = citizenUser();
+        when(userRepository.findByEmail("citizen@example.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("old-password", "encoded-password")).thenReturn(true);
+        when(passwordEncoder.matches("old-password-new", "encoded-password")).thenReturn(true);
+
+        assertThatThrownBy(() -> authService.changePassword(
+                new ChangePasswordRequest("old-password", "old-password-new")))
+                .isInstanceOf(InvalidReportStateException.class)
+                .hasMessage("New password must be different from current password");
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void changePasswordShouldSaveNewHashAndAudit() {
+        authenticate("citizen@example.com");
+        User user = citizenUser();
+        when(userRepository.findByEmail("citizen@example.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("old-password", "encoded-password")).thenReturn(true);
+        when(passwordEncoder.matches("new-password", "encoded-password")).thenReturn(false);
+        when(passwordEncoder.encode("new-password")).thenReturn("new-hash");
+        when(userRepository.save(user)).thenReturn(user);
+
+        authService.changePassword(new ChangePasswordRequest("old-password", "new-password"));
+
+        assertThat(user.getPassword()).isEqualTo("new-hash");
+        verify(userRepository).save(user);
+        verify(auditService).recordPasswordChanged(user);
+    }
+
+    private void authenticate(String email) {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(email, null, java.util.List.of()));
     }
 
     private User citizenUser() {

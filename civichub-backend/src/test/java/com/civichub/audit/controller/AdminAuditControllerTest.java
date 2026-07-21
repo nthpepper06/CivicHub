@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -32,6 +34,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(AdminAuditController.class)
@@ -100,6 +103,21 @@ class AdminAuditControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(10))
                 .andExpect(jsonPath("$.data.newValues").value("{\"status\":\"CANCELLED\"}"));
+    }
+
+    @Test
+    void adminCanExportAuditLogs() throws Exception {
+        when(auditService.exportAuditLogsCsv(null, null, null, null, null, null, null, null, null, null))
+                .thenReturn("\ufeffID,Description\n10,'=SUM(A1:A2)");
+
+        mockMvc.perform(get("/api/admin/audit-logs/export")
+                        .with(user("admin@example.com").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("text/csv"))
+                .andExpect(header().string(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"civichub-audit-logs.csv\""))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("'=SUM")));
     }
 
     @Test

@@ -1,6 +1,8 @@
 package com.civichub.auth.controller;
 
+import com.civichub.auth.dto.request.ChangePasswordRequest;
 import com.civichub.auth.dto.request.LoginRequest;
+import com.civichub.auth.dto.request.ProfileUpdateRequest;
 import com.civichub.auth.dto.request.RegisterRequest;
 import com.civichub.auth.dto.response.AuthResponse;
 import com.civichub.auth.dto.response.CurrentUserResponse;
@@ -14,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -59,5 +62,19 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<CurrentUserResponse>> getCurrentUser() {
         return ResponseEntity.ok(ApiResponse.success("Current user", authService.getCurrentUser()));
+    }
+
+    @Operation(summary = "Update current authenticated user's safe profile fields", security = @SecurityRequirement(name = "bearerAuth"))
+    @PatchMapping("/me")
+    public ResponseEntity<ApiResponse<CurrentUserResponse>> updateCurrentUser(
+            @Valid @RequestBody ProfileUpdateRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Profile updated", authService.updateCurrentUser(request)));
+    }
+
+    @Operation(summary = "Change current authenticated user's password", security = @SecurityRequirement(name = "bearerAuth"))
+    @PatchMapping("/change-password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Password changed", null));
     }
 }

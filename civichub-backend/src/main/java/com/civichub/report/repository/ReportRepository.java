@@ -53,8 +53,43 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
                 coalesce(sum(case when r.status = com.civichub.common.enums.ReportStatus.CANCELLED then 1 else 0 end), 0)
             )
             from Report r
+            where r.createdAt >= :createdFrom
+              and r.createdAt <= :createdTo
+            """)
+    ReportStatusStatisticResponse countReportsByStatus(
+            @Param("createdFrom") java.time.LocalDateTime createdFrom,
+            @Param("createdTo") java.time.LocalDateTime createdTo);
+
+    @Query("""
+            select new com.civichub.dashboard.dto.response.ReportStatusStatisticResponse(
+                count(r),
+                coalesce(sum(case when r.status = com.civichub.common.enums.ReportStatus.PENDING then 1 else 0 end), 0),
+                coalesce(sum(case when r.status = com.civichub.common.enums.ReportStatus.RECEIVED then 1 else 0 end), 0),
+                coalesce(sum(case when r.status = com.civichub.common.enums.ReportStatus.IN_PROGRESS then 1 else 0 end), 0),
+                coalesce(sum(case when r.status = com.civichub.common.enums.ReportStatus.RESOLVED then 1 else 0 end), 0),
+                coalesce(sum(case when r.status = com.civichub.common.enums.ReportStatus.REJECTED then 1 else 0 end), 0),
+                coalesce(sum(case when r.status = com.civichub.common.enums.ReportStatus.CANCELLED then 1 else 0 end), 0)
+            )
+            from Report r
             """)
     ReportStatusStatisticResponse countReportsByStatus();
+
+    @Query("""
+            select new com.civichub.dashboard.dto.response.CategoryStatisticResponse(
+                c.id,
+                c.name,
+                count(r)
+            )
+            from Report r
+            join r.category c
+            where r.createdAt >= :createdFrom
+              and r.createdAt <= :createdTo
+            group by c.id, c.name
+            order by count(r) desc, c.name asc
+            """)
+    List<CategoryStatisticResponse> countReportsByCategory(
+            @Param("createdFrom") java.time.LocalDateTime createdFrom,
+            @Param("createdTo") java.time.LocalDateTime createdTo);
 
     @Query("""
             select new com.civichub.dashboard.dto.response.CategoryStatisticResponse(
@@ -77,6 +112,23 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
             )
             from Report r
             join r.department d
+            where r.createdAt >= :createdFrom
+              and r.createdAt <= :createdTo
+            group by d.id, d.name
+            order by count(r) desc, d.name asc
+            """)
+    List<DepartmentStatisticResponse> countReportsByDepartment(
+            @Param("createdFrom") java.time.LocalDateTime createdFrom,
+            @Param("createdTo") java.time.LocalDateTime createdTo);
+
+    @Query("""
+            select new com.civichub.dashboard.dto.response.DepartmentStatisticResponse(
+                d.id,
+                d.name,
+                count(r)
+            )
+            from Report r
+            join r.department d
             group by d.id, d.name
             order by count(r) desc, d.name asc
             """)
@@ -84,14 +136,32 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
 
     @Query("""
             select new com.civichub.dashboard.dto.response.MonthlyStatisticResponse(
-                month(r.createdAt),
+                extract(month from r.createdAt),
                 count(r),
                 coalesce(sum(case when r.status = com.civichub.common.enums.ReportStatus.RESOLVED then 1 else 0 end), 0)
             )
             from Report r
-            where year(r.createdAt) = :year
-            group by month(r.createdAt)
-            order by month(r.createdAt) asc
+            where extract(year from r.createdAt) = :year
+              and r.createdAt >= :createdFrom
+              and r.createdAt <= :createdTo
+            group by extract(month from r.createdAt)
+            order by extract(month from r.createdAt) asc
+            """)
+    List<MonthlyStatisticResponse> countReportsByMonth(
+            @Param("year") int year,
+            @Param("createdFrom") java.time.LocalDateTime createdFrom,
+            @Param("createdTo") java.time.LocalDateTime createdTo);
+
+    @Query("""
+            select new com.civichub.dashboard.dto.response.MonthlyStatisticResponse(
+                extract(month from r.createdAt),
+                count(r),
+                coalesce(sum(case when r.status = com.civichub.common.enums.ReportStatus.RESOLVED then 1 else 0 end), 0)
+            )
+            from Report r
+            where extract(year from r.createdAt) = :year
+            group by extract(month from r.createdAt)
+            order by extract(month from r.createdAt) asc
             """)
     List<MonthlyStatisticResponse> countReportsByMonth(@Param("year") int year);
 

@@ -7,6 +7,7 @@ import {
   clearAuthStorage,
   getAccessToken,
   getStoredUser,
+  replaceStoredUser,
   setAccessToken,
   setStoredUser,
 } from '../utils/authStorage'
@@ -128,18 +129,24 @@ export const AuthProvider = ({ children }) => {
     [navigate],
   )
 
+  const updateUser = useCallback((nextUser) => {
+    setUser(nextUser)
+    replaceStoredUser(nextUser)
+  }, [])
+
   const value = useMemo(
     () => ({
       user,
       token,
       login,
       logout,
+      updateUser,
       restoreSession,
       isAuthenticated: Boolean(token && user),
       isAdmin: user?.role === 'ADMIN',
       restored,
     }),
-    [login, logout, restoreSession, restored, token, user],
+    [login, logout, restoreSession, restored, token, updateUser, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

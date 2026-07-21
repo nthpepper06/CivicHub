@@ -396,6 +396,35 @@ class ReportServiceImplTest {
     }
 
     @Test
+    void adminStatusUpdateShouldUseAdminEndpointWorkflowAndAudit() {
+        Report report = report(ReportStatus.PENDING, department(5L, true));
+        when(reportRepository.findDetailById(99L)).thenReturn(Optional.of(report));
+        when(reportRepository.save(report)).thenReturn(report);
+        when(reportMapper.toDetailResponse(report)).thenReturn(ReportDetailResponse.builder().id(99L).build());
+
+        reportService.updateAdminReportStatus(99L, new ReportStatusUpdateRequest(ReportStatus.RECEIVED));
+
+        assertThat(report.getStatus()).isEqualTo(ReportStatus.RECEIVED);
+        verify(notificationService).createReportStatusChangedNotification(
+                report,
+                ReportStatus.PENDING,
+                ReportStatus.RECEIVED);
+        verify(auditService).recordReportStatusChanged(99L, "Report", ReportStatus.PENDING, ReportStatus.RECEIVED);
+    }
+
+    @Test
+    void adminStatusUpdateShouldRejectInvalidTransition() {
+        when(reportRepository.findDetailById(99L)).thenReturn(Optional.of(report(ReportStatus.PENDING, null)));
+
+        assertThatThrownBy(() -> reportService.updateAdminReportStatus(
+                99L,
+                new ReportStatusUpdateRequest(ReportStatus.RESOLVED)))
+                .isInstanceOf(InvalidReportStateException.class);
+        verify(reportRepository, never()).save(any(Report.class));
+        verify(notificationService, never()).createReportStatusChangedNotification(any(), any(), any());
+    }
+
+    @Test
     void adminAssignShouldRejectMissingDepartment() {
         when(reportRepository.findDetailById(99L)).thenReturn(Optional.of(report(ReportStatus.PENDING, null)));
         when(departmentRepository.findById(5L)).thenReturn(Optional.empty());

@@ -25,6 +25,10 @@ spring:
 
 app:
   timezone: Asia/Ho_Chi_Minh
+  database:
+    auto-sync-audit-log-actions: ${AUTO_SYNC_AUDIT_LOG_ACTIONS:true}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
   upload:
     path: ${UPLOAD_PATH:uploads}
   jwt:

@@ -8,7 +8,9 @@ import com.civichub.category.entity.Category;
 import com.civichub.common.PageResponse;
 import com.civichub.common.enums.ReportStatus;
 import com.civichub.common.enums.UserRole;
+import com.civichub.common.enums.UserStatus;
 import com.civichub.department.entity.Department;
+import com.civichub.user.entity.User;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -30,6 +32,18 @@ public interface AuditService {
 
     AuditLogDetailResponse getAuditLog(Long id);
 
+    String exportAuditLogsCsv(
+            AuditAction action,
+            AuditEntityType entityType,
+            Long entityId,
+            Long actorId,
+            UserRole actorRole,
+            LocalDateTime createdFrom,
+            LocalDateTime createdTo,
+            String search,
+            String sortBy,
+            String direction);
+
     void recordCategoryCreated(Category category);
 
     void recordCategoryUpdated(Category category, Map<String, Object> oldValues);
@@ -47,4 +61,12 @@ public interface AuditService {
     void recordReportStatusChanged(Long reportId, String reportTitle, ReportStatus oldStatus, ReportStatus newStatus);
 
     void recordReportCancelled(Long reportId, String reportTitle);
+
+    void recordProfileUpdated(User user, Map<String, Object> oldValues);
+
+    void recordPasswordChanged(User user);
+
+    void recordUserStatusChanged(User user, boolean oldActive, boolean newActive, UserStatus oldStatus, UserStatus newStatus);
+
+    void recordUserDepartmentChanged(User user, Department oldDepartment, Department newDepartment);
 }

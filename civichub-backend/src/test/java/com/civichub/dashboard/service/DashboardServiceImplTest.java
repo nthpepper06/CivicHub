@@ -91,6 +91,52 @@ class DashboardServiceImplTest {
     }
 
     @Test
+    void adminSummaryShouldApplyDateRangeWhenProvided() {
+        LocalDateTime from = LocalDateTime.parse("2026-01-01T00:00:00");
+        LocalDateTime to = LocalDateTime.parse("2026-01-31T23:59:59");
+        when(reportRepository.countReportsByStatus(from, to))
+                .thenReturn(new ReportStatusStatisticResponse(2, 1, 0, 0, 1, 0, 0));
+        when(userRepository.countByRole(UserRole.CITIZEN)).thenReturn(11L);
+        when(userRepository.countByRole(UserRole.STAFF)).thenReturn(4L);
+        when(departmentRepository.count()).thenReturn(3L);
+        when(categoryRepository.count()).thenReturn(7L);
+
+        var response = dashboardService.getAdminSummary(from, to);
+
+        assertThat(response.getTotalReports()).isEqualTo(2);
+        verify(reportRepository).countReportsByStatus(from, to);
+    }
+
+    @Test
+    void adminSummaryShouldUseNonNullRepositoryBoundsForOpenEndedDateRange() {
+        LocalDateTime to = LocalDateTime.parse("2026-01-31T23:59:59");
+        when(reportRepository.countReportsByStatus(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(new ReportStatusStatisticResponse(2, 1, 0, 0, 1, 0, 0));
+        when(userRepository.countByRole(UserRole.CITIZEN)).thenReturn(11L);
+        when(userRepository.countByRole(UserRole.STAFF)).thenReturn(4L);
+        when(departmentRepository.count()).thenReturn(3L);
+        when(categoryRepository.count()).thenReturn(7L);
+
+        dashboardService.getAdminSummary(null, to);
+
+        ArgumentCaptor<LocalDateTime> fromCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        ArgumentCaptor<LocalDateTime> toCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(reportRepository).countReportsByStatus(fromCaptor.capture(), toCaptor.capture());
+        assertThat(fromCaptor.getValue()).isNotNull();
+        assertThat(toCaptor.getValue()).isEqualTo(to);
+    }
+
+    @Test
+    void invalidAdminDashboardDateRangeShouldBeRejected() {
+        LocalDateTime from = LocalDateTime.parse("2026-02-01T00:00:00");
+        LocalDateTime to = LocalDateTime.parse("2026-01-01T00:00:00");
+
+        assertThatThrownBy(() -> dashboardService.getAdminSummary(from, to))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid date range");
+    }
+
+    @Test
     void monthlyStatisticsShouldAlwaysReturnTwelveMonthsAndFillMissingWithZero() {
         when(reportRepository.countReportsByMonth(2026))
                 .thenReturn(List.of(
@@ -112,6 +158,24 @@ class DashboardServiceImplTest {
         assertThat(response.get(0).getTotalReports()).isZero();
         assertThat(response.get(1).getTotalReports()).isEqualTo(5);
         assertThat(response.get(11).getTotalReports()).isEqualTo(1);
+    }
+
+    @Test
+    void monthlyStatisticsShouldApplyDateRangeWhenProvided() {
+        LocalDateTime from = LocalDateTime.parse("2026-03-01T00:00:00");
+        LocalDateTime to = LocalDateTime.parse("2026-03-31T23:59:59");
+        when(reportRepository.countReportsByMonth(2026, from, to))
+                .thenReturn(List.of(MonthlyStatisticResponse.builder()
+                        .month(3)
+                        .totalReports(4)
+                        .resolvedReports(2)
+                        .build()));
+
+        List<MonthlyStatisticResponse> response = dashboardService.getMonthlyStatistics(2026, from, to);
+
+        assertThat(response).hasSize(12);
+        assertThat(response.get(2).getTotalReports()).isEqualTo(4);
+        verify(reportRepository).countReportsByMonth(2026, from, to);
     }
 
     @Test

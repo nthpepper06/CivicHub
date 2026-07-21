@@ -8,6 +8,7 @@ import com.civichub.common.enums.UserStatus;
 import com.civichub.common.exception.ResourceNotFoundException;
 import com.civichub.department.entity.Department;
 import com.civichub.notification.dto.response.NotificationReadAllResponse;
+import com.civichub.notification.dto.request.NotificationBulkReadRequest;
 import com.civichub.notification.dto.response.NotificationResponse;
 import com.civichub.notification.dto.response.UnreadNotificationCountResponse;
 import com.civichub.notification.entity.Notification;
@@ -20,6 +21,7 @@ import com.civichub.user.entity.User;
 import com.civichub.user.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -90,6 +92,19 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional
     public NotificationReadAllResponse markAllAsRead() {
         int updatedCount = notificationRepository.markAllAsRead(currentPrincipal().getUserId(), LocalDateTime.now());
+        return NotificationReadAllResponse.builder()
+                .updatedCount(updatedCount)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public NotificationReadAllResponse markSelectedAsRead(NotificationBulkReadRequest request) {
+        Set<Long> notificationIds = new LinkedHashSet<>(request.getNotificationIds());
+        int updatedCount = notificationRepository.markSelectedAsRead(
+                currentPrincipal().getUserId(),
+                notificationIds,
+                LocalDateTime.now());
         return NotificationReadAllResponse.builder()
                 .updatedCount(updatedCount)
                 .build();

@@ -2,6 +2,7 @@ package com.civichub.notification.repository;
 
 import com.civichub.notification.entity.Notification;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,4 +31,18 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
               and n.read = false
             """)
     int markAllAsRead(@Param("userId") Long userId, @Param("readAt") LocalDateTime readAt);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update Notification n
+            set n.read = true,
+                n.readAt = :readAt
+            where n.user.id = :userId
+              and n.id in :notificationIds
+              and n.read = false
+            """)
+    int markSelectedAsRead(
+            @Param("userId") Long userId,
+            @Param("notificationIds") Collection<Long> notificationIds,
+            @Param("readAt") LocalDateTime readAt);
 }

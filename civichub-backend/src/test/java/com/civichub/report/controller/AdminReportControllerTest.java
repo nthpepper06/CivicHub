@@ -5,6 +5,8 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -24,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -81,9 +84,48 @@ class AdminReportControllerTest {
     }
 
     @Test
+    void adminCanUpdateReportStatus() throws Exception {
+        when(reportService.updateAdminReportStatus(any(), any()))
+                .thenReturn(ReportDetailResponse.builder()
+                        .id(99L)
+                        .status(com.civichub.common.enums.ReportStatus.RECEIVED)
+                        .build());
+
+        mockMvc.perform(patch("/api/admin/reports/99/status")
+                        .with(user("admin@example.com").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"RECEIVED\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("RECEIVED"));
+    }
+
+    @Test
+    void adminCanExportReports() throws Exception {
+        when(reportService.exportAdminReportsCsv(
+                null, null, null, null, null, null, null, null, null, null))
+                .thenReturn("\ufeffID,Title\n99,'=SUM(A1:A2)");
+
+        mockMvc.perform(get("/api/admin/reports/export")
+                        .with(user("admin@example.com").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("text/csv"))
+                .andExpect(header().string(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"civichub-reports.csv\""))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("'=SUM")));
+    }
+
+    @Test
     void staffReceivesForbiddenForAdminReports() throws Exception {
         mockMvc.perform(get("/api/admin/reports")
                         .with(user("staff@example.com").roles("STAFF")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void citizenReceivesForbiddenForAdminReports() throws Exception {
+        mockMvc.perform(get("/api/admin/reports")
+                        .with(user("citizen@example.com").roles("CITIZEN")))
                 .andExpect(status().isForbidden());
     }
 

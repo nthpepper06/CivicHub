@@ -15,6 +15,7 @@ import {
   CModalHeader,
   CModalTitle,
   CRow,
+  CSpinner,
   CTable,
   CTableBody,
   CTableDataCell,
@@ -25,7 +26,7 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilInfo, cilSearch } from '@coreui/icons'
 
-import { getAuditLog, getAuditLogs } from '../../api/auditLogService'
+import { exportAuditLogs, getAuditLog, getAuditLogs } from '../../api/auditLogService'
 import { getApiErrorMessage } from '../../api/apiUtils'
 import {
   EmptyState,
@@ -34,7 +35,7 @@ import {
   PagePagination,
 } from '../../components/admin/AdminPageState'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
-import { downloadCsv } from '../../utils/csvExport'
+import AdminToast from '../../components/admin/AdminToast'
 import { formatDateTime, formatLabel } from '../../utils/display'
 
 const actions = [
@@ -50,8 +51,12 @@ const actions = [
   'REPORT_REASSIGNED',
   'REPORT_STATUS_CHANGED',
   'REPORT_CANCELLED',
+  'PROFILE_UPDATED',
+  'PASSWORD_CHANGED',
+  'USER_STATUS_CHANGED',
+  'USER_DEPARTMENT_CHANGED',
 ]
-const entityTypes = ['CATEGORY', 'DEPARTMENT', 'REPORT']
+const entityTypes = ['CATEGORY', 'DEPARTMENT', 'REPORT', 'USER']
 
 const AuditLogs = () => {
   const [logs, setLogs] = useState([])
@@ -65,9 +70,25 @@ const AuditLogs = () => {
   const [createdTo, setCreatedTo] = useState('')
   const [loading, setLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [detail, setDetail] = useState(null)
   const debouncedSearch = useDebouncedValue(search, 400)
+
+  const buildParams = useCallback(
+    () => ({
+      search: debouncedSearch.trim(),
+      action,
+      entityType,
+      actorId,
+      createdFrom: createdFrom ? `${createdFrom}T00:00:00` : '',
+      createdTo: createdTo ? `${createdTo}T23:59:59` : '',
+      sortBy: 'createdAt',
+      direction: 'DESC',
+    }),
+    [action, actorId, createdFrom, createdTo, debouncedSearch, entityType],
+  )
 
   const loadLogs = useCallback(async () => {
     if (createdFrom && createdTo && createdFrom > createdTo) {
@@ -83,14 +104,7 @@ const AuditLogs = () => {
       const data = await getAuditLogs({
         page,
         size: 20,
-        search: debouncedSearch.trim(),
-        action,
-        entityType,
-        actorId,
-        createdFrom: createdFrom ? `${createdFrom}T00:00:00` : '',
-        createdTo: createdTo ? `${createdTo}T23:59:59` : '',
-        sortBy: 'createdAt',
-        direction: 'DESC',
+        ...buildParams(),
       })
       setLogs(data.content)
       setPageInfo(data)
@@ -99,7 +113,7 @@ const AuditLogs = () => {
     } finally {
       setLoading(false)
     }
-  }, [action, actorId, createdFrom, createdTo, debouncedSearch, entityType, page])
+  }, [buildParams, createdFrom, createdTo, page])
 
   useEffect(() => {
     const loadTimer = window.setTimeout(() => {
@@ -132,36 +146,39 @@ const AuditLogs = () => {
     setCreatedTo('')
   }
 
-  const exportCurrentPage = () => {
-    downloadCsv({
-      filename: 'civichub-audit-logs-current-page.csv',
-      columns: [
-        { header: 'ID', value: (log) => log.id },
-        { header: 'Actor ID', value: (log) => log.actorId },
-        { header: 'Actor Name', value: (log) => log.actorName },
-        { header: 'Actor Role', value: (log) => log.actorRole },
-        { header: 'Action', value: (log) => log.action },
-        { header: 'Entity Type', value: (log) => log.entityType },
-        { header: 'Entity ID', value: (log) => log.entityId },
-        { header: 'Description', value: (log) => log.description },
-        { header: 'Created At', value: (log) => log.createdAt },
-      ],
-      rows: logs,
-    })
+  const handleExport = async () => {
+    if (createdFrom && createdTo && createdFrom > createdTo) {
+      setError('From date must be before or equal to To date.')
+      return
+    }
+
+    setExporting(true)
+    setError('')
+
+    try {
+      await exportAuditLogs(buildParams())
+      setSuccess('Audit logs CSV downloaded.')
+    } catch (exportError) {
+      setError(getApiErrorMessage(exportError))
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
     <>
+      <AdminToast message={success} onClose={() => setSuccess('')} />
       <CCard className="mb-4">
         <CCardHeader className="d-flex flex-wrap gap-2 align-items-center justify-content-between">
           <strong>Audit Logs</strong>
           <CButton
             color="secondary"
             variant="outline"
-            onClick={exportCurrentPage}
-            disabled={loading || logs.length === 0}
+            onClick={handleExport}
+            disabled={exporting || loading}
           >
-            Export current page CSV
+            {exporting && <CSpinner component="span" size="sm" className="me-2" />}
+            Export CSV
           </CButton>
         </CCardHeader>
         <CCardBody>

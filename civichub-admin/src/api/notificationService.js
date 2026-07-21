@@ -12,3 +12,6 @@ export const markNotificationAsRead = async (id) =>
 
 export const markAllNotificationsAsRead = async () =>
   unwrapData(await apiClient.patch('/api/notifications/read-all'))
+
+export const markSelectedNotificationsAsRead = async (notificationIds) =>
+  unwrapData(await apiClient.patch('/api/notifications/read', { notificationIds }))

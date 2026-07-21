@@ -7,17 +7,34 @@ import com.civichub.dashboard.dto.response.DepartmentStatisticResponse;
 import com.civichub.dashboard.dto.response.MonthlyStatisticResponse;
 import com.civichub.dashboard.dto.response.StaffDashboardSummaryResponse;
 import com.civichub.report.dto.response.ReportSummaryResponse;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface DashboardService {
 
-    DashboardSummaryResponse getAdminSummary();
+    DashboardSummaryResponse getAdminSummary(LocalDateTime createdFrom, LocalDateTime createdTo);
 
-    List<CategoryStatisticResponse> getCategoryStatistics();
+    default DashboardSummaryResponse getAdminSummary() {
+        return getAdminSummary(null, null);
+    }
 
-    List<DepartmentStatisticResponse> getDepartmentStatistics();
+    List<CategoryStatisticResponse> getCategoryStatistics(LocalDateTime createdFrom, LocalDateTime createdTo);
 
-    List<MonthlyStatisticResponse> getMonthlyStatistics(int year);
+    default List<CategoryStatisticResponse> getCategoryStatistics() {
+        return getCategoryStatistics(null, null);
+    }
+
+    List<DepartmentStatisticResponse> getDepartmentStatistics(LocalDateTime createdFrom, LocalDateTime createdTo);
+
+    default List<DepartmentStatisticResponse> getDepartmentStatistics() {
+        return getDepartmentStatistics(null, null);
+    }
+
+    List<MonthlyStatisticResponse> getMonthlyStatistics(int year, LocalDateTime createdFrom, LocalDateTime createdTo);
+
+    default List<MonthlyStatisticResponse> getMonthlyStatistics(int year) {
+        return getMonthlyStatistics(year, null, null);
+    }
 
     PageResponse<ReportSummaryResponse> getAdminRecentReports(int size);
 

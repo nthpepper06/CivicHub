@@ -13,6 +13,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -62,6 +64,35 @@ public class AdminAuditController {
                         search,
                         sortBy,
                         direction)));
+    }
+
+    @Operation(summary = "Export filtered audit logs as CSV")
+    @GetMapping(value = "/export", produces = "text/csv")
+    public ResponseEntity<String> exportAuditLogs(
+            @RequestParam(required = false) AuditAction action,
+            @RequestParam(required = false) AuditEntityType entityType,
+            @RequestParam(required = false) Long entityId,
+            @RequestParam(required = false) Long actorId,
+            @RequestParam(required = false) UserRole actorRole,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime createdFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime createdTo,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String direction) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"civichub-audit-logs.csv\"")
+                .contentType(new MediaType("text", "csv"))
+                .body(auditService.exportAuditLogsCsv(
+                        action,
+                        entityType,
+                        entityId,
+                        actorId,
+                        actorRole,
+                        createdFrom,
+                        createdTo,
+                        search,
+                        sortBy,
+                        direction));
     }
 
     @Operation(

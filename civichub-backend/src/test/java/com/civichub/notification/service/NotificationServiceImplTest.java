@@ -15,6 +15,7 @@ import com.civichub.common.enums.UserRole;
 import com.civichub.common.enums.UserStatus;
 import com.civichub.common.exception.ResourceNotFoundException;
 import com.civichub.department.entity.Department;
+import com.civichub.notification.dto.request.NotificationBulkReadRequest;
 import com.civichub.notification.entity.Notification;
 import com.civichub.notification.mapper.NotificationMapper;
 import com.civichub.notification.repository.NotificationRepository;
@@ -146,6 +147,21 @@ class NotificationServiceImplTest {
         var response = notificationService.markAllAsRead();
 
         assertThat(response.getUpdatedCount()).isEqualTo(3);
+    }
+
+    @Test
+    void markSelectedReadShouldDeduplicateIdsAndUseRecipientScopedBulkUpdate() {
+        authenticate(1L, UserRole.CITIZEN);
+        when(notificationRepository.markSelectedAsRead(
+                org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq(new java.util.LinkedHashSet<>(List.of(10L, 11L))),
+                any(LocalDateTime.class)))
+                .thenReturn(2);
+
+        var response = notificationService.markSelectedAsRead(
+                new NotificationBulkReadRequest(List.of(10L, 10L, 11L)));
+
+        assertThat(response.getUpdatedCount()).isEqualTo(2);
     }
 
     @Test

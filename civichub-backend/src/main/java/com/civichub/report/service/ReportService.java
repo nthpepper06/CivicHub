@@ -57,7 +57,21 @@ public interface ReportService {
             String sortBy,
             String direction);
 
+    String exportAdminReportsCsv(
+            String search,
+            ReportStatus status,
+            Long categoryId,
+            Long departmentId,
+            Long citizenId,
+            LocalDateTime createdFrom,
+            LocalDateTime createdTo,
+            Boolean assigned,
+            String sortBy,
+            String direction);
+
     ReportDetailResponse getAdminReport(Long id);
 
     ReportDetailResponse assignDepartment(Long id, ReportDepartmentAssignRequest request);
+
+    ReportDetailResponse updateAdminReportStatus(Long id, ReportStatusUpdateRequest request);
 }

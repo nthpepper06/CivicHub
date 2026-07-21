@@ -4,6 +4,7 @@ import com.civichub.common.PageResponse;
 import com.civichub.common.enums.NotificationType;
 import com.civichub.common.enums.ReportStatus;
 import com.civichub.department.entity.Department;
+import com.civichub.notification.dto.request.NotificationBulkReadRequest;
 import com.civichub.notification.dto.response.NotificationReadAllResponse;
 import com.civichub.notification.dto.response.NotificationResponse;
 import com.civichub.notification.dto.response.UnreadNotificationCountResponse;
@@ -26,6 +27,8 @@ public interface NotificationService {
     NotificationResponse markAsRead(Long id);
 
     NotificationReadAllResponse markAllAsRead();
+
+    NotificationReadAllResponse markSelectedAsRead(NotificationBulkReadRequest request);
 
     void createReportAssignedNotifications(Report report, Department department);
 

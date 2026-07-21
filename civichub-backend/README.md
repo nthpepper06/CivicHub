@@ -14,6 +14,16 @@ The main application uses PostgreSQL. Configure these environment variables befo
 
 Do not commit real database passwords.
 
+Configure the browser origins allowed to call the API:
+
+```powershell
+$env:CORS_ALLOWED_ORIGINS="http://localhost:3000,http://localhost:5173"
+```
+
+The default local value allows the Vite admin dev origins only. Bearer-token
+authentication does not require CORS credentials. The backend exposes
+`Content-Disposition` so the admin frontend can read CSV export filenames.
+
 Start the backend:
 
 ```powershell
@@ -28,6 +38,17 @@ $env:SPRING_PROFILES_ACTIVE="local"
 ```
 
 The `local` profile uses `spring.jpa.hibernate.ddl-auto=update` for local development only. The default application configuration keeps `ddl-auto=none` and should remain the safer baseline for shared or production environments.
+
+When enum values are added to columns backed by PostgreSQL check constraints,
+the backend synchronizes the Sprint 3.5 audit action constraint on startup by
+default. Set `AUTO_SYNC_AUDIT_LOG_ACTIONS=false` to disable this compatibility
+sync.
+
+If you need to apply the change manually, run:
+
+```powershell
+psql -h localhost -p 5432 -U $env:DB_USERNAME -d $env:DB_NAME -f src/main/resources/db/manual/20260722_sync_audit_log_action_check.sql
+```
 
 Swagger UI:
 
@@ -80,6 +101,41 @@ Authorization: Bearer <accessToken>
 ```
 
 The endpoint returns safe profile fields only. It does not return password hashes or internal security details.
+
+### Update Current User
+
+`PATCH /api/auth/me`
+
+Requires any authenticated user. Only safe profile fields are accepted:
+
+```json
+{
+  "fullName": "Nguyen Van A",
+  "phone": "0909000000",
+  "avatar": "https://example.com/avatar.png"
+}
+```
+
+The endpoint does not accept role, status, active flag, department, email, or
+password updates.
+
+### Change Password
+
+`PATCH /api/auth/change-password`
+
+Requires any authenticated user:
+
+```json
+{
+  "currentPassword": "old-password",
+  "newPassword": "new-password"
+}
+```
+
+The backend verifies the current password, rejects blank/short/too-long new
+passwords, rejects reusing the current password, and never logs password
+values. The current MVP does not revoke already-issued JWTs; clients should
+logout after a successful password change and sign in again.
 
 ## Category API
 
@@ -148,6 +204,34 @@ Create department sample:
 }
 ```
 
+### User Management
+
+Requires an `ADMIN` JWT:
+
+- `GET /api/admin/users?page=0&size=10&search=staff&role=STAFF&status=ACTIVE&isActive=true&departmentId=1`
+- `GET /api/admin/users/export`
+- `GET /api/admin/users/{id}`
+- `PATCH /api/admin/users/{id}/status`
+- `PATCH /api/admin/users/{id}/department`
+
+Change status sample:
+
+```json
+{
+  "isActive": false
+}
+```
+
+Rules:
+
+- Responses never include password hashes, refresh tokens, or secrets.
+- Deactivating a user sets `isActive=false` and `status=INACTIVE`.
+- Activating a user sets `isActive=true` and `status=ACTIVE`.
+- Admin cannot deactivate their own admin account.
+- Admin cannot deactivate the last active administrator.
+- Department assignment is available only for `STAFF` users and only to active departments.
+- Role update is intentionally not exposed in Sprint 3.5.
+
 ## Report Workflow
 
 Sprint 2.6 supports report workflow and dashboard statistics for the MVP. Binary file upload, multipart upload, cloud storage, notification delivery, map integration, and AI are not included.
@@ -209,8 +293,10 @@ Staff can view and update only reports assigned to their own department.
 Requires an `ADMIN` JWT:
 
 - `GET /api/admin/reports?page=0&size=10&status=PENDING&assigned=false`
+- `GET /api/admin/reports/export`
 - `GET /api/admin/reports/{id}`
 - `PATCH /api/admin/reports/{id}/department`
+- `PATCH /api/admin/reports/{id}/status`
 
 Assign department sample:
 
@@ -221,6 +307,17 @@ Assign department sample:
 ```
 
 Admin can view all reports and assign or reassign an active department. Assignment does not automatically change the report status.
+
+Admin status update uses the same validated workflow as staff status handling:
+
+- `PENDING` -> `RECEIVED` or `REJECTED`
+- `RECEIVED` -> `IN_PROGRESS` or `REJECTED`
+- `IN_PROGRESS` -> `RESOLVED` or `REJECTED`
+- `RESOLVED`, `REJECTED`, and `CANCELLED` are terminal
+
+Successful admin status changes create a citizen notification and write an
+audit log. Admin UI must use `/api/admin/reports/{id}/status`, not the staff
+endpoint.
 
 ## Dashboard API
 
@@ -247,7 +344,16 @@ Requires an `ADMIN` JWT:
 
 `/monthly` always returns 12 records, one for each month. Months without reports return zero counts.
 
+`summary`, `category`, `department`, and `monthly` accept optional `from` and
+`to` query parameters as ISO local date-time strings, for example
+`2026-07-01T00:00:00` and `2026-07-31T23:59:59`. If both are provided and
+`from` is after `to`, the API returns `400 Bad Request`.
+
 `/recent` returns the latest reports sorted by `createdAt DESC`. The default size is 10.
+The React Admin uses `/api/admin/reports` with `createdFrom` and `createdTo`
+when it needs date-filtered recent reports, because that endpoint already
+supports the same report filters and avoids a duplicate dashboard-specific
+query path.
 
 ### Staff Dashboard
 
@@ -288,6 +394,7 @@ In Swagger UI, use the `Authorize` button and paste only the raw JWT token.
 - `GET /api/notifications/{id}`
 - `GET /api/notifications/unread-count`
 - `PATCH /api/notifications/{id}/read`
+- `PATCH /api/notifications/read`
 - `PATCH /api/notifications/read-all`
 
 Supported list filters:
@@ -321,6 +428,19 @@ Users can access only their own notifications. If a notification belongs to anot
 - already-read notification: returns the current notification and keeps the original `readAt`
 
 `PATCH /api/notifications/read-all` marks all unread notifications owned by the current user as read using a recipient-scoped bulk update and returns `updatedCount`.
+
+`PATCH /api/notifications/read` marks selected unread notifications owned by
+the current user as read:
+
+```json
+{
+  "notificationIds": [1, 2, 3]
+}
+```
+
+The list must be non-empty, has a maximum of 100 IDs, duplicate IDs are
+deduplicated, and IDs belonging to other users are ignored by the
+recipient-scoped update.
 
 ### Local PostgreSQL Notification Check
 
@@ -372,8 +492,12 @@ Audit logs do not store passwords, password hashes, JWT values, authorization he
 | Department | Deactivated | `DEPARTMENT_DEACTIVATED` |
 | Report | Assigned to a department for the first time | `REPORT_ASSIGNED` |
 | Report | Reassigned to another department | `REPORT_REASSIGNED` |
-| Report | Status changed by staff | `REPORT_STATUS_CHANGED` |
+| Report | Status changed by staff or admin | `REPORT_STATUS_CHANGED` |
 | Report | Cancelled by citizen | `REPORT_CANCELLED` |
+| User | Profile updated by current user | `PROFILE_UPDATED` |
+| User | Password changed by current user | `PASSWORD_CHANGED` |
+| User | Activated or deactivated by admin | `USER_STATUS_CHANGED` |
+| User | Staff department assigned by admin | `USER_DEPARTMENT_CHANGED` |
 
 No audit log is created for invalid report transitions, failed assignments, failed cancellations, unauthorized attempts, or unchanged department assignments.
 
@@ -382,6 +506,7 @@ No audit log is created for invalid report transitions, failed assignments, fail
 Requires an `ADMIN` JWT:
 
 - `GET /api/admin/audit-logs`
+- `GET /api/admin/audit-logs/export`
 - `GET /api/admin/audit-logs/{id}`
 
 In Swagger UI, use the `Authorize` button and paste only the raw JWT token. For manual clients, use:
@@ -393,7 +518,7 @@ Authorization: Bearer <accessToken>
 List filters:
 
 - `action`: `AuditAction`
-- `entityType`: `CATEGORY`, `DEPARTMENT`, or `REPORT`
+- `entityType`: `CATEGORY`, `DEPARTMENT`, `REPORT`, or `USER`
 - `entityId`: target entity id
 - `actorId`: actor user id snapshot
 - `actorRole`: existing `UserRole`

@@ -9,10 +9,13 @@ import com.civichub.audit.mapper.AuditLogMapper;
 import com.civichub.audit.repository.AuditLogRepository;
 import com.civichub.audit.specification.AuditLogSpecification;
 import com.civichub.category.entity.Category;
+import com.civichub.common.CsvUtils;
 import com.civichub.common.PageResponse;
 import com.civichub.common.enums.ReportStatus;
 import com.civichub.common.enums.UserRole;
+import com.civichub.common.enums.UserStatus;
 import com.civichub.common.exception.ResourceNotFoundException;
+import com.civichub.config.DatabaseCompatibilityService;
 import com.civichub.department.entity.Department;
 import com.civichub.security.CivicHubUserPrincipal;
 import com.civichub.user.entity.User;
@@ -24,6 +27,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -35,16 +40,21 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuditServiceImpl implements AuditService {
 
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_EXPORT_SIZE = 5000;
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("createdAt", "action", "entityType", "actorName");
 
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
     private final AuditLogMapper auditLogMapper;
     private final ObjectMapper objectMapper;
+
+    @Autowired(required = false)
+    private DatabaseCompatibilityService databaseCompatibilityService;
 
     @Override
     @Transactional(readOnly = true)
@@ -81,6 +91,54 @@ public class AuditServiceImpl implements AuditService {
     public AuditLogDetailResponse getAuditLog(Long id) {
         return auditLogMapper.toDetailResponse(auditLogRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Audit log not found")));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String exportAuditLogsCsv(
+            AuditAction action,
+            AuditEntityType entityType,
+            Long entityId,
+            Long actorId,
+            UserRole actorRole,
+            LocalDateTime createdFrom,
+            LocalDateTime createdTo,
+            String search,
+            String sortBy,
+            String direction) {
+        validateDateRange(createdFrom, createdTo);
+        Page<AuditLog> auditLogs = auditLogRepository.findAll(
+                AuditLogSpecification.filter(
+                        action,
+                        entityType,
+                        entityId,
+                        actorId,
+                        actorRole,
+                        createdFrom,
+                        createdTo,
+                        search),
+                pageable(0, MAX_EXPORT_SIZE, sortBy, direction));
+        StringBuilder csv = new StringBuilder('\ufeff' + CsvUtils.row(
+                CsvUtils.trusted("ID"),
+                CsvUtils.trusted("Action"),
+                CsvUtils.trusted("Entity Type"),
+                CsvUtils.trusted("Entity ID"),
+                CsvUtils.trusted("Actor ID"),
+                CsvUtils.trusted("Actor Name"),
+                CsvUtils.trusted("Actor Role"),
+                CsvUtils.trusted("Description"),
+                CsvUtils.trusted("Created At")));
+        auditLogs.getContent().forEach(log -> csv.append('\n').append(CsvUtils.row(
+                CsvUtils.trusted(log.getId()),
+                CsvUtils.trusted(log.getAction()),
+                CsvUtils.trusted(log.getEntityType()),
+                CsvUtils.trusted(log.getEntityId()),
+                CsvUtils.trusted(log.getActorId()),
+                CsvUtils.text(log.getActorName()),
+                CsvUtils.trusted(log.getActorRole()),
+                CsvUtils.text(log.getDescription()),
+                CsvUtils.trusted(log.getCreatedAt()))));
+        return csv.toString();
     }
 
     @Override
@@ -200,6 +258,63 @@ public class AuditServiceImpl implements AuditService {
                 statusSnapshot(ReportStatus.CANCELLED));
     }
 
+    @Override
+    @Transactional
+    public void recordProfileUpdated(User user, Map<String, Object> oldValues) {
+        record(
+                AuditAction.PROFILE_UPDATED,
+                AuditEntityType.USER,
+                user.getId(),
+                "User \"%s\" updated their profile.".formatted(user.getFullName()),
+                oldValues,
+                userProfileSnapshot(user));
+    }
+
+    @Override
+    @Transactional
+    public void recordPasswordChanged(User user) {
+        record(
+                AuditAction.PASSWORD_CHANGED,
+                AuditEntityType.USER,
+                user.getId(),
+                "User \"%s\" changed their password.".formatted(user.getFullName()),
+                null,
+                null);
+    }
+
+    @Override
+    @Transactional
+    public void recordUserStatusChanged(
+            User user,
+            boolean oldActive,
+            boolean newActive,
+            UserStatus oldStatus,
+            UserStatus newStatus) {
+        if (oldActive == newActive && oldStatus == newStatus) {
+            return;
+        }
+        record(
+                AuditAction.USER_STATUS_CHANGED,
+                AuditEntityType.USER,
+                user.getId(),
+                "User \"%s\" status changed from %s/%s to %s/%s."
+                        .formatted(user.getFullName(), oldStatus.name(), oldActive, newStatus.name(), newActive),
+                userStatusSnapshot(oldActive, oldStatus),
+                userStatusSnapshot(newActive, newStatus));
+    }
+
+    @Override
+    @Transactional
+    public void recordUserDepartmentChanged(User user, Department oldDepartment, Department newDepartment) {
+        record(
+                AuditAction.USER_DEPARTMENT_CHANGED,
+                AuditEntityType.USER,
+                user.getId(),
+                "User \"%s\" department changed.".formatted(user.getFullName()),
+                departmentReferenceSnapshot(oldDepartment),
+                departmentReferenceSnapshot(newDepartment));
+    }
+
     private void record(
             AuditAction action,
             AuditEntityType entityType,
@@ -207,6 +322,7 @@ public class AuditServiceImpl implements AuditService {
             String description,
             Map<String, Object> oldValues,
             Map<String, Object> newValues) {
+        synchronizeAuditLogActionConstraint();
         User actor = currentActor();
         auditLogRepository.save(AuditLog.builder()
                 .action(action)
@@ -219,6 +335,17 @@ public class AuditServiceImpl implements AuditService {
                 .oldValues(toJson(oldValues))
                 .newValues(toJson(newValues))
                 .build());
+    }
+
+    private void synchronizeAuditLogActionConstraint() {
+        if (databaseCompatibilityService == null) {
+            return;
+        }
+        try {
+            databaseCompatibilityService.synchronizeAuditLogActionConstraintIfNeeded();
+        } catch (Exception exception) {
+            log.warn("Unable to synchronize audit log action constraint before writing audit log.", exception);
+        }
     }
 
     private User currentActor() {
@@ -260,6 +387,21 @@ public class AuditServiceImpl implements AuditService {
         snapshot.put("name", department.getName());
         snapshot.put("description", department.getDescription());
         snapshot.put("isActive", department.isActive());
+        return snapshot;
+    }
+
+    private Map<String, Object> userProfileSnapshot(User user) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("fullName", user.getFullName());
+        snapshot.put("phone", user.getPhone());
+        snapshot.put("avatar", user.getAvatar());
+        return snapshot;
+    }
+
+    private Map<String, Object> userStatusSnapshot(boolean active, UserStatus status) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("isActive", active);
+        snapshot.put("status", status.name());
         return snapshot;
     }
 

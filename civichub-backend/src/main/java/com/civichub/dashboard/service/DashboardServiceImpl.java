@@ -18,6 +18,7 @@ import com.civichub.report.repository.ReportRepository;
 import com.civichub.security.CivicHubUserPrincipal;
 import com.civichub.user.entity.User;
 import com.civichub.user.repository.UserRepository;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,8 @@ public class DashboardServiceImpl implements DashboardService {
 
     private static final int DEFAULT_RECENT_SIZE = 10;
     private static final int MAX_RECENT_SIZE = 50;
+    private static final LocalDateTime MIN_REPORT_CREATED_AT = LocalDateTime.of(1, 1, 1, 0, 0);
+    private static final LocalDateTime MAX_REPORT_CREATED_AT = LocalDateTime.of(9999, 12, 31, 23, 59, 59);
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
@@ -46,8 +49,13 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     @Transactional(readOnly = true)
-    public DashboardSummaryResponse getAdminSummary() {
-        ReportStatusStatisticResponse reportCounts = reportRepository.countReportsByStatus();
+    public DashboardSummaryResponse getAdminSummary(LocalDateTime createdFrom, LocalDateTime createdTo) {
+        validateDateRange(createdFrom, createdTo);
+        LocalDateTime effectiveFrom = effectiveCreatedFrom(createdFrom);
+        LocalDateTime effectiveTo = effectiveCreatedTo(createdTo);
+        ReportStatusStatisticResponse reportCounts = createdFrom == null && createdTo == null
+                ? reportRepository.countReportsByStatus()
+                : reportRepository.countReportsByStatus(effectiveFrom, effectiveTo);
         return DashboardSummaryResponse.builder()
                 .totalReports(reportCounts.getTotalReports())
                 .pendingReports(reportCounts.getPendingReports())
@@ -65,19 +73,35 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<CategoryStatisticResponse> getCategoryStatistics() {
-        return reportRepository.countReportsByCategory();
+    public List<CategoryStatisticResponse> getCategoryStatistics(LocalDateTime createdFrom, LocalDateTime createdTo) {
+        validateDateRange(createdFrom, createdTo);
+        LocalDateTime effectiveFrom = effectiveCreatedFrom(createdFrom);
+        LocalDateTime effectiveTo = effectiveCreatedTo(createdTo);
+        return createdFrom == null && createdTo == null
+                ? reportRepository.countReportsByCategory()
+                : reportRepository.countReportsByCategory(effectiveFrom, effectiveTo);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<DepartmentStatisticResponse> getDepartmentStatistics() {
-        return reportRepository.countReportsByDepartment();
+    public List<DepartmentStatisticResponse> getDepartmentStatistics(LocalDateTime createdFrom, LocalDateTime createdTo) {
+        validateDateRange(createdFrom, createdTo);
+        LocalDateTime effectiveFrom = effectiveCreatedFrom(createdFrom);
+        LocalDateTime effectiveTo = effectiveCreatedTo(createdTo);
+        return createdFrom == null && createdTo == null
+                ? reportRepository.countReportsByDepartment()
+                : reportRepository.countReportsByDepartment(effectiveFrom, effectiveTo);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<MonthlyStatisticResponse> getMonthlyStatistics(int year) {
+    public List<MonthlyStatisticResponse> getMonthlyStatistics(
+            int year,
+            LocalDateTime createdFrom,
+            LocalDateTime createdTo) {
+        validateDateRange(createdFrom, createdTo);
+        LocalDateTime effectiveFrom = effectiveCreatedFrom(createdFrom);
+        LocalDateTime effectiveTo = effectiveCreatedTo(createdTo);
         Map<Integer, MonthlyStatisticResponse> monthlyStatistics = new LinkedHashMap<>();
         IntStream.rangeClosed(1, 12)
                 .forEach(month -> monthlyStatistics.put(month, MonthlyStatisticResponse.builder()
@@ -86,7 +110,10 @@ public class DashboardServiceImpl implements DashboardService {
                         .resolvedReports(0L)
                         .build()));
 
-        reportRepository.countReportsByMonth(year)
+        List<MonthlyStatisticResponse> reportStatistics = createdFrom == null && createdTo == null
+                ? reportRepository.countReportsByMonth(year)
+                : reportRepository.countReportsByMonth(year, effectiveFrom, effectiveTo);
+        reportStatistics
                 .forEach(statistic -> monthlyStatistics.put(statistic.getMonth(), statistic));
         return List.copyOf(monthlyStatistics.values());
     }
@@ -125,6 +152,20 @@ public class DashboardServiceImpl implements DashboardService {
             throw new InvalidReportStateException("Staff department is inactive");
         }
         return departmentId;
+    }
+
+    private void validateDateRange(LocalDateTime createdFrom, LocalDateTime createdTo) {
+        if (createdFrom != null && createdTo != null && createdFrom.isAfter(createdTo)) {
+            throw new IllegalArgumentException("Invalid date range");
+        }
+    }
+
+    private LocalDateTime effectiveCreatedFrom(LocalDateTime createdFrom) {
+        return createdFrom == null ? MIN_REPORT_CREATED_AT : createdFrom;
+    }
+
+    private LocalDateTime effectiveCreatedTo(LocalDateTime createdTo) {
+        return createdTo == null ? MAX_REPORT_CREATED_AT : createdTo;
     }
 
     private CivicHubUserPrincipal currentPrincipal() {

@@ -21,6 +21,32 @@ export const cleanParams = (params = {}) =>
     ),
   )
 
+export const downloadBlobResponse = (response, fallbackFilename) => {
+  const disposition = response.headers?.['content-disposition'] || ''
+  const filenameMatch = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+  const rawFilename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : fallbackFilename
+  const filename = sanitizeDownloadFilename(rawFilename, fallbackFilename)
+  const blob = response.data instanceof Blob ? response.data : new Blob([response.data])
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
+const sanitizeDownloadFilename = (filename, fallbackFilename) => {
+  const fallback = fallbackFilename || 'download.csv'
+  const sanitized = String(filename || '')
+    .replace(/[\\/:*?"<>|]+/g, '_')
+    .trim()
+
+  return sanitized || fallback
+}
+
 export const getApiErrorMessage = (error) => {
   if (!error?.response) {
     return 'Backend is unavailable. Check that the API server is running.'

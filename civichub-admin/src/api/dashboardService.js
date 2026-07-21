@@ -1,17 +1,23 @@
 import apiClient from './apiClient'
-import { unwrapData, unwrapPage } from './apiUtils'
+import { cleanParams, unwrapData, unwrapPage } from './apiUtils'
 
-export const getDashboardSummary = async () =>
-  unwrapData(await apiClient.get('/api/admin/dashboard/summary'))
+export const getDashboardSummary = async (params) =>
+  unwrapData(await apiClient.get('/api/admin/dashboard/summary', { params: cleanParams(params) }))
 
-export const getCategoryStatistics = async () =>
-  unwrapData(await apiClient.get('/api/admin/dashboard/category'))
+export const getCategoryStatistics = async (params) =>
+  unwrapData(await apiClient.get('/api/admin/dashboard/category', { params: cleanParams(params) }))
 
-export const getDepartmentStatistics = async () =>
-  unwrapData(await apiClient.get('/api/admin/dashboard/department'))
+export const getDepartmentStatistics = async (params) =>
+  unwrapData(
+    await apiClient.get('/api/admin/dashboard/department', { params: cleanParams(params) }),
+  )
 
-export const getMonthlyStatistics = async (year) =>
-  unwrapData(await apiClient.get('/api/admin/dashboard/monthly', { params: { year } }))
+export const getMonthlyStatistics = async (year, params) =>
+  unwrapData(
+    await apiClient.get('/api/admin/dashboard/monthly', {
+      params: cleanParams({ year, ...params }),
+    }),
+  )
 
 export const getRecentReports = async (size = 10) =>
   unwrapPage(await apiClient.get('/api/admin/dashboard/recent', { params: { size } }))

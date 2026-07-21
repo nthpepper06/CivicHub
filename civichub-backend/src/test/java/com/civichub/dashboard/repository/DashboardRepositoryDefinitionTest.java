@@ -38,8 +38,46 @@ class DashboardRepositoryDefinitionTest {
 
         assertThat(query.value())
                 .contains("new com.civichub.dashboard.dto.response.MonthlyStatisticResponse")
-                .contains("where year(r.createdAt) = :year")
-                .contains("group by month(r.createdAt)");
+                .contains("where extract(year from r.createdAt) = :year")
+                .contains("group by extract(month from r.createdAt)");
+    }
+
+    @Test
+    void dateRangeQueriesShouldUseTypedComparisonsWithoutNullableParameterBranches() throws Exception {
+        assertThat(queryAnnotation("countReportsByStatus", java.time.LocalDateTime.class, java.time.LocalDateTime.class)
+                .value())
+                .contains("r.createdAt >= :createdFrom")
+                .contains("r.createdAt <= :createdTo")
+                .doesNotContain(":createdFrom is null")
+                .doesNotContain(":createdTo is null");
+
+        assertThat(queryAnnotation("countReportsByCategory", java.time.LocalDateTime.class, java.time.LocalDateTime.class)
+                .value())
+                .contains("r.createdAt >= :createdFrom")
+                .contains("r.createdAt <= :createdTo")
+                .doesNotContain(":createdFrom is null")
+                .doesNotContain(":createdTo is null");
+
+        assertThat(queryAnnotation(
+                        "countReportsByDepartment",
+                        java.time.LocalDateTime.class,
+                        java.time.LocalDateTime.class)
+                .value())
+                .contains("r.createdAt >= :createdFrom")
+                .contains("r.createdAt <= :createdTo")
+                .doesNotContain(":createdFrom is null")
+                .doesNotContain(":createdTo is null");
+
+        assertThat(queryAnnotation(
+                        "countReportsByMonth",
+                        int.class,
+                        java.time.LocalDateTime.class,
+                        java.time.LocalDateTime.class)
+                .value())
+                .contains("r.createdAt >= :createdFrom")
+                .contains("r.createdAt <= :createdTo")
+                .doesNotContain(":createdFrom is null")
+                .doesNotContain(":createdTo is null");
     }
 
     @Test
