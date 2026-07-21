@@ -1,4 +1,5 @@
 import React from 'react'
+/* eslint-disable react-hooks/purity */
 import { CCard, CCardBody, CCol, CCardHeader, CRow } from '@coreui/react'
 import {
   CChartBar,

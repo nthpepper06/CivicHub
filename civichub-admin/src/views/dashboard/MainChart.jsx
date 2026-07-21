@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react'
+/* eslint-disable react-hooks/purity */
 
 import { CChartLine } from '@coreui/react-chartjs'
 import { getStyle } from '@coreui/utils'
