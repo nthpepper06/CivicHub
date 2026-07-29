@@ -107,9 +107,9 @@ class AppRouter {
         GoRoute(
           path: '${AppRoutes.reportDetail}/:id',
           pageBuilder: (context, state) {
-            final id = int.tryParse(state.pathParameters['id'] ?? '');
+            final id = _parsePositiveId(state.pathParameters['id']);
             if (id == null) {
-              return const MaterialPage(child: ReportDetailScreen(reportId: 0));
+              return const MaterialPage(child: _InvalidReportRouteScreen());
             }
             return MaterialPage(child: ReportDetailScreen(reportId: id));
           },
@@ -117,14 +117,72 @@ class AppRouter {
         GoRoute(
           path: '${AppRoutes.editReport}/:id',
           pageBuilder: (context, state) {
-            final report = state.extra;
-            if (report is CitizenReportDetail) {
-              return MaterialPage(child: EditReportScreen(report: report));
+            final id = _parsePositiveId(state.pathParameters['id']);
+            if (id == null) {
+              return const MaterialPage(child: _InvalidReportRouteScreen());
             }
-            return const MaterialPage(child: ReportDetailScreen(reportId: 0));
+            final extra = state.extra;
+            final initialReport = extra is CitizenReportDetail && extra.id == id
+                ? extra
+                : null;
+            return MaterialPage(
+              child: EditReportScreen(
+                reportId: id,
+                initialReport: initialReport,
+              ),
+            );
           },
         ),
       ],
+    );
+  }
+
+  static int? _parsePositiveId(String? raw) {
+    final id = int.tryParse(raw ?? '');
+    if (id == null || id <= 0) {
+      return null;
+    }
+    return id;
+  }
+}
+
+class _InvalidReportRouteScreen extends StatelessWidget {
+  const _InvalidReportRouteScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Invalid Report')),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.assignment_late_outlined, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  'Invalid report link',
+                  style: Theme.of(context).textTheme.titleLarge,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'This report link is missing a valid report ID.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: () => context.go(AppRoutes.reports),
+                  icon: const Icon(Icons.assignment_outlined),
+                  label: const Text('Return to Reports'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

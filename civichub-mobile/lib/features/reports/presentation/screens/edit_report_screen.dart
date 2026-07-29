@@ -17,26 +17,30 @@ import '../cubit/edit_report_cubit.dart';
 import '../cubit/edit_report_state.dart';
 
 class EditReportScreen extends StatelessWidget {
-  const EditReportScreen({required this.report, super.key});
+  const EditReportScreen({
+    required this.reportId,
+    this.initialReport,
+    super.key,
+  });
 
-  final CitizenReportDetail report;
+  final int reportId;
+  final CitizenReportDetail? initialReport;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => EditReportCubit(
         reportsRepository: context.read<ReportsRepository>(),
-        initialReport: report,
-      )..loadCategories(),
-      child: _EditReportView(report: report),
+        reportId: reportId,
+        initialReport: initialReport,
+      )..load(),
+      child: const _EditReportView(),
     );
   }
 }
 
 class _EditReportView extends StatefulWidget {
-  const _EditReportView({required this.report});
-
-  final CitizenReportDetail report;
+  const _EditReportView();
 
   @override
   State<_EditReportView> createState() => _EditReportViewState();
@@ -50,11 +54,33 @@ class _EditReportViewState extends State<_EditReportView> {
   late final TextEditingController _latitudeController;
   late final TextEditingController _longitudeController;
   late final List<TextEditingController> _imageControllers;
+  bool _controllersInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    final report = widget.report;
+    final report = context.read<EditReportCubit>().state.report;
+    if (report != null) {
+      _initializeControllers(report);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_hasControllers) {
+      _titleController.dispose();
+      _descriptionController.dispose();
+      _addressController.dispose();
+      _latitudeController.dispose();
+      _longitudeController.dispose();
+      for (final controller in _imageControllers) {
+        controller.dispose();
+      }
+    }
+    super.dispose();
+  }
+
+  void _initializeControllers(CitizenReportDetail report) {
     _titleController = TextEditingController(text: report.title);
     _descriptionController = TextEditingController(text: report.description);
     _addressController = TextEditingController(text: report.address);
@@ -70,19 +96,7 @@ class _EditReportViewState extends State<_EditReportView> {
             for (final image in report.images)
               TextEditingController(text: image.url),
           ];
-  }
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
-    _addressController.dispose();
-    _latitudeController.dispose();
-    _longitudeController.dispose();
-    for (final controller in _imageControllers) {
-      controller.dispose();
-    }
-    super.dispose();
+    _controllersInitialized = true;
   }
 
   void _addImageUrlField() {
@@ -133,21 +147,6 @@ class _EditReportViewState extends State<_EditReportView> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.report.status != ReportStatus.pending) {
-      return const Scaffold(
-        body: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.all(AppSpacing.lg),
-            child: AppEmpty(
-              title: 'Report cannot be edited',
-              message: 'Only pending reports can be updated.',
-              icon: Icons.lock_outline,
-            ),
-          ),
-        ),
-      );
-    }
-
     return BlocListener<EditReportCubit, EditReportState>(
       listenWhen: (previous, current) =>
           previous.submitStatus != current.submitStatus,
@@ -161,6 +160,51 @@ class _EditReportViewState extends State<_EditReportView> {
         body: SafeArea(
           child: BlocBuilder<EditReportCubit, EditReportState>(
             builder: (context, state) {
+              final report = state.report;
+              if (state.status == EditReportStatus.loadingReport ||
+                  state.status == EditReportStatus.initial && report == null) {
+                return const Center(
+                  child: AppLoading(message: 'Loading report'),
+                );
+              }
+
+              if (state.status == EditReportStatus.reportFailure) {
+                return Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: AppError(
+                    title: 'Unable to load report',
+                    message: state.reportErrorMessage ?? 'Please try again.',
+                    onRetry: context.read<EditReportCubit>().loadReport,
+                  ),
+                );
+              }
+
+              if (report == null) {
+                return const Padding(
+                  padding: EdgeInsets.all(AppSpacing.lg),
+                  child: AppEmpty(
+                    title: 'Report not found',
+                    message: 'This report is unavailable.',
+                    icon: Icons.assignment_late_outlined,
+                  ),
+                );
+              }
+
+              if (report.status != ReportStatus.pending) {
+                return const Padding(
+                  padding: EdgeInsets.all(AppSpacing.lg),
+                  child: AppEmpty(
+                    title: 'Report cannot be edited',
+                    message: 'Only pending reports can be updated.',
+                    icon: Icons.lock_outline,
+                  ),
+                );
+              }
+
+              if (!_controllersInitialized) {
+                _initializeControllers(report);
+              }
+
               if (state.status == EditReportStatus.loadingCategories) {
                 return const Center(
                   child: AppLoading(message: 'Loading categories'),
@@ -355,6 +399,8 @@ class _EditReportViewState extends State<_EditReportView> {
     }
     return double.tryParse(normalized);
   }
+
+  bool get _hasControllers => _controllersInitialized;
 }
 
 class _CategoryPicker extends StatelessWidget {

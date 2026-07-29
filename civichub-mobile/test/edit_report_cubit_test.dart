@@ -14,6 +14,7 @@ void main() {
     final repository = FakeReportsRepository();
     final cubit = EditReportCubit(
       reportsRepository: repository,
+      reportId: 12,
       initialReport: sampleReportDetail(id: 12),
     );
 
@@ -27,6 +28,7 @@ void main() {
     final repository = FakeReportsRepository();
     final cubit = EditReportCubit(
       reportsRepository: repository,
+      reportId: 12,
       initialReport: sampleReportDetail(id: 12),
     );
 
@@ -51,6 +53,7 @@ void main() {
       );
     final cubit = EditReportCubit(
       reportsRepository: repository,
+      reportId: 12,
       initialReport: sampleReportDetail(id: 12),
     );
 
@@ -73,6 +76,7 @@ void main() {
       ..updateError = ApiException.unauthorized;
     final cubit = EditReportCubit(
       reportsRepository: repository,
+      reportId: 12,
       initialReport: sampleReportDetail(id: 12),
     );
 
@@ -95,6 +99,7 @@ void main() {
       );
     final cubit = EditReportCubit(
       reportsRepository: repository,
+      reportId: 12,
       initialReport: sampleReportDetail(id: 12),
     );
 
@@ -117,6 +122,7 @@ void main() {
       ..pendingUpdateResponse = completer.future;
     final cubit = EditReportCubit(
       reportsRepository: repository,
+      reportId: 12,
       initialReport: sampleReportDetail(id: 12),
     );
     const request = CreateReportRequest(

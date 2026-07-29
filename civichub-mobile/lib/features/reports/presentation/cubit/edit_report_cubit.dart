@@ -9,15 +9,81 @@ import 'edit_report_state.dart';
 class EditReportCubit extends Cubit<EditReportState> {
   EditReportCubit({
     required ReportsRepository reportsRepository,
-    required CitizenReportDetail initialReport,
+    required int reportId,
+    CitizenReportDetail? initialReport,
   }) : _reportsRepository = reportsRepository,
-       _initialReport = initialReport,
-       super(EditReportState(selectedCategoryId: initialReport.categoryId));
+       _reportId = reportId,
+       super(
+         EditReportState(
+           selectedCategoryId: initialReport?.categoryId,
+           report: initialReport,
+         ),
+       );
 
   final ReportsRepository _reportsRepository;
-  final CitizenReportDetail _initialReport;
+  final int _reportId;
+
+  Future<void> load() async {
+    final currentReport = state.report;
+    if (currentReport != null) {
+      await _loadCategories(currentReport);
+      return;
+    }
+
+    await loadReport();
+  }
+
+  Future<void> loadReport() async {
+    if (state.status == EditReportStatus.loadingReport) {
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        status: EditReportStatus.loadingReport,
+        reportErrorMessage: null,
+        categoryErrorMessage: null,
+      ),
+    );
+
+    try {
+      final report = await _reportsRepository.getMyReport(_reportId);
+      emit(
+        state.copyWith(
+          report: report,
+          selectedCategoryId: report.categoryId,
+          reportErrorMessage: null,
+        ),
+      );
+      await _loadCategories(report);
+    } on ApiException catch (error) {
+      emit(
+        state.copyWith(
+          status: EditReportStatus.reportFailure,
+          reportErrorMessage: _friendlyReportMessage(error),
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          status: EditReportStatus.reportFailure,
+          reportErrorMessage: ApiException.unknown.message,
+        ),
+      );
+    }
+  }
 
   Future<void> loadCategories() async {
+    final report = state.report;
+    if (report == null) {
+      await loadReport();
+      return;
+    }
+
+    await _loadCategories(report);
+  }
+
+  Future<void> _loadCategories(CitizenReportDetail report) async {
     if (state.status == EditReportStatus.loadingCategories) {
       return;
     }
@@ -35,7 +101,7 @@ class EditReportCubit extends Cubit<EditReportState> {
         state.copyWith(
           status: EditReportStatus.ready,
           categories: categories,
-          selectedCategoryId: _initialReport.categoryId,
+          selectedCategoryId: report.categoryId,
           categoryErrorMessage: null,
         ),
       );
@@ -83,7 +149,7 @@ class EditReportCubit extends Cubit<EditReportState> {
 
     try {
       final updated = await _reportsRepository.updateMyReport(
-        _initialReport.id,
+        _reportId,
         request,
       );
       emit(
@@ -120,6 +186,25 @@ class EditReportCubit extends Cubit<EditReportState> {
       ApiErrorKind.timeout => 'Loading categories timed out. Please try again.',
       ApiErrorKind.invalidResponse =>
         'Categories could not be read from the server response.',
+      ApiErrorKind.server =>
+        'The server is unavailable right now. Please try again.',
+      ApiErrorKind.badRequest ||
+      ApiErrorKind.unauthorized ||
+      ApiErrorKind.forbidden ||
+      ApiErrorKind.notFound ||
+      ApiErrorKind.conflict ||
+      ApiErrorKind.unknown => error.message,
+    };
+  }
+
+  String _friendlyReportMessage(ApiException error) {
+    return switch (error.kind) {
+      ApiErrorKind.network =>
+        'Cannot load this report right now. Check your connection and try again.',
+      ApiErrorKind.timeout =>
+        'Loading this report timed out. Please try again.',
+      ApiErrorKind.invalidResponse =>
+        'The report could not be read from the server response.',
       ApiErrorKind.server =>
         'The server is unavailable right now. Please try again.',
       ApiErrorKind.badRequest ||

@@ -23,6 +23,7 @@ import 'package:civichub_mobile/features/splash/presentation/screens/splash_scre
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'support/fakes.dart';
 
@@ -73,6 +74,36 @@ buildAuthStack({
     authCubit: authCubit,
   );
   return (authCubit: authCubit, loginCubit: loginCubit, storage: storage);
+}
+
+Future<GoRouter> pumpRouterApp(
+  WidgetTester tester, {
+  required String initialLocation,
+  required FakeReportsRepository repository,
+}) async {
+  final stack = await buildAuthStack();
+  stack.authCubit.setAuthenticated(sampleUser());
+  final router = AppRouter.create(
+    authCubit: stack.authCubit,
+    initialLocation: initialLocation,
+  );
+
+  await tester.pumpWidget(
+    MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider<ReportsRepository>.value(value: repository),
+      ],
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: stack.authCubit),
+          BlocProvider.value(value: stack.loginCubit),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return router;
 }
 
 void main() {
@@ -350,6 +381,53 @@ void main() {
     expect(find.text('Report not found'), findsWidgets);
   });
 
+  testWidgets('Detail route with malformed ID does not request report 0', (
+    tester,
+  ) async {
+    final repository = FakeReportsRepository();
+
+    await pumpRouterApp(
+      tester,
+      initialLocation: '${AppRoutes.reportDetail}/abc',
+      repository: repository,
+    );
+
+    expect(find.text('Invalid report link'), findsOneWidget);
+    expect(find.text('Return to Reports'), findsOneWidget);
+    expect(repository.detailCalls, isEmpty);
+  });
+
+  testWidgets('Detail route with zero ID shows safe invalid-route behavior', (
+    tester,
+  ) async {
+    final repository = FakeReportsRepository();
+
+    await pumpRouterApp(
+      tester,
+      initialLocation: '${AppRoutes.reportDetail}/0',
+      repository: repository,
+    );
+
+    expect(find.text('Invalid report link'), findsOneWidget);
+    expect(repository.detailCalls, isEmpty);
+  });
+
+  testWidgets(
+    'Detail route with negative ID shows safe invalid-route behavior',
+    (tester) async {
+      final repository = FakeReportsRepository();
+
+      await pumpRouterApp(
+        tester,
+        initialLocation: '${AppRoutes.reportDetail}/-3',
+        repository: repository,
+      );
+
+      expect(find.text('Invalid report link'), findsOneWidget);
+      expect(repository.detailCalls, isEmpty);
+    },
+  );
+
   testWidgets('Report detail disables edit and cancel for non-pending', (
     tester,
   ) async {
@@ -428,8 +506,10 @@ void main() {
         child: MaterialApp(
           routes: {
             '/': (_) => const Scaffold(body: Text('Detail refreshed')),
-            '/edit': (_) =>
-                EditReportScreen(report: sampleReportDetail(id: 12)),
+            '/edit': (_) => EditReportScreen(
+              reportId: 12,
+              initialReport: sampleReportDetail(id: 12),
+            ),
           },
           initialRoute: '/edit',
         ),
@@ -445,6 +525,97 @@ void main() {
     expect(repository.updateRequests.single.id, 12);
     expect(repository.updateRequests.single.request.title, 'Updated title');
     expect(find.text('Detail refreshed'), findsOneWidget);
+  });
+
+  testWidgets('Edit route uses matching extra without fetching detail', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = FakeReportsRepository();
+    final router = await pumpRouterApp(
+      tester,
+      initialLocation: AppRoutes.reports,
+      repository: repository,
+    );
+
+    router.go(
+      AppRoutes.editReportPath(12),
+      extra: sampleReportDetail(id: 12, title: 'Extra title'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit Report'), findsOneWidget);
+    expect(find.text('Extra title'), findsOneWidget);
+    expect(repository.detailCalls, isEmpty);
+  });
+
+  testWidgets('Edit route works when GoRouter.extra is absent', (tester) async {
+    tester.view.physicalSize = const Size(1080, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = FakeReportsRepository()
+      ..detailReport = sampleReportDetail(id: 12, title: 'Fetched title');
+
+    await pumpRouterApp(
+      tester,
+      initialLocation: AppRoutes.editReportPath(12),
+      repository: repository,
+    );
+
+    expect(find.text('Edit Report'), findsOneWidget);
+    expect(find.text('Fetched title'), findsOneWidget);
+    expect(repository.detailCalls, [12]);
+  });
+
+  testWidgets('Edit route ignores mismatched extra and fetches by path ID', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = FakeReportsRepository()
+      ..detailReport = sampleReportDetail(id: 12, title: 'Trusted title');
+    final router = await pumpRouterApp(
+      tester,
+      initialLocation: AppRoutes.reports,
+      repository: repository,
+    );
+
+    router.go(
+      AppRoutes.editReportPath(12),
+      extra: sampleReportDetail(id: 99, title: 'Mismatched title'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Trusted title'), findsOneWidget);
+    expect(find.text('Mismatched title'), findsNothing);
+    expect(repository.detailCalls, [12]);
+  });
+
+  testWidgets('Non-pending report loaded through edit route is non-editable', (
+    tester,
+  ) async {
+    final repository = FakeReportsRepository()
+      ..detailReport = sampleReportDetail(
+        id: 12,
+        status: ReportStatus.inProgress,
+      );
+
+    await pumpRouterApp(
+      tester,
+      initialLocation: AppRoutes.editReportPath(12),
+      repository: repository,
+    );
+
+    expect(find.text('Report cannot be edited'), findsOneWidget);
+    expect(find.text('Only pending reports can be updated.'), findsOneWidget);
+    expect(find.text('Update Report'), findsNothing);
+    expect(repository.detailCalls, [12]);
   });
 
   testWidgets('Reports list opens report detail', (tester) async {
