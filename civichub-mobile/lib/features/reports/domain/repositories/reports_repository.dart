@@ -1,8 +1,15 @@
+import '../models/create_report_request.dart';
+import '../models/report_category.dart';
+import '../models/report_detail.dart';
 import '../models/report_status.dart';
 import '../models/report_summary.dart';
 import '../models/reports_page.dart';
 
 abstract class ReportsRepository {
+  Future<List<ReportCategory>> getCategories();
+
+  Future<CitizenReportDetail> createReport(CreateReportRequest request);
+
   Future<ReportsPage<CitizenReportSummary>> getMyReports({
     required int page,
     required int size,

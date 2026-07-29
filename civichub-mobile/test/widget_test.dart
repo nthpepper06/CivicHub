@@ -13,6 +13,7 @@ import 'package:civichub_mobile/features/auth/presentation/cubit/login_state.dar
 import 'package:civichub_mobile/features/auth/presentation/screens/login_screen.dart';
 import 'package:civichub_mobile/features/profile/presentation/screens/profile_screen.dart';
 import 'package:civichub_mobile/features/reports/domain/repositories/reports_repository.dart';
+import 'package:civichub_mobile/features/reports/presentation/screens/create_report_screen.dart';
 import 'package:civichub_mobile/features/reports/presentation/screens/reports_screen.dart';
 import 'package:civichub_mobile/features/splash/presentation/screens/splash_screen.dart';
 import 'package:flutter/material.dart';
@@ -137,6 +138,113 @@ void main() {
 
     expect(find.text('Broken sidewalk'), findsOneWidget);
     expect(find.text('Roads'), findsOneWidget);
+  });
+
+  testWidgets('Create report validates required fields', (tester) async {
+    tester.view.physicalSize = const Size(1080, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<ReportsRepository>.value(
+            value: FakeReportsRepository(),
+          ),
+        ],
+        child: const MaterialApp(home: CreateReportScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(DropdownButtonFormField<int>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Roads').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Submit Report'));
+    await tester.tap(find.text('Submit Report'));
+    await tester.pump();
+
+    expect(find.text('Title is required'), findsOneWidget);
+    expect(find.text('Description is required'), findsOneWidget);
+    expect(find.text('Address is required'), findsOneWidget);
+  });
+
+  testWidgets('Create report submits and pops on success', (tester) async {
+    tester.view.physicalSize = const Size(1080, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = FakeReportsRepository();
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<ReportsRepository>.value(value: repository),
+        ],
+        child: MaterialApp(
+          routes: {
+            '/': (_) => const Scaffold(body: Text('Reports refreshed')),
+            '/create': (_) => const CreateReportScreen(),
+          },
+          initialRoute: '/create',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'Road hazard');
+    await tester.enterText(
+      find.byType(TextFormField).at(1),
+      'Large pothole near the bus stop',
+    );
+    await tester.tap(find.byType(DropdownButtonFormField<int>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Roads').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).at(2), 'Ward 1');
+    await tester.ensureVisible(find.byType(TextFormField).at(5));
+    await tester.enterText(
+      find.byType(TextFormField).at(5),
+      'https://example.com/report.jpg',
+    );
+    await tester.ensureVisible(find.text('Submit Report'));
+    await tester.tap(find.text('Submit Report'));
+    await tester.pumpAndSettle();
+
+    expect(repository.createRequests.single.title, 'Road hazard');
+    expect(repository.createRequests.single.categoryId, 7);
+    expect(repository.createRequests.single.imageUrls, [
+      'https://example.com/report.jpg',
+    ]);
+    expect(find.text('Reports refreshed'), findsOneWidget);
+  });
+
+  testWidgets('Create report GPS button shows limitation', (tester) async {
+    tester.view.physicalSize = const Size(1080, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<ReportsRepository>.value(
+            value: FakeReportsRepository(),
+          ),
+        ],
+        child: const MaterialApp(home: CreateReportScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Use Current GPS'));
+    await tester.tap(find.text('Use Current GPS'));
+    await tester.pump();
+
+    expect(find.textContaining('GPS is not available'), findsOneWidget);
   });
 
   testWidgets('Login loading state', (tester) async {

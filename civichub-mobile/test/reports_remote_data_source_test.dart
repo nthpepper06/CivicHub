@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:civichub_mobile/core/network/api_client.dart';
 import 'package:civichub_mobile/core/network/api_exception.dart';
 import 'package:civichub_mobile/features/reports/data/datasources/reports_remote_data_source.dart';
+import 'package:civichub_mobile/features/reports/domain/models/create_report_request.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_status.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,6 +40,89 @@ class JsonAdapter implements HttpClientAdapter {
 }
 
 void main() {
+  test('Remote data source loads public categories without auth', () async {
+    final storage = MemoryAuthTokenStorage();
+    await storage.saveAccessToken('jwt-token');
+    final adapter = JsonAdapter(const {
+      'success': true,
+      'message': 'Active categories',
+      'data': [
+        {
+          'id': 7,
+          'name': 'Roads',
+          'description': 'Road issues',
+          'icon': 'road',
+          'isActive': true,
+        },
+      ],
+    });
+    final client = ApiClient(tokenStorage: storage);
+    client.dio.httpClientAdapter = adapter;
+    final dataSource = ReportsRemoteDataSourceImpl(apiClient: client);
+
+    final categories = await dataSource.getCategories();
+
+    expect(adapter.request?.path, '/api/categories');
+    expect(adapter.request?.headers['Authorization'], isNull);
+    expect(categories.single.name, 'Roads');
+  });
+
+  test(
+    'Remote data source posts verified create report body with auth',
+    () async {
+      final storage = MemoryAuthTokenStorage();
+      await storage.saveAccessToken('jwt-token');
+      final adapter = JsonAdapter(const {
+        'success': true,
+        'message': 'Report created',
+        'data': {
+          'id': 12,
+          'title': 'Road hazard',
+          'description': 'Large pothole',
+          'address': 'Ward 1',
+          'status': 'PENDING',
+          'latitude': 10.77,
+          'longitude': 106.7,
+          'categoryId': 7,
+          'categoryName': 'Roads',
+          'images': [
+            {'id': 1, 'url': 'https://example.com/a.jpg', 'displayOrder': 0},
+          ],
+        },
+      }, statusCode: 201);
+      final client = ApiClient(tokenStorage: storage);
+      client.dio.httpClientAdapter = adapter;
+      final dataSource = ReportsRemoteDataSourceImpl(apiClient: client);
+
+      final created = await dataSource.createReport(
+        const CreateReportRequest(
+          title: ' Road hazard ',
+          description: ' Large pothole ',
+          address: ' Ward 1 ',
+          categoryId: 7,
+          latitude: 10.77,
+          longitude: 106.7,
+          imageUrls: [' https://example.com/a.jpg '],
+        ),
+      );
+
+      expect(adapter.request?.method, 'POST');
+      expect(adapter.request?.path, '/api/reports');
+      expect(adapter.request?.headers['Authorization'], 'Bearer jwt-token');
+      expect(adapter.request?.data, {
+        'title': 'Road hazard',
+        'description': 'Large pothole',
+        'address': 'Ward 1',
+        'latitude': 10.77,
+        'longitude': 106.7,
+        'categoryId': 7,
+        'imageUrls': ['https://example.com/a.jpg'],
+      });
+      expect(created.status, ReportStatus.pending);
+      expect(created.images.single.url, 'https://example.com/a.jpg');
+    },
+  );
+
   test(
     'Remote data source requests verified my reports endpoint with auth',
     () async {
@@ -119,6 +203,33 @@ void main() {
           (error) => error.kind,
           'kind',
           ApiErrorKind.unauthorized,
+        ),
+      ),
+    );
+  });
+
+  test('Remote data source rejects malformed create wrapper', () async {
+    final client = ApiClient(tokenStorage: MemoryAuthTokenStorage());
+    client.dio.httpClientAdapter = JsonAdapter(const {
+      'success': true,
+      'message': 'Report created',
+    });
+    final dataSource = ReportsRemoteDataSourceImpl(apiClient: client);
+
+    await expectLater(
+      dataSource.createReport(
+        const CreateReportRequest(
+          title: 'Road hazard',
+          description: 'Large pothole',
+          address: 'Ward 1',
+          categoryId: 7,
+        ),
+      ),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.kind,
+          'kind',
+          ApiErrorKind.invalidResponse,
         ),
       ),
     );

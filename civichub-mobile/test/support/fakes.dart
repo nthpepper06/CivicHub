@@ -5,6 +5,9 @@ import 'package:civichub_mobile/features/auth/data/models/login_response.dart';
 import 'package:civichub_mobile/features/auth/domain/models/auth_enums.dart';
 import 'package:civichub_mobile/features/auth/domain/models/auth_session.dart';
 import 'package:civichub_mobile/features/auth/domain/models/citizen_profile.dart';
+import 'package:civichub_mobile/features/reports/domain/models/create_report_request.dart';
+import 'package:civichub_mobile/features/reports/domain/models/report_category.dart';
+import 'package:civichub_mobile/features/reports/domain/models/report_detail.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_status.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_summary.dart';
 import 'package:civichub_mobile/features/reports/domain/models/reports_page.dart';
@@ -103,13 +106,44 @@ AuthSession sampleSession() {
 }
 
 class FakeReportsRepository implements ReportsRepository {
-  FakeReportsRepository({List<ReportsPage<CitizenReportSummary>>? pages})
-    : _pages = List.of(pages ?? [sampleReportsPage()]);
+  FakeReportsRepository({
+    List<ReportsPage<CitizenReportSummary>>? pages,
+    List<ReportCategory>? categories,
+    CitizenReportDetail? createdReport,
+  }) : _pages = List.of(pages ?? [sampleReportsPage()]),
+       _categories = categories ?? [sampleCategory()],
+       _createdReport = createdReport ?? sampleReportDetail();
 
   final List<ReportsPage<CitizenReportSummary>> _pages;
+  final List<ReportCategory> _categories;
+  final CitizenReportDetail _createdReport;
   final calls = <ReportRepositoryCall>[];
+  final createRequests = <CreateReportRequest>[];
   Object? error;
+  Object? categoryError;
+  Object? createError;
   Future<ReportsPage<CitizenReportSummary>>? pendingResponse;
+  Future<CitizenReportDetail>? pendingCreateResponse;
+
+  @override
+  Future<List<ReportCategory>> getCategories() async {
+    if (categoryError != null) {
+      throw categoryError!;
+    }
+    return _categories;
+  }
+
+  @override
+  Future<CitizenReportDetail> createReport(CreateReportRequest request) async {
+    createRequests.add(request);
+    if (createError != null) {
+      throw createError!;
+    }
+    if (pendingCreateResponse != null) {
+      return pendingCreateResponse!;
+    }
+    return _createdReport;
+  }
 
   @override
   Future<ReportsPage<CitizenReportSummary>> getMyReports({
@@ -143,6 +177,20 @@ class FakeReportsRepository implements ReportsRepository {
     }
     return _pages.removeAt(0);
   }
+}
+
+ReportCategory sampleCategory({
+  int id = 7,
+  String name = 'Roads',
+  bool isActive = true,
+}) {
+  return ReportCategory(
+    id: id,
+    name: name,
+    description: 'Road and sidewalk issues',
+    icon: 'road',
+    isActive: isActive,
+  );
 }
 
 class ReportRepositoryCall {
@@ -203,5 +251,30 @@ ReportsPage<CitizenReportSummary> sampleReportsPage({
     totalPages: last ? page + 1 : page + 2,
     first: page == 0,
     last: last,
+  );
+}
+
+CitizenReportDetail sampleReportDetail({
+  int id = 12,
+  String title = 'Broken sidewalk',
+  String description = 'Uneven pavement near the bus stop.',
+  String address = '12 Nguyen Hue',
+  ReportStatus status = ReportStatus.pending,
+}) {
+  return CitizenReportDetail(
+    id: id,
+    title: title,
+    description: description,
+    address: address,
+    status: status,
+    latitude: 10.77,
+    longitude: 106.7,
+    categoryId: 7,
+    categoryName: 'Roads',
+    citizenId: 1,
+    citizenName: 'Nguyen Minh Anh',
+    images: const [],
+    createdAt: DateTime.parse('2026-07-20T10:15:00'),
+    updatedAt: DateTime.parse('2026-07-20T10:15:00'),
   );
 }

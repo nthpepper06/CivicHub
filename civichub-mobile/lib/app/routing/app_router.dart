@@ -9,6 +9,7 @@ import '../../features/home/presentation/widgets/main_shell.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../../features/profile/presentation/screens/edit_profile_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/reports/presentation/screens/create_report_screen.dart';
 import '../../features/reports/presentation/screens/reports_screen.dart';
 import '../../features/splash/presentation/screens/splash_screen.dart';
 import 'app_routes.dart';
@@ -92,6 +93,12 @@ class AppRouter {
           path: AppRoutes.editProfile,
           pageBuilder: (context, state) {
             return const MaterialPage(child: EditProfileScreen());
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.createReport,
+          pageBuilder: (context, state) {
+            return const MaterialPage(child: CreateReportScreen());
           },
         ),
       ],

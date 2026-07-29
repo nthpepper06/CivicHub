@@ -3,11 +3,19 @@ import 'package:dio/dio.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../domain/models/create_report_request.dart';
 import '../../domain/models/report_status.dart';
+import '../models/category_response.dart';
+import '../models/create_report_request_dto.dart';
+import '../models/report_detail_response.dart';
 import '../models/report_summary_response.dart';
 import '../models/reports_page_response.dart';
 
 abstract class ReportsRemoteDataSource {
+  Future<List<CategoryResponse>> getCategories();
+
+  Future<ReportDetailResponse> createReport(CreateReportRequest request);
+
   Future<ReportsPageResponse<ReportSummaryResponse>> getMyReports({
     required int page,
     required int size,
@@ -24,6 +32,50 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     : _apiClient = apiClient;
 
   final ApiClient _apiClient;
+
+  @override
+  Future<List<CategoryResponse>> getCategories() async {
+    try {
+      final response = await _apiClient.dio.get<Map<String, dynamic>>(
+        ApiEndpoints.categories,
+        options: Options(extra: {ApiClient.requiresAuthExtraKey: false}),
+      );
+      final data = response.data?['data'];
+      if (data is! List) {
+        throw ApiException.invalidResponse;
+      }
+      return data.map((item) {
+        if (item is! Map<String, dynamic>) {
+          throw const FormatException('Invalid category item');
+        }
+        return CategoryResponse.fromJson(item);
+      }).toList();
+    } on DioException catch (error) {
+      throw _apiClient.mapDioError(error);
+    } on ApiException {
+      rethrow;
+    } on FormatException {
+      throw ApiException.invalidResponse;
+    }
+  }
+
+  @override
+  Future<ReportDetailResponse> createReport(CreateReportRequest request) async {
+    try {
+      final response = await _apiClient.dio.post<Map<String, dynamic>>(
+        ApiEndpoints.reports,
+        data: CreateReportRequestDto(request).toJson(),
+      );
+      final data = _responseData(response.data);
+      return ReportDetailResponse.fromJson(data);
+    } on DioException catch (error) {
+      throw _apiClient.mapDioError(error);
+    } on ApiException {
+      rethrow;
+    } on FormatException {
+      throw ApiException.invalidResponse;
+    }
+  }
 
   @override
   Future<ReportsPageResponse<ReportSummaryResponse>> getMyReports({

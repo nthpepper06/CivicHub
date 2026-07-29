@@ -1,3 +1,6 @@
+import '../../domain/models/create_report_request.dart';
+import '../../domain/models/report_category.dart';
+import '../../domain/models/report_detail.dart';
 import '../../domain/models/report_status.dart';
 import '../../domain/models/report_summary.dart';
 import '../../domain/models/reports_page.dart';
@@ -9,6 +12,18 @@ class ReportsRepositoryImpl implements ReportsRepository {
     : _remoteDataSource = remoteDataSource;
 
   final ReportsRemoteDataSource _remoteDataSource;
+
+  @override
+  Future<List<ReportCategory>> getCategories() async {
+    final response = await _remoteDataSource.getCategories();
+    return response.map((category) => category.toDomain()).toList();
+  }
+
+  @override
+  Future<CitizenReportDetail> createReport(CreateReportRequest request) async {
+    final response = await _remoteDataSource.createReport(request);
+    return response.toDomain();
+  }
 
   @override
   Future<ReportsPage<CitizenReportSummary>> getMyReports({

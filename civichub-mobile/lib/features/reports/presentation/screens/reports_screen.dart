@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../app/routing/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -66,7 +68,28 @@ class _ReportsViewState extends State<_ReportsView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('My Reports')),
+      appBar: AppBar(
+        title: const Text('My Reports'),
+        actions: [
+          IconButton(
+            tooltip: 'Create report',
+            onPressed: () async {
+              final created = await context.push<bool>(AppRoutes.createReport);
+              if (!context.mounted || created != true) {
+                return;
+              }
+              await context.read<ReportsCubit>().refresh();
+              if (!context.mounted) {
+                return;
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Report submitted.')),
+              );
+            },
+            icon: const Icon(Icons.add),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: BlocBuilder<ReportsCubit, ReportsState>(
           builder: (context, state) {

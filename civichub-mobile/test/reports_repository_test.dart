@@ -1,7 +1,10 @@
 import 'package:civichub_mobile/features/reports/data/datasources/reports_remote_data_source.dart';
+import 'package:civichub_mobile/features/reports/data/models/category_response.dart';
+import 'package:civichub_mobile/features/reports/data/models/report_detail_response.dart';
 import 'package:civichub_mobile/features/reports/data/models/report_summary_response.dart';
 import 'package:civichub_mobile/features/reports/data/models/reports_page_response.dart';
 import 'package:civichub_mobile/features/reports/data/repositories/reports_repository_impl.dart';
+import 'package:civichub_mobile/features/reports/domain/models/create_report_request.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_status.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -10,6 +13,39 @@ class FakeReportsRemoteDataSource implements ReportsRemoteDataSource {
 
   final ReportsPageResponse<ReportSummaryResponse> response;
   final calls = <Map<String, Object?>>[];
+  final createRequests = <CreateReportRequest>[];
+
+  @override
+  Future<List<CategoryResponse>> getCategories() async {
+    return [
+      CategoryResponse.fromJson(const {
+        'id': 7,
+        'name': 'Roads',
+        'description': 'Road issues',
+        'icon': 'road',
+        'isActive': true,
+      }),
+    ];
+  }
+
+  @override
+  Future<ReportDetailResponse> createReport(CreateReportRequest request) async {
+    createRequests.add(request);
+    return ReportDetailResponse.fromJson(const {
+      'id': 99,
+      'title': 'Road hazard',
+      'description': 'Large pothole',
+      'address': 'Ward 1',
+      'status': 'PENDING',
+      'latitude': 10.77,
+      'longitude': 106.7,
+      'categoryId': 7,
+      'categoryName': 'Roads',
+      'images': [
+        {'id': 1, 'url': 'https://example.com/a.jpg', 'displayOrder': 0},
+      ],
+    });
+  }
 
   @override
   Future<ReportsPageResponse<ReportSummaryResponse>> getMyReports({
@@ -97,4 +133,41 @@ void main() {
     expect(report.categoryName, isNull);
     expect(report.createdAt, isNull);
   });
+
+  test(
+    'Repository maps categories and created report to domain models',
+    () async {
+      final remote = FakeReportsRemoteDataSource(
+        const ReportsPageResponse(
+          content: [],
+          page: 0,
+          size: 10,
+          totalElements: 0,
+          totalPages: 0,
+          first: true,
+          last: true,
+        ),
+      );
+      final repository = ReportsRepositoryImpl(remoteDataSource: remote);
+
+      final categories = await repository.getCategories();
+      final created = await repository.createReport(
+        const CreateReportRequest(
+          title: 'Road hazard',
+          description: 'Large pothole',
+          address: 'Ward 1',
+          categoryId: 7,
+          latitude: 10.77,
+          longitude: 106.7,
+          imageUrls: ['https://example.com/a.jpg'],
+        ),
+      );
+
+      expect(categories.single.name, 'Roads');
+      expect(created.id, 99);
+      expect(created.status, ReportStatus.pending);
+      expect(created.images.single.url, 'https://example.com/a.jpg');
+      expect(remote.createRequests.single.categoryId, 7);
+    },
+  );
 }

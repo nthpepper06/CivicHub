@@ -21,6 +21,8 @@ class AppTextField extends StatelessWidget {
     this.focusNode,
     this.validator,
     this.suffixIcon,
+    this.minLines,
+    this.maxLines = 1,
     super.key,
   });
 
@@ -40,6 +42,8 @@ class AppTextField extends StatelessWidget {
   final FocusNode? focusNode;
   final FormFieldValidator<String>? validator;
   final Widget? suffixIcon;
+  final int? minLines;
+  final int? maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +70,8 @@ class AppTextField extends StatelessWidget {
           onFieldSubmitted: onFieldSubmitted,
           focusNode: focusNode,
           validator: validator,
+          minLines: minLines,
+          maxLines: obscureText ? 1 : maxLines,
           style: Theme.of(context).textTheme.titleMedium,
           decoration: InputDecoration(
             hintText: hintText,
