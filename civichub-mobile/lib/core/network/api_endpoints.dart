@@ -4,4 +4,6 @@ class ApiEndpoints {
   static const categories = '/api/categories';
   static const reports = '/api/reports';
   static const myReports = '/api/reports/my';
+
+  static String myReportDetail(int id) => '/api/reports/my/$id';
 }

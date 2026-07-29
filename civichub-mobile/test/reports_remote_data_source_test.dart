@@ -167,6 +167,49 @@ void main() {
     },
   );
 
+  test(
+    'Remote data source fetches verified report detail endpoint with auth',
+    () async {
+      final storage = MemoryAuthTokenStorage();
+      await storage.saveAccessToken('jwt-token');
+      final adapter = JsonAdapter(const {
+        'success': true,
+        'message': 'Report',
+        'data': {
+          'id': 12,
+          'title': 'Road hazard',
+          'description': 'Large pothole',
+          'address': 'Ward 1',
+          'status': 'IN_PROGRESS',
+          'latitude': 10.77,
+          'longitude': 106.7,
+          'categoryId': 7,
+          'categoryName': 'Roads',
+          'departmentId': 3,
+          'departmentName': 'Public Works',
+          'citizenId': 1,
+          'citizenName': 'Nguyen Minh Anh',
+          'images': [
+            {'id': 2, 'url': 'https://example.com/b.jpg', 'displayOrder': 0},
+          ],
+          'createdAt': '2026-07-20T10:15:00',
+          'updatedAt': '2026-07-21T11:30:00',
+        },
+      });
+      final client = ApiClient(tokenStorage: storage);
+      client.dio.httpClientAdapter = adapter;
+      final dataSource = ReportsRemoteDataSourceImpl(apiClient: client);
+
+      final detail = await dataSource.getMyReport(12);
+
+      expect(adapter.request?.method, 'GET');
+      expect(adapter.request?.path, '/api/reports/my/12');
+      expect(adapter.request?.headers['Authorization'], 'Bearer jwt-token');
+      expect(detail.status, ReportStatus.inProgress);
+      expect(detail.images.single.url, 'https://example.com/b.jpg');
+    },
+  );
+
   test('Remote data source rejects malformed wrapped response', () async {
     final client = ApiClient(tokenStorage: MemoryAuthTokenStorage());
     client.dio.httpClientAdapter = JsonAdapter(const {
@@ -203,6 +246,53 @@ void main() {
           (error) => error.kind,
           'kind',
           ApiErrorKind.unauthorized,
+        ),
+      ),
+    );
+  });
+
+  test('Remote data source maps report not found', () async {
+    final client = ApiClient(tokenStorage: MemoryAuthTokenStorage());
+    client.dio.httpClientAdapter = JsonAdapter(const {
+      'message': 'Report not found',
+    }, statusCode: 404);
+    final dataSource = ReportsRemoteDataSourceImpl(apiClient: client);
+
+    await expectLater(
+      dataSource.getMyReport(404),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.kind,
+          'kind',
+          ApiErrorKind.notFound,
+        ),
+      ),
+    );
+  });
+
+  test('Remote data source rejects malformed detail image response', () async {
+    final client = ApiClient(tokenStorage: MemoryAuthTokenStorage());
+    client.dio.httpClientAdapter = JsonAdapter(const {
+      'success': true,
+      'message': 'Report',
+      'data': {
+        'id': 12,
+        'title': 'Road hazard',
+        'description': 'Large pothole',
+        'address': 'Ward 1',
+        'status': 'PENDING',
+        'images': 'not-a-list',
+      },
+    });
+    final dataSource = ReportsRemoteDataSourceImpl(apiClient: client);
+
+    await expectLater(
+      dataSource.getMyReport(12),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.kind,
+          'kind',
+          ApiErrorKind.invalidResponse,
         ),
       ),
     );

@@ -117,13 +117,17 @@ class FakeReportsRepository implements ReportsRepository {
   final List<ReportsPage<CitizenReportSummary>> _pages;
   final List<ReportCategory> _categories;
   final CitizenReportDetail _createdReport;
+  CitizenReportDetail? detailReport;
   final calls = <ReportRepositoryCall>[];
+  final detailCalls = <int>[];
   final createRequests = <CreateReportRequest>[];
   Object? error;
   Object? categoryError;
   Object? createError;
+  Object? detailError;
   Future<ReportsPage<CitizenReportSummary>>? pendingResponse;
   Future<CitizenReportDetail>? pendingCreateResponse;
+  Future<CitizenReportDetail>? pendingDetailResponse;
 
   @override
   Future<List<ReportCategory>> getCategories() async {
@@ -143,6 +147,18 @@ class FakeReportsRepository implements ReportsRepository {
       return pendingCreateResponse!;
     }
     return _createdReport;
+  }
+
+  @override
+  Future<CitizenReportDetail> getMyReport(int id) async {
+    detailCalls.add(id);
+    if (detailError != null) {
+      throw detailError!;
+    }
+    if (pendingDetailResponse != null) {
+      return pendingDetailResponse!;
+    }
+    return detailReport ?? sampleReportDetail(id: id);
   }
 
   @override

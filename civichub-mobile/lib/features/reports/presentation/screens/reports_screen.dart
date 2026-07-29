@@ -282,9 +282,7 @@ class _ReportRow extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(AppRadius.sm),
       onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Report #${report.id} detail coming soon.')),
-        );
+        context.push(AppRoutes.reportDetailPath(report.id));
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),

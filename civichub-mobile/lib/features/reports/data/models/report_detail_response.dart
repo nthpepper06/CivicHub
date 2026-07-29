@@ -81,13 +81,18 @@ class ReportDetailResponse {
   }
 
   static List<ReportImageResponse> _imagesFromJson(Object? value) {
-    if (value is! List) {
+    if (value == null) {
       return const [];
     }
-    return [
-      for (final item in value)
-        if (item is Map<String, dynamic>) ReportImageResponse.fromJson(item),
-    ];
+    if (value is! List) {
+      throw const FormatException('Invalid images field');
+    }
+    return value.map((item) {
+      if (item is! Map<String, dynamic>) {
+        throw const FormatException('Invalid image item');
+      }
+      return ReportImageResponse.fromJson(item);
+    }).toList();
   }
 
   static int _requiredInt(Object? value) {

@@ -16,6 +16,8 @@ abstract class ReportsRemoteDataSource {
 
   Future<ReportDetailResponse> createReport(CreateReportRequest request);
 
+  Future<ReportDetailResponse> getMyReport(int id);
+
   Future<ReportsPageResponse<ReportSummaryResponse>> getMyReports({
     required int page,
     required int size,
@@ -65,6 +67,23 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       final response = await _apiClient.dio.post<Map<String, dynamic>>(
         ApiEndpoints.reports,
         data: CreateReportRequestDto(request).toJson(),
+      );
+      final data = _responseData(response.data);
+      return ReportDetailResponse.fromJson(data);
+    } on DioException catch (error) {
+      throw _apiClient.mapDioError(error);
+    } on ApiException {
+      rethrow;
+    } on FormatException {
+      throw ApiException.invalidResponse;
+    }
+  }
+
+  @override
+  Future<ReportDetailResponse> getMyReport(int id) async {
+    try {
+      final response = await _apiClient.dio.get<Map<String, dynamic>>(
+        ApiEndpoints.myReportDetail(id),
       );
       final data = _responseData(response.data);
       return ReportDetailResponse.fromJson(data);

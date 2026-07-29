@@ -12,8 +12,10 @@ import 'package:civichub_mobile/features/auth/presentation/cubit/login_cubit.dar
 import 'package:civichub_mobile/features/auth/presentation/cubit/login_state.dart';
 import 'package:civichub_mobile/features/auth/presentation/screens/login_screen.dart';
 import 'package:civichub_mobile/features/profile/presentation/screens/profile_screen.dart';
+import 'package:civichub_mobile/features/reports/domain/models/report_detail.dart';
 import 'package:civichub_mobile/features/reports/domain/repositories/reports_repository.dart';
 import 'package:civichub_mobile/features/reports/presentation/screens/create_report_screen.dart';
+import 'package:civichub_mobile/features/reports/presentation/screens/report_detail_screen.dart';
 import 'package:civichub_mobile/features/reports/presentation/screens/reports_screen.dart';
 import 'package:civichub_mobile/features/splash/presentation/screens/splash_screen.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +23,29 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+
+extension on CitizenReportDetail {
+  CitizenReportDetail copyWithImages(List<ReportImage> images) {
+    return CitizenReportDetail(
+      id: id,
+      title: title,
+      description: description,
+      address: address,
+      status: status,
+      latitude: latitude,
+      longitude: longitude,
+      categoryId: categoryId,
+      categoryName: categoryName,
+      departmentId: departmentId,
+      departmentName: departmentName,
+      citizenId: citizenId,
+      citizenName: citizenName,
+      images: images,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
+  }
+}
 
 Future<({AuthCubit authCubit, LoginCubit loginCubit, AuthTokenStorage storage})>
 buildAuthStack({
@@ -245,6 +270,114 @@ void main() {
     await tester.pump();
 
     expect(find.textContaining('GPS is not available'), findsOneWidget);
+  });
+
+  testWidgets('Report detail loads and shows empty images state', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = FakeReportsRepository()
+      ..detailReport = sampleReportDetail(id: 12);
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<ReportsRepository>.value(value: repository),
+        ],
+        child: const MaterialApp(home: ReportDetailScreen(reportId: 12)),
+      ),
+    );
+
+    expect(find.text('Loading report'), findsOneWidget);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Broken sidewalk'), findsOneWidget);
+    expect(find.text('Uneven pavement near the bus stop.'), findsOneWidget);
+    expect(find.text('No images'), findsOneWidget);
+  });
+
+  testWidgets('Report detail renders image previews', (tester) async {
+    tester.view.physicalSize = const Size(1080, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = FakeReportsRepository()
+      ..detailReport = sampleReportDetail(id: 12).copyWithImages([
+        const ReportImage(
+          id: 1,
+          url: 'https://example.com/report.jpg',
+          displayOrder: 0,
+        ),
+      ]);
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<ReportsRepository>.value(value: repository),
+        ],
+        child: const MaterialApp(home: ReportDetailScreen(reportId: 12)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Images'), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget);
+  });
+
+  testWidgets('Report detail shows not found state', (tester) async {
+    final repository = FakeReportsRepository()
+      ..detailError = ApiException.notFound.copyWith(
+        message: 'Report not found',
+      );
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<ReportsRepository>.value(value: repository),
+        ],
+        child: const MaterialApp(home: ReportDetailScreen(reportId: 404)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Report not found'), findsWidgets);
+  });
+
+  testWidgets('Reports list opens report detail', (tester) async {
+    final stack = await buildAuthStack();
+    stack.authCubit.setAuthenticated(sampleUser());
+    final repository = FakeReportsRepository();
+    final router = AppRouter.create(
+      authCubit: stack.authCubit,
+      initialLocation: AppRoutes.reports,
+    );
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<ReportsRepository>.value(value: repository),
+        ],
+        child: MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: stack.authCubit),
+            BlocProvider.value(value: stack.loginCubit),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Broken sidewalk').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Report Detail'), findsOneWidget);
+    expect(repository.detailCalls.single, 1);
   });
 
   testWidgets('Login loading state', (tester) async {

@@ -10,6 +10,7 @@ import '../../features/notifications/presentation/screens/notifications_screen.d
 import '../../features/profile/presentation/screens/edit_profile_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/reports/presentation/screens/create_report_screen.dart';
+import '../../features/reports/presentation/screens/report_detail_screen.dart';
 import '../../features/reports/presentation/screens/reports_screen.dart';
 import '../../features/splash/presentation/screens/splash_screen.dart';
 import 'app_routes.dart';
@@ -99,6 +100,16 @@ class AppRouter {
           path: AppRoutes.createReport,
           pageBuilder: (context, state) {
             return const MaterialPage(child: CreateReportScreen());
+          },
+        ),
+        GoRoute(
+          path: '${AppRoutes.reportDetail}/:id',
+          pageBuilder: (context, state) {
+            final id = int.tryParse(state.pathParameters['id'] ?? '');
+            if (id == null) {
+              return const MaterialPage(child: ReportDetailScreen(reportId: 0));
+            }
+            return MaterialPage(child: ReportDetailScreen(reportId: id));
           },
         ),
       ],

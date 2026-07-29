@@ -10,6 +10,8 @@ abstract class ReportsRepository {
 
   Future<CitizenReportDetail> createReport(CreateReportRequest request);
 
+  Future<CitizenReportDetail> getMyReport(int id);
+
   Future<ReportsPage<CitizenReportSummary>> getMyReports({
     required int page,
     required int size,

@@ -48,6 +48,18 @@ class FakeReportsRemoteDataSource implements ReportsRemoteDataSource {
   }
 
   @override
+  Future<ReportDetailResponse> getMyReport(int id) async {
+    return ReportDetailResponse.fromJson({
+      'id': id,
+      'title': 'Road hazard',
+      'description': 'Large pothole',
+      'address': 'Ward 1',
+      'status': 'PENDING',
+      'images': const [],
+    });
+  }
+
+  @override
   Future<ReportsPageResponse<ReportSummaryResponse>> getMyReports({
     required int page,
     required int size,
@@ -170,4 +182,25 @@ void main() {
       expect(remote.createRequests.single.categoryId, 7);
     },
   );
+
+  test('Repository maps detail fetch to domain model', () async {
+    final remote = FakeReportsRemoteDataSource(
+      const ReportsPageResponse(
+        content: [],
+        page: 0,
+        size: 10,
+        totalElements: 0,
+        totalPages: 0,
+        first: true,
+        last: true,
+      ),
+    );
+    final repository = ReportsRepositoryImpl(remoteDataSource: remote);
+
+    final detail = await repository.getMyReport(44);
+
+    expect(detail.id, 44);
+    expect(detail.title, 'Road hazard');
+    expect(detail.images, isEmpty);
+  });
 }
