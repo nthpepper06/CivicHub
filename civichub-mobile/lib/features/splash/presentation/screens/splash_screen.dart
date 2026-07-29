@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../app/routing/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
+import '../../../auth/presentation/cubit/auth_state.dart';
 
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
@@ -34,21 +35,76 @@ class SplashScreen extends StatelessWidget {
                     context,
                   ).textTheme.displaySmall?.copyWith(color: AppColors.surface),
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                SizedBox(
-                  width: double.infinity,
-                  height: 58,
-                  child: FilledButton(
-                    onPressed: () => context.go(AppRoutes.login),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.surface,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                      ),
-                    ),
-                    child: const Text('Log In'),
-                  ),
+                const SizedBox(height: AppSpacing.md),
+                BlocBuilder<AuthCubit, AuthState>(
+                  builder: (context, state) {
+                    final message = switch (state.status) {
+                      AuthStatus.checking => 'Checking your session...',
+                      AuthStatus.authenticated => 'Opening your account...',
+                      AuthStatus.unauthenticated => 'Redirecting to login...',
+                      AuthStatus.unknown => 'Preparing secure session...',
+                      AuthStatus.failure =>
+                        state.message ?? 'Unable to verify your session.',
+                    };
+                    final isFailure = state.status == AuthStatus.failure;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            if (isFailure)
+                              const Icon(
+                                Icons.wifi_off_outlined,
+                                color: AppColors.surface,
+                                size: 22,
+                              )
+                            else
+                              const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  color: AppColors.surface,
+                                ),
+                              ),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: Text(
+                                message,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: AppColors.surface),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (isFailure) ...[
+                          const SizedBox(height: AppSpacing.lg),
+                          SizedBox(
+                            width: 140,
+                            child: OutlinedButton(
+                              onPressed: () {
+                                context.read<AuthCubit>().bootstrap();
+                              },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.surface,
+                                side: const BorderSide(
+                                  color: AppColors.surface,
+                                ),
+                                minimumSize: const Size.fromHeight(48),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.sm,
+                                  ),
+                                ),
+                              ),
+                              child: const Text('Retry'),
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
                 ),
               ],
             ),

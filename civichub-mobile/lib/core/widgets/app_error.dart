@@ -5,10 +5,16 @@ import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 
 class AppError extends StatelessWidget {
-  const AppError({required this.title, required this.message, super.key});
+  const AppError({
+    required this.title,
+    required this.message,
+    this.onRetry,
+    super.key,
+  });
 
   final String title;
   final String message;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +37,14 @@ class AppError extends StatelessWidget {
                 Text(title, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: AppSpacing.xs),
                 Text(message, style: Theme.of(context).textTheme.bodyMedium),
+                if (onRetry != null) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  OutlinedButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                ],
               ],
             ),
           ),

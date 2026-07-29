@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/routing/app_routes.dart';
-import '../../../../core/config/mock_data.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
+import '../../../auth/presentation/cubit/auth_state.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -15,60 +17,80 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            AppSpacing.xl,
-            AppSpacing.lg,
-            AppSpacing.lg,
-          ),
-          children: [
-            const Center(child: _Avatar(size: 92)),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              MockCitizen.name,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              MockCitizen.email,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Center(
-              child: AppButton(
-                label: 'Edit Profile',
-                variant: AppButtonVariant.outline,
-                expand: false,
-                onPressed: () => context.push(AppRoutes.editProfile),
+        child: BlocBuilder<AuthCubit, AuthState>(
+          builder: (context, state) {
+            final user = state.user;
+            if (user == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.xl,
+                AppSpacing.lg,
+                AppSpacing.lg,
               ),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            Text('Profile', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: AppSpacing.md),
-            const _ProfileInfoRow(
-              icon: Icons.email_outlined,
-              label: 'Email',
-              value: MockCitizen.email,
-            ),
-            const _ProfileInfoRow(
-              icon: Icons.phone_outlined,
-              label: 'Phone',
-              value: MockCitizen.phone,
-            ),
-            const _ProfileInfoRow(
-              icon: Icons.verified_user_outlined,
-              label: 'Citizen status',
-              value: 'Verified mock account',
-            ),
-            const _ProfileInfoRow(
-              icon: Icons.logout,
-              label: 'Logout',
-              value: 'Disabled in UI foundation sprint',
-            ),
-          ],
+              children: [
+                const Center(child: _Avatar(size: 92)),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  user.fullName,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  user.email,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Center(
+                  child: AppButton(
+                    label: 'Edit Profile',
+                    variant: AppButtonVariant.outline,
+                    expand: false,
+                    onPressed: () => context.push(AppRoutes.editProfile),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                Text('Profile', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: AppSpacing.md),
+                _ProfileInfoRow(
+                  icon: Icons.email_outlined,
+                  label: 'Email',
+                  value: user.email,
+                ),
+                _ProfileInfoRow(
+                  icon: Icons.phone_outlined,
+                  label: 'Phone',
+                  value: user.phone ?? 'Not provided',
+                ),
+                _ProfileInfoRow(
+                  icon: Icons.verified_user_outlined,
+                  label: 'Role',
+                  value: user.role.name.toUpperCase(),
+                ),
+                _ProfileInfoRow(
+                  icon: Icons.logout,
+                  label: 'Logout',
+                  value: 'End this session locally',
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                AppButton(
+                  label: 'Logout',
+                  variant: AppButtonVariant.outline,
+                  onPressed: () async {
+                    await context.read<AuthCubit>().logout();
+                    if (context.mounted) {
+                      context.go(AppRoutes.login);
+                    }
+                  },
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

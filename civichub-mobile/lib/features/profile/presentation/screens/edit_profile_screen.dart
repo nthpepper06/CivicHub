@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/config/mock_data.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
+import '../../../auth/presentation/cubit/auth_state.dart';
 
 class EditProfileScreen extends StatelessWidget {
   const EditProfileScreen({super.key});
@@ -22,82 +24,89 @@ class EditProfileScreen extends StatelessWidget {
           child: const Text('Cancel'),
         ),
         title: const Text('Edit Profile'),
-        actions: [
-          TextButton(onPressed: () => context.pop(), child: const Text('Save')),
-        ],
+        actions: [TextButton(onPressed: null, child: const Text('Save'))],
       ),
       body: SafeArea(
-        child: ListView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          children: [
-            Center(
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.bottomCenter,
-                children: [
-                  Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF65708D),
-                      borderRadius: BorderRadius.circular(AppRadius.lg),
-                    ),
-                    child: const Icon(
-                      Icons.person,
-                      color: AppColors.surface,
-                      size: 58,
-                    ),
-                  ),
-                  Positioned(
-                    bottom: -14,
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(17),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x22000000),
-                            blurRadius: 12,
-                            offset: Offset(0, 4),
+        child: BlocBuilder<AuthCubit, AuthState>(
+          builder: (context, state) {
+            final user = state.user;
+            if (user == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            return ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              children: [
+                Center(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.bottomCenter,
+                    children: [
+                      Container(
+                        width: 90,
+                        height: 90,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF65708D),
+                          borderRadius: BorderRadius.circular(AppRadius.lg),
+                        ),
+                        child: const Icon(
+                          Icons.person,
+                          color: AppColors.surface,
+                          size: 58,
+                        ),
+                      ),
+                      Positioned(
+                        bottom: -14,
+                        child: Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(17),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x22000000),
+                                blurRadius: 12,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
                           ),
-                        ],
+                          child: const Icon(
+                            Icons.photo_camera,
+                            color: AppColors.muted,
+                            size: 18,
+                          ),
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.photo_camera,
-                        color: AppColors.muted,
-                        size: 18,
-                      ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xxl),
-            const AppTextField(
-              label: 'Name',
-              initialValue: MockCitizen.name,
-              keyboardType: TextInputType.name,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            const _InfoRow(label: 'Email ID', value: MockCitizen.email),
-            const SizedBox(height: AppSpacing.lg),
-            const AppTextField(
-              label: 'Mobile number',
-              initialValue: MockCitizen.phone,
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: AppSpacing.xxl),
-            AppButton(label: 'Save', onPressed: () => context.pop()),
-            const SizedBox(height: AppSpacing.md),
-            AppButton(
-              label: 'Cancel',
-              variant: AppButtonVariant.ghost,
-              onPressed: () => context.pop(),
-            ),
-          ],
+                ),
+                const SizedBox(height: AppSpacing.xxl),
+                AppTextField(
+                  label: 'Name',
+                  initialValue: user.fullName,
+                  keyboardType: TextInputType.name,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                _InfoRow(label: 'Email ID', value: user.email),
+                const SizedBox(height: AppSpacing.lg),
+                AppTextField(
+                  label: 'Mobile number',
+                  initialValue: user.phone ?? '',
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: AppSpacing.xxl),
+                AppButton(label: 'Save', onPressed: null),
+                const SizedBox(height: AppSpacing.md),
+                AppButton(
+                  label: 'Cancel',
+                  variant: AppButtonVariant.ghost,
+                  onPressed: () => context.pop(),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

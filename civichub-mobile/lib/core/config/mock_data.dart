@@ -1,11 +1,5 @@
-import '../../features/home/domain/models/report_summary.dart';
 import 'package:flutter/material.dart';
-
-class MockCitizen {
-  static const name = 'Nguyen Minh Anh';
-  static const email = 'minh.anh@civichub.vn';
-  static const phone = '+84 912 345 678';
-}
+import '../../features/home/domain/models/report_summary.dart';
 
 class MockReports {
   static const summary = ReportSummary(pending: 3, inProgress: 2, resolved: 12);

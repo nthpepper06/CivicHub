@@ -1,0 +1,80 @@
+import 'package:dio/dio.dart';
+
+import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_endpoints.dart';
+import '../../../../core/network/api_exception.dart';
+import '../../domain/models/report_status.dart';
+import '../models/report_summary_response.dart';
+import '../models/reports_page_response.dart';
+
+abstract class ReportsRemoteDataSource {
+  Future<ReportsPageResponse<ReportSummaryResponse>> getMyReports({
+    required int page,
+    required int size,
+    String? search,
+    ReportStatus? status,
+    int? categoryId,
+    String? sortBy,
+    String? direction,
+  });
+}
+
+class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
+  ReportsRemoteDataSourceImpl({required ApiClient apiClient})
+    : _apiClient = apiClient;
+
+  final ApiClient _apiClient;
+
+  @override
+  Future<ReportsPageResponse<ReportSummaryResponse>> getMyReports({
+    required int page,
+    required int size,
+    String? search,
+    ReportStatus? status,
+    int? categoryId,
+    String? sortBy,
+    String? direction,
+  }) async {
+    try {
+      final response = await _apiClient.dio.get<Map<String, dynamic>>(
+        ApiEndpoints.myReports,
+        queryParameters: _cleanParams({
+          'page': page,
+          'size': size,
+          'search': search,
+          'status': status == null || status == ReportStatus.unknown
+              ? null
+              : status.apiValue,
+          'categoryId': categoryId,
+          'sortBy': sortBy,
+          'direction': direction,
+        }),
+      );
+      final data = _responseData(response.data);
+      return ReportsPageResponse.fromJson(data, ReportSummaryResponse.fromJson);
+    } on DioException catch (error) {
+      throw _apiClient.mapDioError(error);
+    } on ApiException {
+      rethrow;
+    } on FormatException {
+      throw ApiException.invalidResponse;
+    }
+  }
+
+  Map<String, dynamic> _responseData(Map<String, dynamic>? responseBody) {
+    final data = responseBody?['data'];
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    throw ApiException.invalidResponse;
+  }
+
+  Map<String, dynamic> _cleanParams(Map<String, Object?> params) {
+    return Map<String, dynamic>.fromEntries(
+      params.entries.where((entry) {
+        final value = entry.value;
+        return value != null && (value is! String || value.trim().isNotEmpty);
+      }),
+    );
+  }
+}

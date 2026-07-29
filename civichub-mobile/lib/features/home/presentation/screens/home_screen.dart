@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/routing/app_routes.dart';
@@ -9,6 +10,8 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../home/domain/models/report_summary.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
+import '../../../auth/presentation/cubit/auth_state.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -19,7 +22,7 @@ class HomeScreen extends StatelessWidget {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            SliverToBoxAdapter(child: _HomeHeader()),
+            const SliverToBoxAdapter(child: _HomeHeader()),
             SliverPadding(
               padding: const EdgeInsets.all(AppSpacing.lg),
               sliver: SliverList.list(
@@ -105,55 +108,64 @@ class _HomeHeader extends StatelessWidget {
           bottom: Radius.circular(AppRadius.lg),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: BlocBuilder<AuthCubit, AuthState>(
+        builder: (context, state) {
+          final user = state.user;
+          final greeting = user == null ? 'Citizen' : _firstName(user.fullName);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.location_on, color: AppColors.surface),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Current area',
-                      style: Theme.of(context).textTheme.labelMedium,
+              Row(
+                children: [
+                  const Icon(Icons.location_on, color: AppColors.surface),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Current area',
+                          style: Theme.of(context).textTheme.labelMedium,
+                        ),
+                        Text(
+                          'CivicHub City',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(color: AppColors.surface),
+                        ),
+                      ],
                     ),
-                    Text(
-                      'CivicHub City',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.surface,
-                      ),
-                    ),
-                  ],
+                  ),
+                  IconButton(
+                    onPressed: () => context.go(AppRoutes.profile),
+                    icon: const Icon(Icons.person_outline),
+                    color: AppColors.surface,
+                    tooltip: 'Profile',
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Hello, $greeting',
+                style: Theme.of(
+                  context,
+                ).textTheme.headlineMedium?.copyWith(color: AppColors.surface),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Track public service requests in one place.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.surface.withValues(alpha: 0.76),
                 ),
               ),
-              IconButton(
-                onPressed: () => GoRouter.of(context).go(AppRoutes.profile),
-                icon: const Icon(Icons.person_outline),
-                color: AppColors.surface,
-                tooltip: 'Profile',
-              ),
             ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            'Hello, ${MockCitizen.name.split(' ').last}',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineMedium?.copyWith(color: AppColors.surface),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Track public service requests in one place.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.surface.withValues(alpha: 0.76),
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
+  }
+
+  String _firstName(String fullName) {
+    return fullName.trim().split(RegExp(r'\s+')).first;
   }
 }
 
