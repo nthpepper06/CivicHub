@@ -6,4 +6,5 @@ class ApiEndpoints {
   static const myReports = '/api/reports/my';
 
   static String myReportDetail(int id) => '/api/reports/my/$id';
+  static String myReportCancel(int id) => '/api/reports/my/$id/cancel';
 }

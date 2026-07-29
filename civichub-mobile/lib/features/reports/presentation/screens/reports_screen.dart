@@ -281,8 +281,14 @@ class _ReportRow extends StatelessWidget {
     final imageUrl = report.primaryImageUrl;
     return InkWell(
       borderRadius: BorderRadius.circular(AppRadius.sm),
-      onTap: () {
-        context.push(AppRoutes.reportDetailPath(report.id));
+      onTap: () async {
+        final changed = await context.push<bool>(
+          AppRoutes.reportDetailPath(report.id),
+        );
+        if (!context.mounted || changed != true) {
+          return;
+        }
+        await context.read<ReportsCubit>().refresh();
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),

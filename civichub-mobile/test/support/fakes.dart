@@ -121,13 +121,19 @@ class FakeReportsRepository implements ReportsRepository {
   final calls = <ReportRepositoryCall>[];
   final detailCalls = <int>[];
   final createRequests = <CreateReportRequest>[];
+  final updateRequests = <({int id, CreateReportRequest request})>[];
+  final cancelCalls = <int>[];
   Object? error;
   Object? categoryError;
   Object? createError;
   Object? detailError;
+  Object? updateError;
+  Object? cancelError;
   Future<ReportsPage<CitizenReportSummary>>? pendingResponse;
   Future<CitizenReportDetail>? pendingCreateResponse;
   Future<CitizenReportDetail>? pendingDetailResponse;
+  Future<CitizenReportDetail>? pendingUpdateResponse;
+  Future<CitizenReportDetail>? pendingCancelResponse;
 
   @override
   Future<List<ReportCategory>> getCategories() async {
@@ -159,6 +165,39 @@ class FakeReportsRepository implements ReportsRepository {
       return pendingDetailResponse!;
     }
     return detailReport ?? sampleReportDetail(id: id);
+  }
+
+  @override
+  Future<CitizenReportDetail> updateMyReport(
+    int id,
+    CreateReportRequest request,
+  ) async {
+    updateRequests.add((id: id, request: request));
+    if (updateError != null) {
+      throw updateError!;
+    }
+    if (pendingUpdateResponse != null) {
+      return pendingUpdateResponse!;
+    }
+    return sampleReportDetail(
+      id: id,
+      title: request.title.trim(),
+      description: request.description.trim(),
+      address: request.address.trim(),
+    );
+  }
+
+  @override
+  Future<CitizenReportDetail> cancelMyReport(int id) async {
+    cancelCalls.add(id);
+    if (cancelError != null) {
+      throw cancelError!;
+    }
+    if (pendingCancelResponse != null) {
+      return pendingCancelResponse!;
+    }
+    detailReport = sampleReportDetail(id: id, status: ReportStatus.cancelled);
+    return detailReport!;
   }
 
   @override

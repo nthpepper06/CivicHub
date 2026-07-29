@@ -22,6 +22,7 @@ class ReportDetailCubit extends Cubit<ReportDetailState> {
         report: null,
         errorMessage: null,
         errorKind: null,
+        actionErrorMessage: null,
       ),
     );
 
@@ -60,6 +61,50 @@ class ReportDetailCubit extends Cubit<ReportDetailState> {
 
   Future<void> retry() => load();
 
+  Future<void> cancel() async {
+    if (state.isCancelling) {
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        isCancelling: true,
+        actionErrorMessage: null,
+        actionSucceeded: false,
+      ),
+    );
+
+    try {
+      await _reportsRepository.cancelMyReport(_reportId);
+      final refreshed = await _reportsRepository.getMyReport(_reportId);
+      emit(
+        state.copyWith(
+          status: ReportDetailStatus.success,
+          report: refreshed,
+          isCancelling: false,
+          actionErrorMessage: null,
+          actionSucceeded: true,
+        ),
+      );
+    } on ApiException catch (error) {
+      emit(
+        state.copyWith(
+          isCancelling: false,
+          actionErrorMessage: _friendlyActionMessage(error),
+          actionSucceeded: false,
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          isCancelling: false,
+          actionErrorMessage: ApiException.unknown.message,
+          actionSucceeded: false,
+        ),
+      );
+    }
+  }
+
   String _friendlyMessage(ApiException error) {
     return switch (error.kind) {
       ApiErrorKind.network =>
@@ -74,6 +119,25 @@ class ReportDetailCubit extends Cubit<ReportDetailState> {
       ApiErrorKind.badRequest ||
       ApiErrorKind.unauthorized ||
       ApiErrorKind.forbidden ||
+      ApiErrorKind.conflict ||
+      ApiErrorKind.unknown => error.message,
+    };
+  }
+
+  String _friendlyActionMessage(ApiException error) {
+    return switch (error.kind) {
+      ApiErrorKind.network =>
+        'Cannot cancel this report right now. Check your connection and try again.',
+      ApiErrorKind.timeout =>
+        'Cancelling this report timed out. Please try again.',
+      ApiErrorKind.invalidResponse =>
+        'The cancelled report could not be read from the server response.',
+      ApiErrorKind.server =>
+        'The server is unavailable right now. Please try again.',
+      ApiErrorKind.badRequest ||
+      ApiErrorKind.unauthorized ||
+      ApiErrorKind.forbidden ||
+      ApiErrorKind.notFound ||
       ApiErrorKind.conflict ||
       ApiErrorKind.unknown => error.message,
     };

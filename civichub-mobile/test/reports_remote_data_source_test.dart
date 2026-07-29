@@ -210,6 +210,89 @@ void main() {
     },
   );
 
+  test(
+    'Remote data source puts verified update report body with auth',
+    () async {
+      final storage = MemoryAuthTokenStorage();
+      await storage.saveAccessToken('jwt-token');
+      final adapter = JsonAdapter(const {
+        'success': true,
+        'message': 'Report updated',
+        'data': {
+          'id': 12,
+          'title': 'Updated title',
+          'description': 'Updated description',
+          'address': 'Updated address',
+          'status': 'PENDING',
+          'categoryId': 7,
+          'categoryName': 'Roads',
+          'images': [],
+        },
+      });
+      final client = ApiClient(tokenStorage: storage);
+      client.dio.httpClientAdapter = adapter;
+      final dataSource = ReportsRemoteDataSourceImpl(apiClient: client);
+
+      final updated = await dataSource.updateMyReport(
+        12,
+        const CreateReportRequest(
+          title: ' Updated title ',
+          description: ' Updated description ',
+          address: ' Updated address ',
+          categoryId: 7,
+          latitude: 10.77,
+          longitude: 106.7,
+          imageUrls: [' https://example.com/report.jpg '],
+        ),
+      );
+
+      expect(adapter.request?.method, 'PUT');
+      expect(adapter.request?.path, '/api/reports/my/12');
+      expect(adapter.request?.headers['Authorization'], 'Bearer jwt-token');
+      expect(adapter.request?.data, {
+        'title': 'Updated title',
+        'description': 'Updated description',
+        'address': 'Updated address',
+        'latitude': 10.77,
+        'longitude': 106.7,
+        'categoryId': 7,
+        'imageUrls': ['https://example.com/report.jpg'],
+      });
+      expect(updated.title, 'Updated title');
+    },
+  );
+
+  test(
+    'Remote data source patches verified cancel endpoint with auth',
+    () async {
+      final storage = MemoryAuthTokenStorage();
+      await storage.saveAccessToken('jwt-token');
+      final adapter = JsonAdapter(const {
+        'success': true,
+        'message': 'Report cancelled',
+        'data': {
+          'id': 12,
+          'title': 'Road hazard',
+          'description': 'Large pothole',
+          'address': 'Ward 1',
+          'status': 'CANCELLED',
+          'images': [],
+        },
+      });
+      final client = ApiClient(tokenStorage: storage);
+      client.dio.httpClientAdapter = adapter;
+      final dataSource = ReportsRemoteDataSourceImpl(apiClient: client);
+
+      final cancelled = await dataSource.cancelMyReport(12);
+
+      expect(adapter.request?.method, 'PATCH');
+      expect(adapter.request?.path, '/api/reports/my/12/cancel');
+      expect(adapter.request?.headers['Authorization'], 'Bearer jwt-token');
+      expect(adapter.request?.data, isNull);
+      expect(cancelled.status, ReportStatus.cancelled);
+    },
+  );
+
   test('Remote data source rejects malformed wrapped response', () async {
     final client = ApiClient(tokenStorage: MemoryAuthTokenStorage());
     client.dio.httpClientAdapter = JsonAdapter(const {
@@ -320,6 +403,53 @@ void main() {
           (error) => error.kind,
           'kind',
           ApiErrorKind.invalidResponse,
+        ),
+      ),
+    );
+  });
+
+  test('Remote data source rejects malformed update wrapper', () async {
+    final client = ApiClient(tokenStorage: MemoryAuthTokenStorage());
+    client.dio.httpClientAdapter = JsonAdapter(const {
+      'success': true,
+      'message': 'Report updated',
+    });
+    final dataSource = ReportsRemoteDataSourceImpl(apiClient: client);
+
+    await expectLater(
+      dataSource.updateMyReport(
+        12,
+        const CreateReportRequest(
+          title: 'Road hazard',
+          description: 'Large pothole',
+          address: 'Ward 1',
+          categoryId: 7,
+        ),
+      ),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.kind,
+          'kind',
+          ApiErrorKind.invalidResponse,
+        ),
+      ),
+    );
+  });
+
+  test('Remote data source maps cancel conflict', () async {
+    final client = ApiClient(tokenStorage: MemoryAuthTokenStorage());
+    client.dio.httpClientAdapter = JsonAdapter(const {
+      'message': 'Only pending reports can be cancelled',
+    }, statusCode: 409);
+    final dataSource = ReportsRemoteDataSourceImpl(apiClient: client);
+
+    await expectLater(
+      dataSource.cancelMyReport(12),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.kind,
+          'kind',
+          ApiErrorKind.conflict,
         ),
       ),
     );

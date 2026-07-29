@@ -18,6 +18,13 @@ abstract class ReportsRemoteDataSource {
 
   Future<ReportDetailResponse> getMyReport(int id);
 
+  Future<ReportDetailResponse> updateMyReport(
+    int id,
+    CreateReportRequest request,
+  );
+
+  Future<ReportDetailResponse> cancelMyReport(int id);
+
   Future<ReportsPageResponse<ReportSummaryResponse>> getMyReports({
     required int page,
     required int size,
@@ -84,6 +91,44 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     try {
       final response = await _apiClient.dio.get<Map<String, dynamic>>(
         ApiEndpoints.myReportDetail(id),
+      );
+      final data = _responseData(response.data);
+      return ReportDetailResponse.fromJson(data);
+    } on DioException catch (error) {
+      throw _apiClient.mapDioError(error);
+    } on ApiException {
+      rethrow;
+    } on FormatException {
+      throw ApiException.invalidResponse;
+    }
+  }
+
+  @override
+  Future<ReportDetailResponse> updateMyReport(
+    int id,
+    CreateReportRequest request,
+  ) async {
+    try {
+      final response = await _apiClient.dio.put<Map<String, dynamic>>(
+        ApiEndpoints.myReportDetail(id),
+        data: CreateReportRequestDto(request).toJson(),
+      );
+      final data = _responseData(response.data);
+      return ReportDetailResponse.fromJson(data);
+    } on DioException catch (error) {
+      throw _apiClient.mapDioError(error);
+    } on ApiException {
+      rethrow;
+    } on FormatException {
+      throw ApiException.invalidResponse;
+    }
+  }
+
+  @override
+  Future<ReportDetailResponse> cancelMyReport(int id) async {
+    try {
+      final response = await _apiClient.dio.patch<Map<String, dynamic>>(
+        ApiEndpoints.myReportCancel(id),
       );
       final data = _responseData(response.data);
       return ReportDetailResponse.fromJson(data);

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../app/routing/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -36,47 +38,208 @@ class _ReportDetailView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Report Detail')),
-      body: SafeArea(
+    return const _ReportDetailScaffold();
+  }
+}
+
+class _ReportDetailScaffold extends StatefulWidget {
+  const _ReportDetailScaffold();
+
+  @override
+  State<_ReportDetailScaffold> createState() => _ReportDetailScaffoldState();
+}
+
+class _ReportDetailScaffoldState extends State<_ReportDetailScaffold> {
+  bool _changed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          Navigator.of(context).pop(_changed);
+        }
+      },
+      child: BlocListener<ReportDetailCubit, ReportDetailState>(
+        listenWhen: (previous, current) =>
+            previous.actionSucceeded != current.actionSucceeded ||
+            previous.actionErrorMessage != current.actionErrorMessage,
+        listener: (context, state) {
+          if (state.actionSucceeded) {
+            _changed = true;
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Report cancelled.')));
+          } else if (state.actionErrorMessage != null) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.actionErrorMessage!)));
+          }
+        },
         child: BlocBuilder<ReportDetailCubit, ReportDetailState>(
           builder: (context, state) {
-            return switch (state.status) {
-              ReportDetailStatus.initial || ReportDetailStatus.loading =>
-                const Center(child: AppLoading(message: 'Loading report')),
-              ReportDetailStatus.empty => Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: AppEmpty(
-                  title: 'Report not found',
-                  message: state.errorMessage ?? 'This report is unavailable.',
-                  icon: Icons.assignment_late_outlined,
+            final report = state.report;
+            return Scaffold(
+              appBar: AppBar(
+                title: const Text('Report Detail'),
+                leading: IconButton(
+                  tooltip: 'Back',
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(_changed),
                 ),
+                actions: [
+                  if (report?.status == ReportStatus.pending) ...[
+                    IconButton(
+                      tooltip: 'Edit report',
+                      icon: const Icon(Icons.edit_outlined),
+                      onPressed: state.isCancelling
+                          ? null
+                          : () async {
+                              final edited = await context.push<bool>(
+                                AppRoutes.editReportPath(report!.id),
+                                extra: report,
+                              );
+                              if (!context.mounted || edited != true) {
+                                return;
+                              }
+                              _changed = true;
+                              await context.read<ReportDetailCubit>().load();
+                              if (!context.mounted) {
+                                return;
+                              }
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Report updated.'),
+                                ),
+                              );
+                            },
+                    ),
+                    IconButton(
+                      tooltip: 'Cancel report',
+                      icon: const Icon(Icons.cancel_outlined),
+                      onPressed: state.isCancelling
+                          ? null
+                          : () => _confirmCancel(context),
+                    ),
+                  ],
+                ],
               ),
-              ReportDetailStatus.failure => Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: AppError(
-                  title: state.isUnauthorized
-                      ? 'Session required'
-                      : 'Unable to load report',
-                  message: state.errorMessage ?? 'Please try again later.',
-                  onRetry: context.read<ReportDetailCubit>().retry,
-                ),
+              body: SafeArea(
+                child: switch (state.status) {
+                  ReportDetailStatus.initial || ReportDetailStatus.loading =>
+                    const Center(child: AppLoading(message: 'Loading report')),
+                  ReportDetailStatus.empty => Padding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: AppEmpty(
+                      title: 'Report not found',
+                      message:
+                          state.errorMessage ?? 'This report is unavailable.',
+                      icon: Icons.assignment_late_outlined,
+                    ),
+                  ),
+                  ReportDetailStatus.failure => Padding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: AppError(
+                      title: state.isUnauthorized
+                          ? 'Session required'
+                          : 'Unable to load report',
+                      message: state.errorMessage ?? 'Please try again later.',
+                      onRetry: context.read<ReportDetailCubit>().retry,
+                    ),
+                  ),
+                  ReportDetailStatus.success => _DetailContent(
+                    report: state.report,
+                    isCancelling: state.isCancelling,
+                  ),
+                },
               ),
-              ReportDetailStatus.success => _DetailContent(
-                report: state.report,
-              ),
-            };
+            );
           },
         ),
+      ),
+    );
+  }
+
+  Future<void> _confirmCancel(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Cancel this report?'),
+          content: const Text('Only pending reports can be cancelled.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('No'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Yes'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!context.mounted || confirmed != true) {
+      return;
+    }
+    await context.read<ReportDetailCubit>().cancel();
+  }
+}
+
+class _ReadOnlyNotice extends StatelessWidget {
+  const _ReadOnlyNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Row(
+        children: [
+          const Icon(Icons.lock_outline, color: AppColors.muted),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              'Only pending reports can be edited or cancelled.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.muted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CancellingNotice extends StatelessWidget {
+  const _CancellingNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return const AppCard(
+      child: Row(
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: AppSpacing.md),
+          Expanded(child: Text('Cancelling report...')),
+        ],
       ),
     );
   }
 }
 
 class _DetailContent extends StatelessWidget {
-  const _DetailContent({required this.report});
+  const _DetailContent({required this.report, required this.isCancelling});
 
   final CitizenReportDetail? report;
+  final bool isCancelling;
 
   @override
   Widget build(BuildContext context) {
@@ -95,6 +258,14 @@ class _DetailContent extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
+        if (isCancelling) ...[
+          const _CancellingNotice(),
+          const SizedBox(height: AppSpacing.lg),
+        ],
+        if (detail.status != ReportStatus.pending) ...[
+          const _ReadOnlyNotice(),
+          const SizedBox(height: AppSpacing.lg),
+        ],
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

@@ -13,8 +13,10 @@ import 'package:civichub_mobile/features/auth/presentation/cubit/login_state.dar
 import 'package:civichub_mobile/features/auth/presentation/screens/login_screen.dart';
 import 'package:civichub_mobile/features/profile/presentation/screens/profile_screen.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_detail.dart';
+import 'package:civichub_mobile/features/reports/domain/models/report_status.dart';
 import 'package:civichub_mobile/features/reports/domain/repositories/reports_repository.dart';
 import 'package:civichub_mobile/features/reports/presentation/screens/create_report_screen.dart';
+import 'package:civichub_mobile/features/reports/presentation/screens/edit_report_screen.dart';
 import 'package:civichub_mobile/features/reports/presentation/screens/report_detail_screen.dart';
 import 'package:civichub_mobile/features/reports/presentation/screens/reports_screen.dart';
 import 'package:civichub_mobile/features/splash/presentation/screens/splash_screen.dart';
@@ -346,6 +348,103 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Report not found'), findsWidgets);
+  });
+
+  testWidgets('Report detail disables edit and cancel for non-pending', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = FakeReportsRepository()
+      ..detailReport = sampleReportDetail(
+        id: 12,
+        status: ReportStatus.inProgress,
+      );
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<ReportsRepository>.value(value: repository),
+        ],
+        child: const MaterialApp(home: ReportDetailScreen(reportId: 12)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Edit report'), findsNothing);
+    expect(find.byTooltip('Cancel report'), findsNothing);
+    expect(
+      find.text('Only pending reports can be edited or cancelled.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Report detail confirms and cancels pending report', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = FakeReportsRepository()
+      ..detailReport = sampleReportDetail(id: 12);
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<ReportsRepository>.value(value: repository),
+        ],
+        child: const MaterialApp(home: ReportDetailScreen(reportId: 12)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Cancel report'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cancel this report?'), findsOneWidget);
+
+    await tester.tap(find.text('Yes'));
+    await tester.pumpAndSettle();
+
+    expect(repository.cancelCalls.single, 12);
+    expect(find.text('Cancelled'), findsOneWidget);
+    expect(find.text('Report cancelled.'), findsOneWidget);
+  });
+
+  testWidgets('Edit report submits updated values and pops', (tester) async {
+    tester.view.physicalSize = const Size(1080, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = FakeReportsRepository();
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<ReportsRepository>.value(value: repository),
+        ],
+        child: MaterialApp(
+          routes: {
+            '/': (_) => const Scaffold(body: Text('Detail refreshed')),
+            '/edit': (_) =>
+                EditReportScreen(report: sampleReportDetail(id: 12)),
+          },
+          initialRoute: '/edit',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'Updated title');
+    await tester.ensureVisible(find.text('Update Report'));
+    await tester.tap(find.text('Update Report'));
+    await tester.pumpAndSettle();
+
+    expect(repository.updateRequests.single.id, 12);
+    expect(repository.updateRequests.single.request.title, 'Updated title');
+    expect(find.text('Detail refreshed'), findsOneWidget);
   });
 
   testWidgets('Reports list opens report detail', (tester) async {

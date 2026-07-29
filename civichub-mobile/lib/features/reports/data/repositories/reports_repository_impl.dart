@@ -32,6 +32,21 @@ class ReportsRepositoryImpl implements ReportsRepository {
   }
 
   @override
+  Future<CitizenReportDetail> updateMyReport(
+    int id,
+    CreateReportRequest request,
+  ) async {
+    final response = await _remoteDataSource.updateMyReport(id, request);
+    return response.toDomain();
+  }
+
+  @override
+  Future<CitizenReportDetail> cancelMyReport(int id) async {
+    final response = await _remoteDataSource.cancelMyReport(id);
+    return response.toDomain();
+  }
+
+  @override
   Future<ReportsPage<CitizenReportSummary>> getMyReports({
     required int page,
     required int size,

@@ -60,6 +60,34 @@ class FakeReportsRemoteDataSource implements ReportsRemoteDataSource {
   }
 
   @override
+  Future<ReportDetailResponse> updateMyReport(
+    int id,
+    CreateReportRequest request,
+  ) async {
+    createRequests.add(request);
+    return ReportDetailResponse.fromJson({
+      'id': id,
+      'title': request.title,
+      'description': request.description,
+      'address': request.address,
+      'status': 'PENDING',
+      'images': const [],
+    });
+  }
+
+  @override
+  Future<ReportDetailResponse> cancelMyReport(int id) async {
+    return ReportDetailResponse.fromJson({
+      'id': id,
+      'title': 'Road hazard',
+      'description': 'Large pothole',
+      'address': 'Ward 1',
+      'status': 'CANCELLED',
+      'images': const [],
+    });
+  }
+
+  @override
   Future<ReportsPageResponse<ReportSummaryResponse>> getMyReports({
     required int page,
     required int size,
@@ -202,5 +230,34 @@ void main() {
     expect(detail.id, 44);
     expect(detail.title, 'Road hazard');
     expect(detail.images, isEmpty);
+  });
+
+  test('Repository maps update and cancel to domain models', () async {
+    final remote = FakeReportsRemoteDataSource(
+      const ReportsPageResponse(
+        content: [],
+        page: 0,
+        size: 10,
+        totalElements: 0,
+        totalPages: 0,
+        first: true,
+        last: true,
+      ),
+    );
+    final repository = ReportsRepositoryImpl(remoteDataSource: remote);
+
+    final updated = await repository.updateMyReport(
+      44,
+      const CreateReportRequest(
+        title: 'Updated title',
+        description: 'Updated description',
+        address: 'Updated address',
+        categoryId: 7,
+      ),
+    );
+    final cancelled = await repository.cancelMyReport(44);
+
+    expect(updated.title, 'Updated title');
+    expect(cancelled.status, ReportStatus.cancelled);
   });
 }
