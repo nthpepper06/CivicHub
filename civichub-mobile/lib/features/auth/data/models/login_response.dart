@@ -63,6 +63,8 @@ CitizenProfile citizenProfileFromJson(Map<String, dynamic> json) {
     isActive: json['isActive'] as bool? ?? false,
     departmentId: _optionalInt(json, 'departmentId'),
     departmentName: _optionalNonBlankString(json, 'departmentName'),
+    createdAt: _optionalDateTime(json, 'createdAt'),
+    updatedAt: _optionalDateTime(json, 'updatedAt'),
   );
 }
 
@@ -101,4 +103,12 @@ int _requiredInt(Map<String, dynamic> json, String key) {
 int? _optionalInt(Map<String, dynamic> json, String key) {
   final value = json[key];
   return value is num ? value.toInt() : null;
+}
+
+DateTime? _optionalDateTime(Map<String, dynamic> json, String key) {
+  final value = json[key];
+  if (value is String && value.trim().isNotEmpty) {
+    return DateTime.tryParse(value);
+  }
+  return null;
 }

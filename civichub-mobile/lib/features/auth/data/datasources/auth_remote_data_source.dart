@@ -5,11 +5,15 @@ import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/api_exception.dart';
 import '../models/login_request.dart';
 import '../models/login_response.dart';
+import '../models/profile_update_request.dart';
+import '../models/change_password_request.dart';
 import '../../domain/models/citizen_profile.dart';
 
 abstract class AuthRemoteDataSource {
   Future<LoginResponse> login(LoginRequest request);
   Future<CitizenProfile> getCurrentUser();
+  Future<CitizenProfile> updateCurrentUser(ProfileUpdateRequest request);
+  Future<void> changePassword(ChangePasswordRequest request);
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -41,6 +45,34 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
       final data = _responseData(response.data);
       return citizenProfileFromJson(data);
+    } on DioException catch (error) {
+      throw _apiClient.mapDioError(error);
+    }
+  }
+
+  @override
+  Future<CitizenProfile> updateCurrentUser(ProfileUpdateRequest request) async {
+    try {
+      final response = await _apiClient.dio.patch<Map<String, dynamic>>(
+        ApiEndpoints.authMe,
+        data: request.toJson(),
+      );
+      final data = _responseData(response.data);
+      return citizenProfileFromJson(data);
+    } on DioException catch (error) {
+      throw _apiClient.mapDioError(error);
+    } on ApiException {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> changePassword(ChangePasswordRequest request) async {
+    try {
+      await _apiClient.dio.patch<Map<String, dynamic>>(
+        ApiEndpoints.authChangePassword,
+        data: request.toJson(),
+      );
     } on DioException catch (error) {
       throw _apiClient.mapDioError(error);
     }

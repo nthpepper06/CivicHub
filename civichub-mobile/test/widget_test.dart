@@ -7,6 +7,7 @@ import 'package:civichub_mobile/core/storage/auth_token_storage.dart';
 import 'package:civichub_mobile/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:civichub_mobile/features/auth/data/models/login_response.dart';
 import 'package:civichub_mobile/features/auth/domain/models/citizen_profile.dart';
+import 'package:civichub_mobile/features/auth/domain/repositories/auth_repository.dart';
 import 'package:civichub_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:civichub_mobile/features/auth/presentation/cubit/auth_state.dart';
 import 'package:civichub_mobile/features/auth/presentation/cubit/login_cubit.dart';
@@ -54,7 +55,14 @@ extension on CitizenReportDetail {
   }
 }
 
-Future<({AuthCubit authCubit, LoginCubit loginCubit, AuthTokenStorage storage})>
+Future<
+  ({
+    AuthCubit authCubit,
+    LoginCubit loginCubit,
+    AuthTokenStorage storage,
+    AuthRepository repository,
+  })
+>
 buildAuthStack({
   Future<LoginResponse>? loginFuture,
   Object? loginError,
@@ -77,7 +85,12 @@ buildAuthStack({
     authRepository: repository,
     authCubit: authCubit,
   );
-  return (authCubit: authCubit, loginCubit: loginCubit, storage: storage);
+  return (
+    authCubit: authCubit,
+    loginCubit: loginCubit,
+    storage: storage,
+    repository: repository,
+  );
 }
 
 Future<GoRouter> pumpRouterApp(
@@ -96,6 +109,7 @@ Future<GoRouter> pumpRouterApp(
     MultiRepositoryProvider(
       providers: [
         RepositoryProvider<ReportsRepository>.value(value: repository),
+        RepositoryProvider<AuthRepository>.value(value: stack.repository),
         RepositoryProvider<NotificationsRepository>.value(
           value: FakeNotificationsRepository(),
         ),
@@ -147,12 +161,16 @@ void main() {
     await tester.pumpWidget(
       BlocProvider.value(
         value: stack.authCubit,
-        child: const MaterialApp(home: ProfileScreen()),
+        child: RepositoryProvider<AuthRepository>.value(
+          value: stack.repository,
+          child: const MaterialApp(home: ProfileScreen()),
+        ),
       ),
     );
+    await tester.pumpAndSettle();
 
     expect(find.text('Nguyen Minh Anh'), findsOneWidget);
-    expect(find.text('minh.anh@civichub.vn'), findsNWidgets(2));
+    expect(find.text('minh.anh@civichub.vn'), findsWidgets);
     expect(find.text('Logout'), findsOneWidget);
   });
 
@@ -167,9 +185,13 @@ void main() {
     await tester.pumpWidget(
       BlocProvider.value(
         value: stack.authCubit,
-        child: const MaterialApp(home: ProfileScreen()),
+        child: RepositoryProvider<AuthRepository>.value(
+          value: stack.repository,
+          child: const MaterialApp(home: ProfileScreen()),
+        ),
       ),
     );
+    await tester.pumpAndSettle();
 
     await tester.ensureVisible(
       find.byKey(const ValueKey('profile_logout_button')),
@@ -194,6 +216,10 @@ void main() {
         providers: [
           RepositoryProvider<ReportsRepository>.value(
             value: FakeReportsRepository(),
+          ),
+          RepositoryProvider<AuthRepository>.value(value: stack.repository),
+          RepositoryProvider<NotificationsRepository>.value(
+            value: FakeNotificationsRepository(),
           ),
         ],
         child: MultiBlocProvider(

@@ -2,6 +2,7 @@ import 'package:civichub_mobile/app/routing/app_router.dart';
 import 'package:civichub_mobile/app/routing/app_routes.dart';
 import 'package:civichub_mobile/core/network/api_exception.dart';
 import 'package:civichub_mobile/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:civichub_mobile/features/auth/domain/repositories/auth_repository.dart';
 import 'package:civichub_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:civichub_mobile/features/auth/presentation/cubit/login_cubit.dart';
 import 'package:civichub_mobile/features/notifications/domain/repositories/notifications_repository.dart';
@@ -15,6 +16,7 @@ import 'support/fakes.dart';
 Widget _buildRouterApp({
   required AuthCubit authCubit,
   required LoginCubit loginCubit,
+  required AuthRepository authRepository,
   required String initialLocation,
 }) {
   final router = AppRouter.create(
@@ -32,6 +34,7 @@ Widget _buildRouterApp({
         RepositoryProvider<ReportsRepository>.value(
           value: FakeReportsRepository(),
         ),
+        RepositoryProvider<AuthRepository>.value(value: authRepository),
         RepositoryProvider<NotificationsRepository>.value(
           value: FakeNotificationsRepository(),
         ),
@@ -59,6 +62,7 @@ void main() {
       _buildRouterApp(
         authCubit: authCubit,
         loginCubit: loginCubit,
+        authRepository: repository,
         initialLocation: AppRoutes.profile,
       ),
     );
@@ -84,6 +88,7 @@ void main() {
       _buildRouterApp(
         authCubit: authCubit,
         loginCubit: loginCubit,
+        authRepository: repository,
         initialLocation: AppRoutes.login,
       ),
     );
@@ -112,6 +117,7 @@ void main() {
       _buildRouterApp(
         authCubit: authCubit,
         loginCubit: loginCubit,
+        authRepository: repository,
         initialLocation: AppRoutes.profile,
       ),
     );

@@ -37,6 +37,19 @@ class AuthCubit extends Cubit<AuthState> implements UnauthorizedHandler {
     emit(AuthState.authenticated(user));
   }
 
+  Future<CitizenProfile?> refreshCurrentUser() async {
+    try {
+      final user = await _authRepository.getCurrentUser();
+      emit(AuthState.authenticated(user));
+      return user;
+    } on ApiException catch (error) {
+      if (_isSessionInvalid(error)) {
+        emit(const AuthState.unauthenticated());
+      }
+      rethrow;
+    }
+  }
+
   Future<void> logout() async {
     await _authRepository.logout();
     emit(const AuthState.unauthenticated());

@@ -1,6 +1,8 @@
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/storage/auth_token_storage.dart';
 import '../../data/models/login_request.dart';
+import '../../data/models/profile_update_request.dart';
+import '../../data/models/change_password_request.dart';
 import '../../domain/models/auth_enums.dart';
 import '../../domain/models/auth_session.dart';
 import '../../domain/models/citizen_profile.dart';
@@ -62,6 +64,35 @@ class AuthRepositoryImpl implements AuthRepository {
       _ensureValidProfile(user);
       _ensureCitizen(user);
       return user;
+    } on ApiException catch (error) {
+      if (error.kind == ApiErrorKind.unauthorized ||
+          error.kind == ApiErrorKind.forbidden) {
+        await _tokenStorage.deleteAccessToken();
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<CitizenProfile> updateCurrentUser(ProfileUpdateRequest request) async {
+    try {
+      final user = await _remoteDataSource.updateCurrentUser(request);
+      _ensureValidProfile(user);
+      _ensureCitizen(user);
+      return user;
+    } on ApiException catch (error) {
+      if (error.kind == ApiErrorKind.unauthorized ||
+          error.kind == ApiErrorKind.forbidden) {
+        await _tokenStorage.deleteAccessToken();
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> changePassword(ChangePasswordRequest request) async {
+    try {
+      await _remoteDataSource.changePassword(request);
     } on ApiException catch (error) {
       if (error.kind == ApiErrorKind.unauthorized ||
           error.kind == ApiErrorKind.forbidden) {

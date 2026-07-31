@@ -1,7 +1,9 @@
 import 'package:civichub_mobile/core/storage/auth_token_storage.dart';
 import 'package:civichub_mobile/features/auth/data/datasources/auth_remote_data_source.dart';
+import 'package:civichub_mobile/features/auth/data/models/change_password_request.dart';
 import 'package:civichub_mobile/features/auth/data/models/login_request.dart';
 import 'package:civichub_mobile/features/auth/data/models/login_response.dart';
+import 'package:civichub_mobile/features/auth/data/models/profile_update_request.dart';
 import 'package:civichub_mobile/features/auth/domain/models/auth_enums.dart';
 import 'package:civichub_mobile/features/auth/domain/models/auth_session.dart';
 import 'package:civichub_mobile/features/auth/domain/models/citizen_profile.dart';
@@ -43,18 +45,27 @@ class FakeAuthRemoteDataSource implements AuthRemoteDataSource {
     this.currentUserResponse,
     this.loginError,
     this.currentUserError,
+    this.updateUserError,
+    this.changePasswordError,
     this.loginFuture,
     this.currentUserFuture,
+    this.updateUserFuture,
   });
 
   final LoginResponse? loginResponse;
-  final CitizenProfile? currentUserResponse;
-  final Object? loginError;
-  final Object? currentUserError;
+  CitizenProfile? currentUserResponse;
+  Object? loginError;
+  Object? currentUserError;
+  Object? updateUserError;
+  Object? changePasswordError;
   final Future<LoginResponse>? loginFuture;
   final Future<CitizenProfile>? currentUserFuture;
+  final Future<CitizenProfile>? updateUserFuture;
   int loginCalls = 0;
   int currentUserCalls = 0;
+  int updateUserCalls = 0;
+  int changePasswordCalls = 0;
+  final profileUpdateRequests = <ProfileUpdateRequest>[];
 
   @override
   Future<LoginResponse> login(LoginRequest request) async {
@@ -79,6 +90,38 @@ class FakeAuthRemoteDataSource implements AuthRemoteDataSource {
     }
     return currentUserResponse ?? sampleUser();
   }
+
+  @override
+  Future<CitizenProfile> updateCurrentUser(ProfileUpdateRequest request) async {
+    updateUserCalls += 1;
+    profileUpdateRequests.add(request);
+    if (updateUserError != null) {
+      throw updateUserError!;
+    }
+    if (updateUserFuture != null) {
+      return updateUserFuture!;
+    }
+    final base = currentUserResponse ?? sampleUser();
+    final updated = base.copyWith(
+      fullName: request.fullName.trim(),
+      phone: request.phone?.trim().isEmpty ?? true
+          ? null
+          : request.phone?.trim(),
+      avatar: request.avatar?.trim().isEmpty ?? true
+          ? null
+          : request.avatar?.trim(),
+    );
+    currentUserResponse = updated;
+    return updated;
+  }
+
+  @override
+  Future<void> changePassword(ChangePasswordRequest request) async {
+    changePasswordCalls += 1;
+    if (changePasswordError != null) {
+      throw changePasswordError!;
+    }
+  }
 }
 
 CitizenProfile sampleUser({UserRole role = UserRole.citizen, int? id = 1}) {
@@ -93,6 +136,8 @@ CitizenProfile sampleUser({UserRole role = UserRole.citizen, int? id = 1}) {
     isActive: true,
     departmentId: null,
     departmentName: null,
+    createdAt: DateTime.parse('2026-07-01T08:00:00'),
+    updatedAt: DateTime.parse('2026-07-20T10:15:00'),
   );
 }
 
