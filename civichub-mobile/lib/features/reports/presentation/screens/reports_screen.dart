@@ -10,6 +10,7 @@ import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_empty.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/app_loading.dart';
+import '../../../../core/widgets/app_network_image.dart';
 import '../../domain/models/report_status.dart';
 import '../../domain/models/report_summary.dart';
 import '../../domain/repositories/reports_repository.dart';
@@ -441,10 +442,12 @@ class _ReportRow extends StatelessWidget {
                           color: AppColors.primary,
                         ),
                       )
-                    : Image.network(
-                        imageUrl,
+                    : AppNetworkImage(
+                        url: imageUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => ColoredBox(
+                        logicalWidth: 60,
+                        logicalHeight: 60,
+                        fallback: ColoredBox(
                           color: AppColors.softIcon,
                           child: Icon(
                             Icons.broken_image_outlined,

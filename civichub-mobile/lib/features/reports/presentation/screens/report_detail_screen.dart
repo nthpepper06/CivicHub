@@ -10,6 +10,7 @@ import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_empty.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/app_loading.dart';
+import '../../../../core/widgets/app_network_image.dart';
 import '../../domain/models/report_detail.dart';
 import '../../domain/models/report_status.dart';
 import '../../domain/repositories/reports_repository.dart';
@@ -420,30 +421,21 @@ class _ImagesSection extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppRadius.md),
             child: AspectRatio(
               aspectRatio: 16 / 9,
-              child: Image.network(
-                image.url,
+              child: AppNetworkImage(
+                url: image.url,
                 semanticLabel: 'Report image ${image.displayOrder + 1}',
                 fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) {
-                    return child;
-                  }
-                  return const ColoredBox(
-                    color: AppColors.softIcon,
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return const ColoredBox(
-                    color: AppColors.softIcon,
-                    child: Center(
-                      child: Icon(
-                        Icons.broken_image_outlined,
-                        color: AppColors.primary,
-                      ),
+                logicalWidth: 720,
+                logicalHeight: 405,
+                fallback: const ColoredBox(
+                  color: AppColors.softIcon,
+                  child: Center(
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      color: AppColors.primary,
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
             ),
           ),

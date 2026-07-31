@@ -10,6 +10,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_empty.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/app_loading.dart';
+import '../../../../core/widgets/app_network_image.dart';
 import '../../../auth/domain/models/auth_enums.dart';
 import '../../../auth/domain/models/citizen_profile.dart';
 import '../../../auth/domain/repositories/auth_repository.dart';
@@ -300,11 +301,12 @@ class _Avatar extends StatelessWidget {
           width: size,
           height: size,
           child: user.hasAvatar
-              ? Image.network(
-                  user.avatar!,
+              ? AppNetworkImage(
+                  url: user.avatar!,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) =>
-                      _AvatarFallback(user: user, size: size),
+                  logicalWidth: size,
+                  logicalHeight: size,
+                  fallback: _AvatarFallback(user: user, size: size),
                 )
               : _AvatarFallback(user: user, size: size),
         ),

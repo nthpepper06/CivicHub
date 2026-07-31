@@ -7,6 +7,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_error.dart';
+import '../../../../core/widgets/app_network_image.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../auth/data/models/profile_update_request.dart';
 import '../../../auth/domain/models/citizen_profile.dart';
@@ -230,10 +231,12 @@ class _AvatarPreview extends StatelessWidget {
             width: 90,
             height: 90,
             child: user.hasAvatar
-                ? Image.network(
-                    user.avatar!,
+                ? AppNetworkImage(
+                    url: user.avatar!,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _Fallback(user: user),
+                    logicalWidth: 90,
+                    logicalHeight: 90,
+                    fallback: _Fallback(user: user),
                   )
                 : _Fallback(user: user),
           ),
