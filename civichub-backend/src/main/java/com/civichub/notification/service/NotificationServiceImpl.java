@@ -114,27 +114,25 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional
     public void createReportAssignedNotifications(Report report, Department department) {
         List<Notification> notifications = new ArrayList<>();
-        notifications.add(Notification.builder()
-                .user(report.getUser())
-                .report(report)
-                .type(NotificationType.REPORT_ASSIGNED)
-                .title("Report assigned")
-                .message("Your report \"%s\" has been assigned to \"%s\"."
-                        .formatted(report.getTitle(), department.getName()))
-                .build());
+        notifications.add(reportNotification(
+                report.getUser(),
+                report,
+                NotificationType.REPORT_ASSIGNED,
+                "Report assigned",
+                "Your report \"%s\" has been assigned to \"%s\"."
+                        .formatted(report.getTitle(), department.getName())));
 
         List<User> staffRecipients = userRepository.findByRoleAndStatusAndIsActiveTrueAndDepartmentId(
                 UserRole.STAFF,
                 UserStatus.ACTIVE,
                 department.getId());
-        staffRecipients.forEach(staff -> notifications.add(Notification.builder()
-                .user(staff)
-                .report(report)
-                .type(NotificationType.REPORT_ASSIGNED)
-                .title("New report assigned")
-                .message("A report \"%s\" has been assigned to your department."
-                        .formatted(report.getTitle()))
-                .build()));
+        staffRecipients.forEach(staff -> notifications.add(reportNotification(
+                staff,
+                report,
+                NotificationType.REPORT_ASSIGNED,
+                "New report assigned",
+                "A report \"%s\" has been assigned to your department."
+                        .formatted(report.getTitle()))));
 
         notificationRepository.saveAll(notifications);
     }
@@ -142,14 +140,29 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void createReportStatusChangedNotification(Report report, ReportStatus oldStatus, ReportStatus newStatus) {
-        notificationRepository.save(Notification.builder()
-                .user(report.getUser())
+        notificationRepository.save(reportNotification(
+                report.getUser(),
+                report,
+                NotificationType.REPORT_STATUS_CHANGED,
+                "Report status updated",
+                "Your report \"%s\" changed from \"%s\" to \"%s\"."
+                        .formatted(report.getTitle(), oldStatus.name(), newStatus.name())));
+    }
+
+    private Notification reportNotification(
+            User user,
+            Report report,
+            NotificationType type,
+            String title,
+            String message) {
+        return Notification.builder()
+                .user(user)
                 .report(report)
-                .type(NotificationType.REPORT_STATUS_CHANGED)
-                .title("Report status updated")
-                .message("Your report \"%s\" changed from \"%s\" to \"%s\"."
-                        .formatted(report.getTitle(), oldStatus.name(), newStatus.name()))
-                .build());
+                .type(type)
+                .title(title)
+                .message(message)
+                .content(message)
+                .build();
     }
 
     private Notification getOwnedNotification(Long id) {

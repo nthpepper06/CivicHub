@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,6 +41,22 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.message").value(not(containsString("internal validation detail"))));
     }
 
+    @Test
+    void auditActionCheckViolationShouldReturnSafeBusinessReason() throws Exception {
+        mockMvc.perform(get("/test/audit-action-check"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(
+                        "Audit logging is not synchronized for this report assignment. Please sync audit log constraints and retry."))
+                .andExpect(jsonPath("$.message").value(not(containsString("check constraint"))));
+    }
+
+    @Test
+    void genericDataIntegrityShouldKeepGenericMessage() throws Exception {
+        mockMvc.perform(get("/test/generic-data-integrity"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Resource already exists or violates data constraints"));
+    }
+
     @RestController
     private static class TestController {
 
@@ -51,6 +68,17 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/test/illegal-argument")
         void illegalArgument() {
             throw new IllegalArgumentException("internal validation detail");
+        }
+
+        @GetMapping("/test/audit-action-check")
+        void auditActionCheck() {
+            throw new DataIntegrityViolationException(
+                    "could not execute statement; violates check constraint \"audit_logs_action_check\"");
+        }
+
+        @GetMapping("/test/generic-data-integrity")
+        void genericDataIntegrity() {
+            throw new DataIntegrityViolationException("duplicate key value violates unique constraint");
         }
     }
 }

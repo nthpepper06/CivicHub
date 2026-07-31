@@ -98,8 +98,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException exception) {
+        log.error("Data integrity violation", exception);
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ErrorResponse.of("Resource already exists or violates data constraints"));
+                .body(ErrorResponse.of(dataIntegrityMessage(exception)));
     }
 
     @ExceptionHandler(InvalidReportStateException.class)
@@ -123,5 +124,20 @@ public class GlobalExceptionHandler {
 
     private ErrorResponse.FieldError toFieldError(FieldError fieldError) {
         return ErrorResponse.FieldError.of(fieldError.getField(), fieldError.getDefaultMessage());
+    }
+
+    private String dataIntegrityMessage(DataIntegrityViolationException exception) {
+        String detail = exception.getMostSpecificCause().getMessage();
+        if (containsConstraint(detail, "audit_logs_action_check")) {
+            return "Audit logging is not synchronized for this report assignment. Please sync audit log constraints and retry.";
+        }
+        if (containsConstraint(detail, "audit_logs_entity_type_check")) {
+            return "Audit logging is not synchronized for this entity type. Please sync audit log constraints and retry.";
+        }
+        return "Resource already exists or violates data constraints";
+    }
+
+    private boolean containsConstraint(String detail, String constraintName) {
+        return detail != null && detail.contains(constraintName);
     }
 }

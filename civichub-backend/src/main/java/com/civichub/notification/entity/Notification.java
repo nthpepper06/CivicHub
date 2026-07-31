@@ -14,6 +14,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
@@ -52,6 +54,9 @@ public class Notification extends BaseEntity {
     @Column(nullable = false, length = 1000)
     private String message;
 
+    @Column(nullable = false, length = 1000)
+    private String content;
+
     @Builder.Default
     @Column(name = "is_read", nullable = false)
     private boolean read = false;
@@ -74,4 +79,15 @@ public class Notification extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "report_id", nullable = false)
     private Report report;
+
+    @PrePersist
+    @PreUpdate
+    void mirrorMessageToContent() {
+        if (content == null || content.isBlank()) {
+            content = message;
+        }
+        if (message == null || message.isBlank()) {
+            message = content;
+        }
+    }
 }

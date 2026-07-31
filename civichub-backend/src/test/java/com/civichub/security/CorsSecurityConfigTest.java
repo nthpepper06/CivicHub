@@ -1,6 +1,7 @@
 package com.civichub.security;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -31,7 +32,7 @@ import org.springframework.test.web.servlet.MockMvc;
         RestAuthenticationEntryPoint.class,
         RestAccessDeniedHandler.class
 })
-@TestPropertySource(properties = "app.cors.allowed-origins=http://localhost:3000,http://localhost:5173")
+@TestPropertySource(properties = "app.cors.allowed-origin-patterns=http://localhost:*,http://127.0.0.1:*")
 class CorsSecurityConfigTest {
 
     @Autowired
@@ -47,16 +48,32 @@ class CorsSecurityConfigTest {
     private CustomUserDetailsService customUserDetailsService;
 
     @Test
-    void allowedOriginShouldReceiveCorsHeaders() throws Exception {
+    void dynamicLocalhostPreflightToLoginShouldReceiveCorsHeaders() throws Exception {
         mockMvc.perform(options("/api/auth/login")
-                        .header(HttpHeaders.ORIGIN, "http://localhost:3000")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:62334")
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "Authorization, Content-Type"))
                 .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:3000"))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:62334"))
                 .andExpect(header().string(
                         HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS,
-                        containsString("POST")));
+                        containsString("POST")))
+                .andExpect(header().string(
+                        HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
+                        containsString(HttpHeaders.AUTHORIZATION)))
+                .andExpect(header().string(
+                        HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
+                        containsString(HttpHeaders.CONTENT_TYPE)));
+    }
+
+    @Test
+    void loopbackPreflightToLoginShouldReceiveCorsHeaders() throws Exception {
+        mockMvc.perform(options("/api/auth/login")
+                        .header(HttpHeaders.ORIGIN, "http://127.0.0.1:62334")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "Content-Type"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://127.0.0.1:62334"));
     }
 
     @Test
@@ -73,7 +90,7 @@ class CorsSecurityConfigTest {
         when(authService.login(any())).thenReturn(authResponse());
 
         mockMvc.perform(post("/api/auth/login")
-                        .header(HttpHeaders.ORIGIN, "http://localhost:5173")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:62334")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -82,10 +99,19 @@ class CorsSecurityConfigTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173"))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:62334"))
                 .andExpect(header().string(
                         HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
                         containsString(HttpHeaders.CONTENT_DISPOSITION)));
+    }
+
+    @Test
+    void protectedEndpointShouldRemainProtected() throws Exception {
+        mockMvc.perform(get("/api/auth/me")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:62334")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:62334"));
     }
 
     private AuthResponse authResponse() {

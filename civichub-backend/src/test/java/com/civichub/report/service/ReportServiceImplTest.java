@@ -385,6 +385,25 @@ class ReportServiceImplTest {
     }
 
     @Test
+    void adminReassignShouldPersistNewDepartmentAndAuditOldAndNewDepartment() {
+        Department oldDepartment = department(4L, true);
+        Department newDepartment = department(5L, true);
+        Report report = report(ReportStatus.PENDING, oldDepartment);
+        when(reportRepository.findDetailById(99L)).thenReturn(Optional.of(report));
+        when(departmentRepository.findById(5L)).thenReturn(Optional.of(newDepartment));
+        when(reportRepository.save(report)).thenReturn(report);
+        when(reportMapper.toDetailResponse(report)).thenReturn(ReportDetailResponse.builder().id(99L).departmentId(5L).build());
+
+        ReportDetailResponse response = reportService.assignDepartment(99L, new ReportDepartmentAssignRequest(5L));
+
+        assertThat(report.getDepartment()).isEqualTo(newDepartment);
+        assertThat(response.getDepartmentId()).isEqualTo(5L);
+        verify(reportRepository).save(report);
+        verify(notificationService).createReportAssignedNotifications(report, newDepartment);
+        verify(auditService).recordReportAssignment(99L, "Report", oldDepartment, newDepartment);
+    }
+
+    @Test
     void adminDetailShouldUseRelationshipLoadingLookup() {
         Report report = report(ReportStatus.PENDING, null);
         when(reportRepository.findDetailById(99L)).thenReturn(Optional.of(report));

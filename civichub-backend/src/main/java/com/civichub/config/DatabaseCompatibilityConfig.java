@@ -21,9 +21,14 @@ public class DatabaseCompatibilityConfig {
     }
 
     @Bean
-    ApplicationRunner auditLogActionConstraintSynchronizer(DatabaseCompatibilityService databaseCompatibilityService) {
+    @ConditionalOnProperty(
+            prefix = "app.database",
+            name = "auto-sync-audit-log-actions",
+            havingValue = "true",
+            matchIfMissing = true)
+    ApplicationRunner databaseConstraintSynchronizer(DatabaseCompatibilityService databaseCompatibilityService) {
         return args -> {
-            databaseCompatibilityService.synchronizeAuditLogActionConstraintIfNeeded();
+            databaseCompatibilityService.synchronizeCompatibilityConstraintsIfNeeded();
         };
     }
 }

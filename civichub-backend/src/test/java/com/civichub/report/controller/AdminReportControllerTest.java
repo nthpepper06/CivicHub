@@ -26,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -81,6 +82,25 @@ class AdminReportControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.departmentId").value(5));
+    }
+
+    @Test
+    void adminAssignDepartmentAuditConstraintReturnsSafeConflictMessage() throws Exception {
+        when(reportService.assignDepartment(any(), any()))
+                .thenThrow(new DataIntegrityViolationException(
+                        "new row for relation \"audit_logs\" violates check constraint \"audit_logs_action_check\""));
+
+        mockMvc.perform(patch("/api/admin/reports/99/department")
+                        .with(user("admin@example.com").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "departmentId": 5
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(
+                        "Audit logging is not synchronized for this report assignment. Please sync audit log constraints and retry."));
     }
 
     @Test

@@ -186,6 +186,9 @@ class NotificationServiceImplTest {
         assertThat(captor.getValue()).allSatisfy(notification -> {
             assertThat(notification.getType()).isEqualTo(NotificationType.REPORT_ASSIGNED);
             assertThat(notification.getReport()).isEqualTo(report);
+            assertThat(notification.getTitle()).isNotBlank();
+            assertThat(notification.getMessage()).isNotBlank();
+            assertThat(notification.getContent()).isEqualTo(notification.getMessage());
         });
     }
 
@@ -206,6 +209,10 @@ class NotificationServiceImplTest {
         verify(notificationRepository).saveAll(captor.capture());
         assertThat(captor.getValue()).hasSize(1);
         assertThat(captor.getValue().getFirst().getUser()).isEqualTo(citizen);
+        assertThat(captor.getValue().getFirst().getTitle()).isNotBlank();
+        assertThat(captor.getValue().getFirst().getMessage()).isNotBlank();
+        assertThat(captor.getValue().getFirst().getContent())
+                .isEqualTo(captor.getValue().getFirst().getMessage());
     }
 
     @Test
@@ -222,7 +229,9 @@ class NotificationServiceImplTest {
         verify(notificationRepository).save(captor.capture());
         assertThat(captor.getValue().getType()).isEqualTo(NotificationType.REPORT_STATUS_CHANGED);
         assertThat(captor.getValue().getUser()).isEqualTo(citizen);
+        assertThat(captor.getValue().getTitle()).isNotBlank();
         assertThat(captor.getValue().getMessage()).contains("PENDING", "RECEIVED");
+        assertThat(captor.getValue().getContent()).isEqualTo(captor.getValue().getMessage());
     }
 
     private void authenticate(Long userId, UserRole role) {
