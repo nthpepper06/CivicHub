@@ -24,8 +24,13 @@ class AppTheme {
         centerTitle: true,
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.ink,
+        backgroundColor: AppColors.primaryDark,
+        foregroundColor: AppColors.surface,
+        titleTextStyle: TextStyle(
+          color: AppColors.surface,
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+        ),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppColors.surface,
@@ -38,6 +43,9 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface,
+        hintStyle: const TextStyle(color: AppColors.muted),
+        prefixIconColor: AppColors.muted,
+        suffixIconColor: AppColors.muted,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
           borderSide: const BorderSide(color: AppColors.line),
@@ -50,6 +58,15 @@ class AppTheme {
           borderRadius: BorderRadius.circular(AppRadius.md),
           borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
         ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: AppColors.surface,
+        selectedColor: AppColors.primary,
+        side: const BorderSide(color: AppColors.line),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w700),
       ),
     );
   }

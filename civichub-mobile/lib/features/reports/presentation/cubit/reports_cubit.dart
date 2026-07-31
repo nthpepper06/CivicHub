@@ -69,6 +69,16 @@ class ReportsCubit extends Cubit<ReportsState> {
     await _loadFirstPage(refreshing: false);
   }
 
+  Future<void> clearFilters() async {
+    if (!state.hasActiveFilters) {
+      return;
+    }
+    emit(
+      state.copyWith(search: '', statusFilter: null, categoryIdFilter: null),
+    );
+    await _loadFirstPage(refreshing: false);
+  }
+
   Future<void> loadMore() async {
     if (state.isLoadingMore ||
         state.isRefreshing ||

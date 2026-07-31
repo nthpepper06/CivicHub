@@ -6,10 +6,10 @@ import '../../../../app/routing/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/widgets/app_network_image.dart';
-import '../../domain/models/report_status.dart';
+import '../../../../core/theme/semantic_colors.dart';
 import '../../domain/models/report_summary.dart';
 import '../cubit/reports_cubit.dart';
+import 'report_status_chip.dart';
 
 class ReportsList extends StatelessWidget {
   const ReportsList({super.key, required this.reports});
@@ -18,40 +18,121 @@ class ReportsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      sliver: SliverList.separated(
-        itemCount: reports.length,
-        separatorBuilder: (_, _) => const Divider(height: AppSpacing.xl),
-        itemBuilder: (context, index) {
-          return ReportCard(report: reports[index]);
-        },
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useGrid = constraints.maxWidth >= 900;
+        if (useGrid) {
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: reports.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: AppSpacing.md,
+              crossAxisSpacing: AppSpacing.md,
+              mainAxisExtent: 252,
+            ),
+            itemBuilder: (context, index) => ReportCard(report: reports[index]),
+          );
+        }
+
+        return ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: reports.length,
+          separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
+          itemBuilder: (context, index) => ReportCard(report: reports[index]),
+        );
+      },
     );
   }
 }
 
-class ReportCard extends StatelessWidget {
+class ReportCard extends StatefulWidget {
   const ReportCard({super.key, required this.report});
 
   final CitizenReportSummary report;
 
   @override
+  State<ReportCard> createState() => _ReportCardState();
+}
+
+class _ReportCardState extends State<ReportCard> {
+  bool _hovered = false;
+  bool _focused = false;
+
+  CitizenReportSummary get report => widget.report;
+
+  @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(AppRadius.sm),
-      onTap: () => _openReport(context),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _ReportThumbnail(imageUrl: report.primaryImageUrl),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(child: _ReportSummaryText(report: report)),
-            const SizedBox(width: AppSpacing.sm),
-            _ReportTrailing(status: report.status),
-          ],
+    final categoryColor = CategoryColors.colorFor(report.categoryName);
+    final active = _hovered || _focused;
+    final borderColor = active
+        ? categoryColor.withValues(alpha: 0.42)
+        : AppColors.line;
+
+    return Semantics(
+      button: true,
+      label: 'Open report ${report.title}',
+      child: FocusableActionDetector(
+        onShowFocusHighlight: (value) => setState(() => _focused = value),
+        mouseCursor: SystemMouseCursors.click,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            transform: Matrix4.translationValues(0, active ? -2 : 0, 0),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              border: Border.all(color: borderColor),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: active ? 0.1 : 0.05),
+                  blurRadius: active ? 22 : 14,
+                  offset: Offset(0, active ? 12 : 8),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => _openReport(context),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _CardTopline(report: report, color: categoryColor),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        report.title.isEmpty ? 'Untitled report' : report.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      _CaseMetaGrid(report: report),
+                      if (report.address.trim().isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        _AddressLine(address: report.address),
+                      ],
+                      const SizedBox(height: AppSpacing.md),
+                      _CardFooter(report: report, color: categoryColor),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -68,142 +149,202 @@ class ReportCard extends StatelessWidget {
   }
 }
 
-class _ReportThumbnail extends StatelessWidget {
-  const _ReportThumbnail({required this.imageUrl});
+class _CardTopline extends StatelessWidget {
+  const _CardTopline({required this.report, required this.color});
 
-  final String? imageUrl;
+  final CitizenReportSummary report;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadius.sm),
-      child: SizedBox(
-        width: 60,
-        height: 60,
-        child: imageUrl == null
-            ? const _ReportImageFallback(icon: Icons.assignment_outlined)
-            : AppNetworkImage(
-                url: imageUrl!,
-                fit: BoxFit.cover,
-                logicalWidth: 60,
-                logicalHeight: 60,
-                fallback: const _ReportImageFallback(
-                  icon: Icons.broken_image_outlined,
+    final category = report.categoryName ?? 'Uncategorized';
+    return Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+          child: Icon(CategoryColors.iconFor(category), color: color),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                category,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-      ),
+              Text(
+                'Case #${report.id}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.muted,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        ReportStatusChip(status: report.status, compact: true),
+      ],
     );
   }
 }
 
-class _ReportImageFallback extends StatelessWidget {
-  const _ReportImageFallback({required this.icon});
-
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.softIcon,
-      child: Icon(icon, color: AppColors.primary),
-    );
-  }
-}
-
-class _ReportSummaryText extends StatelessWidget {
-  const _ReportSummaryText({required this.report});
+class _CaseMetaGrid extends StatelessWidget {
+  const _CaseMetaGrid({required this.report});
 
   final CitizenReportSummary report;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Wrap(
+      spacing: AppSpacing.md,
+      runSpacing: AppSpacing.xs,
       children: [
-        Text(
-          report.title.isEmpty ? 'Untitled report' : report.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleMedium,
+        _CaseMeta(
+          icon: Icons.apartment_outlined,
+          label: report.departmentName ?? 'Unassigned',
         ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          report.address.isEmpty ? 'No address provided' : report.address,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          report.categoryName ?? 'Uncategorized',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(
-            context,
-          ).textTheme.labelMedium?.copyWith(color: AppColors.primary),
+        _CaseMeta(
+          icon: Icons.calendar_today_outlined,
+          label: _date(report.createdAt),
         ),
       ],
     );
   }
-}
 
-class _ReportTrailing extends StatelessWidget {
-  const _ReportTrailing({required this.status});
-
-  final ReportStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        ReportStatusPill(status: status),
-        const SizedBox(height: AppSpacing.sm),
-        const Icon(Icons.chevron_right, color: AppColors.muted),
-      ],
-    );
+  String _date(DateTime? value) {
+    if (value == null) {
+      return 'Unknown date';
+    }
+    final local = value.toLocal();
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    return '${local.year}-$month-$day';
   }
 }
 
-class ReportStatusPill extends StatelessWidget {
-  const ReportStatusPill({super.key, required this.status});
+class _CaseMeta extends StatelessWidget {
+  const _CaseMeta({required this.icon, required this.label});
 
-  final ReportStatus status;
+  final IconData icon;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: _color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
-        ),
-        child: Text(
-          status.label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: _color,
-            fontWeight: FontWeight.w800,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: AppColors.muted),
+        const SizedBox(width: AppSpacing.xs),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 170),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.inkSoft,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _AddressLine extends StatelessWidget {
+  const _AddressLine({required this.address});
+
+  final String address;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceAlt,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.place_outlined, size: 16, color: AppColors.muted),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              address,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.inkSoft,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  Color get _color {
-    return switch (status) {
-      ReportStatus.pending => AppColors.warning,
-      ReportStatus.received => AppColors.primary,
-      ReportStatus.inProgress => AppColors.primaryDark,
-      ReportStatus.resolved => AppColors.success,
-      ReportStatus.rejected => AppColors.danger,
-      ReportStatus.cancelled => AppColors.muted,
-      ReportStatus.unknown => AppColors.muted,
-    };
+class _CardFooter extends StatelessWidget {
+  const _CardFooter({required this.report, required this.color});
+
+  final CitizenReportSummary report;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            _updatedText(report.updatedAt),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.muted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+          ),
+          child: Icon(Icons.arrow_forward, size: 18, color: color),
+        ),
+      ],
+    );
+  }
+
+  String _updatedText(DateTime? value) {
+    if (value == null) {
+      return 'Open details';
+    }
+    final local = value.toLocal();
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    return 'Updated ${local.year}-$month-$day';
   }
 }

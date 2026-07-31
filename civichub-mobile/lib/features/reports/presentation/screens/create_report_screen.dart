@@ -8,6 +8,8 @@ import '../../../../core/widgets/app_empty.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../../core/widgets/civic_page_shell.dart';
+import '../../../../core/widgets/civic_background.dart';
 import '../../domain/models/create_report_request.dart';
 import '../../domain/models/report_category.dart';
 import '../../domain/repositories/reports_repository.dart';
@@ -114,128 +116,169 @@ class _CreateReportViewState extends State<_CreateReportView> {
       },
       child: Scaffold(
         appBar: AppBar(title: const Text('Create Report')),
-        body: SafeArea(
-          child: BlocBuilder<CreateReportCubit, CreateReportState>(
-            builder: (context, state) {
-              if (state.status == CreateReportStatus.loadingCategories) {
-                return const Center(
-                  child: AppLoading(message: 'Loading categories'),
-                );
-              }
+        body: CivicBackground(
+          child: SafeArea(
+            child: BlocBuilder<CreateReportCubit, CreateReportState>(
+              builder: (context, state) {
+                if (state.status == CreateReportStatus.loadingCategories) {
+                  return const Center(
+                    child: AppLoading(message: 'Loading categories'),
+                  );
+                }
 
-              if (state.status == CreateReportStatus.categoryFailure) {
-                return Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: AppError(
-                    title: 'Unable to load categories',
-                    message:
-                        state.categoryErrorMessage ?? 'Please try again later.',
-                    onRetry: context.read<CreateReportCubit>().loadCategories,
-                  ),
-                );
-              }
+                if (state.status == CreateReportStatus.categoryFailure) {
+                  return Padding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: AppError(
+                      title: 'Unable to load categories',
+                      message:
+                          state.categoryErrorMessage ??
+                          'Please try again later.',
+                      onRetry: context.read<CreateReportCubit>().loadCategories,
+                    ),
+                  );
+                }
 
-              if (state.categories.isEmpty &&
-                  state.status == CreateReportStatus.ready) {
-                return const Padding(
-                  padding: EdgeInsets.all(AppSpacing.lg),
-                  child: AppEmpty(
-                    title: 'No categories available',
-                    message:
-                        'Reports need an active category before they can be submitted.',
-                    icon: Icons.category_outlined,
-                  ),
-                );
-              }
+                if (state.categories.isEmpty &&
+                    state.status == CreateReportStatus.ready) {
+                  return const Padding(
+                    padding: EdgeInsets.all(AppSpacing.lg),
+                    child: AppEmpty(
+                      title: 'No categories available',
+                      message:
+                          'Reports need an active category before they can be submitted.',
+                      icon: Icons.category_outlined,
+                    ),
+                  );
+                }
 
-              return Form(
-                key: _formKey,
-                child: ListView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  children: [
-                    AppTextField(
-                      label: 'Title',
-                      controller: _titleController,
-                      hintText: 'Briefly describe the issue',
-                      textInputAction: TextInputAction.next,
-                      enabled: !_isSubmitting(state),
-                      validator: (value) => _requiredMax(
-                        value,
-                        requiredMessage: 'Title is required',
-                        maxLength: 200,
+                return Form(
+                  key: _formKey,
+                  child: CivicPageShell(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    children: [
+                      const CivicHeroPanel(
+                        title: 'New Civic Case',
+                        subtitle:
+                            'Send a clear civic service request to the city response workflow.',
+                        icon: Icons.add_location_alt_outlined,
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    AppTextField(
-                      label: 'Description',
-                      controller: _descriptionController,
-                      hintText: 'Add details that help staff respond',
-                      keyboardType: TextInputType.multiline,
-                      textInputAction: TextInputAction.newline,
-                      minLines: 4,
-                      maxLines: 6,
-                      enabled: !_isSubmitting(state),
-                      validator: (value) => _requiredMax(
-                        value,
-                        requiredMessage: 'Description is required',
-                        maxLength: 5000,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    _CategoryPicker(
-                      categories: state.categories,
-                      selectedCategoryId: state.selectedCategoryId,
-                      enabled: !_isSubmitting(state),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    AppTextField(
-                      label: 'Address',
-                      controller: _addressController,
-                      hintText: 'Street address or nearby landmark',
-                      textInputAction: TextInputAction.next,
-                      enabled: !_isSubmitting(state),
-                      validator: (value) => _requiredMax(
-                        value,
-                        requiredMessage: 'Address is required',
-                        maxLength: 500,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    _LocationFields(
-                      latitudeController: _latitudeController,
-                      longitudeController: _longitudeController,
-                      enabled: !_isSubmitting(state),
-                      locationLoading: state.locationLoading,
-                      locationErrorMessage: state.locationErrorMessage,
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    _ImageUrlFields(
-                      controllers: _imageControllers,
-                      enabled: !_isSubmitting(state),
-                      onAdd: _addImageUrlField,
-                      onRemove: _removeImageUrlField,
-                    ),
-                    if (state.submitErrorMessage != null) ...[
                       const SizedBox(height: AppSpacing.lg),
-                      AppError(
-                        title: 'Report was not submitted',
-                        message: state.submitErrorMessage!,
+                      CivicFormSection(
+                        title: 'Issue details',
+                        subtitle: 'Describe what happened and why it matters.',
+                        icon: Icons.article_outlined,
+                        children: [
+                          AppTextField(
+                            label: 'Title',
+                            controller: _titleController,
+                            hintText: 'Briefly describe the issue',
+                            textInputAction: TextInputAction.next,
+                            enabled: !_isSubmitting(state),
+                            validator: (value) => _requiredMax(
+                              value,
+                              requiredMessage: 'Title is required',
+                              maxLength: 200,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          AppTextField(
+                            label: 'Description',
+                            controller: _descriptionController,
+                            hintText: 'Add details that help staff respond',
+                            keyboardType: TextInputType.multiline,
+                            textInputAction: TextInputAction.newline,
+                            minLines: 4,
+                            maxLines: 6,
+                            enabled: !_isSubmitting(state),
+                            validator: (value) => _requiredMax(
+                              value,
+                              requiredMessage: 'Description is required',
+                              maxLength: 5000,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      CivicFormSection(
+                        title: 'Classification',
+                        subtitle: 'Route the case to the correct city team.',
+                        icon: Icons.category_outlined,
+                        children: [
+                          _CategoryPicker(
+                            categories: state.categories,
+                            selectedCategoryId: state.selectedCategoryId,
+                            enabled: !_isSubmitting(state),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      CivicFormSection(
+                        title: 'Location',
+                        subtitle:
+                            'Add the street location and optional coordinates.',
+                        icon: Icons.map_outlined,
+                        children: [
+                          AppTextField(
+                            label: 'Address',
+                            controller: _addressController,
+                            hintText: 'Street address or nearby landmark',
+                            textInputAction: TextInputAction.next,
+                            enabled: !_isSubmitting(state),
+                            validator: (value) => _requiredMax(
+                              value,
+                              requiredMessage: 'Address is required',
+                              maxLength: 500,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          _LocationFields(
+                            latitudeController: _latitudeController,
+                            longitudeController: _longitudeController,
+                            enabled: !_isSubmitting(state),
+                            locationLoading: state.locationLoading,
+                            locationErrorMessage: state.locationErrorMessage,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      CivicFormSection(
+                        title: 'Media',
+                        subtitle:
+                            'Attach image URLs when they help clarify the case.',
+                        icon: Icons.image_outlined,
+                        children: [
+                          _ImageUrlFields(
+                            controllers: _imageControllers,
+                            enabled: !_isSubmitting(state),
+                            onAdd: _addImageUrlField,
+                            onRemove: _removeImageUrlField,
+                          ),
+                        ],
+                      ),
+                      if (state.submitErrorMessage != null) ...[
+                        const SizedBox(height: AppSpacing.lg),
+                        AppError(
+                          title: 'Report was not submitted',
+                          message: state.submitErrorMessage!,
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.xl),
+                      AppButton(
+                        label: _isSubmitting(state)
+                            ? 'Submitting...'
+                            : 'Submit Report',
+                        icon: Icons.send_outlined,
+                        onPressed: state.canSubmit
+                            ? () => _submit(state)
+                            : null,
                       ),
                     ],
-                    const SizedBox(height: AppSpacing.xl),
-                    AppButton(
-                      label: _isSubmitting(state)
-                          ? 'Submitting...'
-                          : 'Submit Report',
-                      icon: Icons.send_outlined,
-                      onPressed: state.canSubmit ? () => _submit(state) : null,
-                    ),
-                  ],
-                ),
-              );
-            },
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),

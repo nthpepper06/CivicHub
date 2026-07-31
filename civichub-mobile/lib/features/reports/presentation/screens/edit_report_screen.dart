@@ -8,6 +8,8 @@ import '../../../../core/widgets/app_empty.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../../core/widgets/civic_page_shell.dart';
+import '../../../../core/widgets/civic_background.dart';
 import '../../domain/models/create_report_request.dart';
 import '../../domain/models/report_category.dart';
 import '../../domain/models/report_detail.dart';
@@ -157,197 +159,243 @@ class _EditReportViewState extends State<_EditReportView> {
       },
       child: Scaffold(
         appBar: AppBar(title: const Text('Edit Report')),
-        body: SafeArea(
-          child: BlocBuilder<EditReportCubit, EditReportState>(
-            builder: (context, state) {
-              final report = state.report;
-              if (state.status == EditReportStatus.loadingReport ||
-                  state.status == EditReportStatus.initial && report == null) {
-                return const Center(
-                  child: AppLoading(message: 'Loading report'),
-                );
-              }
+        body: CivicBackground(
+          child: SafeArea(
+            child: BlocBuilder<EditReportCubit, EditReportState>(
+              builder: (context, state) {
+                final report = state.report;
+                if (state.status == EditReportStatus.loadingReport ||
+                    state.status == EditReportStatus.initial &&
+                        report == null) {
+                  return const Center(
+                    child: AppLoading(message: 'Loading report'),
+                  );
+                }
 
-              if (state.status == EditReportStatus.reportFailure) {
-                return Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: AppError(
-                    title: 'Unable to load report',
-                    message: state.reportErrorMessage ?? 'Please try again.',
-                    onRetry: context.read<EditReportCubit>().loadReport,
-                  ),
-                );
-              }
+                if (state.status == EditReportStatus.reportFailure) {
+                  return Padding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: AppError(
+                      title: 'Unable to load report',
+                      message: state.reportErrorMessage ?? 'Please try again.',
+                      onRetry: context.read<EditReportCubit>().loadReport,
+                    ),
+                  );
+                }
 
-              if (report == null) {
-                return const Padding(
-                  padding: EdgeInsets.all(AppSpacing.lg),
-                  child: AppEmpty(
-                    title: 'Report not found',
-                    message: 'This report is unavailable.',
-                    icon: Icons.assignment_late_outlined,
-                  ),
-                );
-              }
+                if (report == null) {
+                  return const Padding(
+                    padding: EdgeInsets.all(AppSpacing.lg),
+                    child: AppEmpty(
+                      title: 'Report not found',
+                      message: 'This report is unavailable.',
+                      icon: Icons.assignment_late_outlined,
+                    ),
+                  );
+                }
 
-              if (report.status != ReportStatus.pending) {
-                return const Padding(
-                  padding: EdgeInsets.all(AppSpacing.lg),
-                  child: AppEmpty(
-                    title: 'Report cannot be edited',
-                    message: 'Only pending reports can be updated.',
-                    icon: Icons.lock_outline,
-                  ),
-                );
-              }
+                if (report.status != ReportStatus.pending) {
+                  return const Padding(
+                    padding: EdgeInsets.all(AppSpacing.lg),
+                    child: AppEmpty(
+                      title: 'Report cannot be edited',
+                      message: 'Only pending reports can be updated.',
+                      icon: Icons.lock_outline,
+                    ),
+                  );
+                }
 
-              if (!_controllersInitialized) {
-                _initializeControllers(report);
-              }
+                if (!_controllersInitialized) {
+                  _initializeControllers(report);
+                }
 
-              if (state.status == EditReportStatus.loadingCategories) {
-                return const Center(
-                  child: AppLoading(message: 'Loading categories'),
-                );
-              }
+                if (state.status == EditReportStatus.loadingCategories) {
+                  return const Center(
+                    child: AppLoading(message: 'Loading categories'),
+                  );
+                }
 
-              if (state.status == EditReportStatus.categoryFailure) {
-                return Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: AppError(
-                    title: 'Unable to load categories',
-                    message:
-                        state.categoryErrorMessage ?? 'Please try again later.',
-                    onRetry: context.read<EditReportCubit>().loadCategories,
-                  ),
-                );
-              }
+                if (state.status == EditReportStatus.categoryFailure) {
+                  return Padding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: AppError(
+                      title: 'Unable to load categories',
+                      message:
+                          state.categoryErrorMessage ??
+                          'Please try again later.',
+                      onRetry: context.read<EditReportCubit>().loadCategories,
+                    ),
+                  );
+                }
 
-              if (state.categories.isEmpty &&
-                  state.status == EditReportStatus.ready) {
-                return const Padding(
-                  padding: EdgeInsets.all(AppSpacing.lg),
-                  child: AppEmpty(
-                    title: 'No categories available',
-                    message:
-                        'Reports need an active category before they can be updated.',
-                    icon: Icons.category_outlined,
-                  ),
-                );
-              }
+                if (state.categories.isEmpty &&
+                    state.status == EditReportStatus.ready) {
+                  return const Padding(
+                    padding: EdgeInsets.all(AppSpacing.lg),
+                    child: AppEmpty(
+                      title: 'No categories available',
+                      message:
+                          'Reports need an active category before they can be updated.',
+                      icon: Icons.category_outlined,
+                    ),
+                  );
+                }
 
-              return Form(
-                key: _formKey,
-                child: ListView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  children: [
-                    AppTextField(
-                      label: 'Title',
-                      controller: _titleController,
-                      textInputAction: TextInputAction.next,
-                      enabled: !_isUpdating(state),
-                      validator: (value) => _requiredMax(
-                        value,
-                        requiredMessage: 'Title is required',
-                        maxLength: 200,
+                return Form(
+                  key: _formKey,
+                  child: CivicPageShell(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    children: [
+                      const CivicHeroPanel(
+                        title: 'Case Update',
+                        subtitle:
+                            'Refine this pending civic case before city processing begins.',
+                        icon: Icons.edit_location_alt_outlined,
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    AppTextField(
-                      label: 'Description',
-                      controller: _descriptionController,
-                      keyboardType: TextInputType.multiline,
-                      textInputAction: TextInputAction.newline,
-                      minLines: 4,
-                      maxLines: 6,
-                      enabled: !_isUpdating(state),
-                      validator: (value) => _requiredMax(
-                        value,
-                        requiredMessage: 'Description is required',
-                        maxLength: 5000,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    _CategoryPicker(
-                      categories: state.categories,
-                      selectedCategoryId: state.selectedCategoryId,
-                      enabled: !_isUpdating(state),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    AppTextField(
-                      label: 'Address',
-                      controller: _addressController,
-                      textInputAction: TextInputAction.next,
-                      enabled: !_isUpdating(state),
-                      validator: (value) => _requiredMax(
-                        value,
-                        requiredMessage: 'Address is required',
-                        maxLength: 500,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: AppTextField(
-                            label: 'Latitude',
-                            controller: _latitudeController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                              signed: true,
-                            ),
+                      const SizedBox(height: AppSpacing.lg),
+                      CivicFormSection(
+                        title: 'Issue details',
+                        subtitle: 'Keep the title and description actionable.',
+                        icon: Icons.article_outlined,
+                        children: [
+                          AppTextField(
+                            label: 'Title',
+                            controller: _titleController,
+                            textInputAction: TextInputAction.next,
                             enabled: !_isUpdating(state),
-                            validator: (value) =>
-                                _coordinateValidator(value, min: -90, max: 90),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: AppTextField(
-                            label: 'Longitude',
-                            controller: _longitudeController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                              signed: true,
-                            ),
-                            enabled: !_isUpdating(state),
-                            validator: (value) => _coordinateValidator(
+                            validator: (value) => _requiredMax(
                               value,
-                              min: -180,
-                              max: 180,
+                              requiredMessage: 'Title is required',
+                              maxLength: 200,
                             ),
                           ),
+                          const SizedBox(height: AppSpacing.lg),
+                          AppTextField(
+                            label: 'Description',
+                            controller: _descriptionController,
+                            keyboardType: TextInputType.multiline,
+                            textInputAction: TextInputAction.newline,
+                            minLines: 4,
+                            maxLines: 6,
+                            enabled: !_isUpdating(state),
+                            validator: (value) => _requiredMax(
+                              value,
+                              requiredMessage: 'Description is required',
+                              maxLength: 5000,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      CivicFormSection(
+                        title: 'Classification',
+                        subtitle: 'Preserve accurate routing for city teams.',
+                        icon: Icons.category_outlined,
+                        children: [
+                          _CategoryPicker(
+                            categories: state.categories,
+                            selectedCategoryId: state.selectedCategoryId,
+                            enabled: !_isUpdating(state),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      CivicFormSection(
+                        title: 'Location',
+                        subtitle:
+                            'Confirm the address and optional coordinates.',
+                        icon: Icons.map_outlined,
+                        children: [
+                          AppTextField(
+                            label: 'Address',
+                            controller: _addressController,
+                            textInputAction: TextInputAction.next,
+                            enabled: !_isUpdating(state),
+                            validator: (value) => _requiredMax(
+                              value,
+                              requiredMessage: 'Address is required',
+                              maxLength: 500,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: AppTextField(
+                                  label: 'Latitude',
+                                  controller: _latitudeController,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                        signed: true,
+                                      ),
+                                  enabled: !_isUpdating(state),
+                                  validator: (value) => _coordinateValidator(
+                                    value,
+                                    min: -90,
+                                    max: 90,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.md),
+                              Expanded(
+                                child: AppTextField(
+                                  label: 'Longitude',
+                                  controller: _longitudeController,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                        signed: true,
+                                      ),
+                                  enabled: !_isUpdating(state),
+                                  validator: (value) => _coordinateValidator(
+                                    value,
+                                    min: -180,
+                                    max: 180,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      CivicFormSection(
+                        title: 'Media',
+                        subtitle: 'Keep relevant image references attached.',
+                        icon: Icons.image_outlined,
+                        children: [
+                          _ImageUrlFields(
+                            controllers: _imageControllers,
+                            enabled: !_isUpdating(state),
+                            onAdd: _addImageUrlField,
+                            onRemove: _removeImageUrlField,
+                          ),
+                        ],
+                      ),
+                      if (state.submitErrorMessage != null) ...[
+                        const SizedBox(height: AppSpacing.lg),
+                        AppError(
+                          title: 'Report was not updated',
+                          message: state.submitErrorMessage!,
                         ),
                       ],
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    _ImageUrlFields(
-                      controllers: _imageControllers,
-                      enabled: !_isUpdating(state),
-                      onAdd: _addImageUrlField,
-                      onRemove: _removeImageUrlField,
-                    ),
-                    if (state.submitErrorMessage != null) ...[
-                      const SizedBox(height: AppSpacing.lg),
-                      AppError(
-                        title: 'Report was not updated',
-                        message: state.submitErrorMessage!,
+                      const SizedBox(height: AppSpacing.xl),
+                      AppButton(
+                        label: _isUpdating(state)
+                            ? 'Updating...'
+                            : 'Update Report',
+                        icon: Icons.save_outlined,
+                        onPressed: state.canSubmit
+                            ? () => _update(state)
+                            : null,
                       ),
                     ],
-                    const SizedBox(height: AppSpacing.xl),
-                    AppButton(
-                      label: _isUpdating(state)
-                          ? 'Updating...'
-                          : 'Update Report',
-                      icon: Icons.save_outlined,
-                      onPressed: state.canSubmit ? () => _update(state) : null,
-                    ),
-                  ],
-                ),
-              );
-            },
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),

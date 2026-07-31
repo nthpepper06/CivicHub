@@ -1,3 +1,4 @@
+import 'package:civichub_mobile/core/widgets/civic_page_shell.dart';
 import 'package:civichub_mobile/features/profile/presentation/widgets/profile_content.dart';
 import 'package:civichub_mobile/features/reports/presentation/cubit/reports_cubit.dart';
 import 'package:civichub_mobile/features/reports/presentation/cubit/reports_state.dart';
@@ -24,13 +25,16 @@ void main() {
           value: cubit,
           child: MaterialApp(
             home: Scaffold(
-              body: ReportsHeader(
-                state: ReportsState(
-                  categories: [sampleCategory()],
-                  sortOption: ReportsSortOption.titleAsc,
-                  search: 'sidewalk',
+              body: SingleChildScrollView(
+                child: ReportsHeader(
+                  state: ReportsState(
+                    categories: [sampleCategory()],
+                    sortOption: ReportsSortOption.titleAsc,
+                    search: 'sidewalk',
+                  ),
+                  searchController: searchController,
+                  onCreateReport: () {},
                 ),
-                searchController: searchController,
               ),
             ),
           ),
@@ -38,10 +42,12 @@ void main() {
       );
 
       expect(find.text('Reports'), findsOneWidget);
-      expect(find.text('Title A-Z'), findsOneWidget);
+      expect(find.text('Title A-Z'), findsWidgets);
       expect(find.widgetWithText(TextField, 'sidewalk'), findsOneWidget);
-      expect(find.widgetWithText(FilterChip, 'Roads'), findsOneWidget);
-      expect(find.widgetWithText(ChoiceChip, 'All'), findsOneWidget);
+      expect(find.text('Roads'), findsOneWidget);
+      expect(find.text('All'), findsOneWidget);
+      expect(find.text('Loaded results'), findsOneWidget);
+      expect(find.text('Filter workspace'), findsOneWidget);
     },
   );
 
@@ -85,5 +91,25 @@ void main() {
     expect(find.text('2026-07-01'), findsOneWidget);
     expect(find.text('Edit Profile'), findsOneWidget);
     expect(find.text('Logout'), findsOneWidget);
+  });
+
+  testWidgets('CivicHeroPanel renders accessible civic header content', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: CivicHeroPanel(
+            title: 'New Civic Case',
+            subtitle: 'Describe the issue for city response.',
+            icon: Icons.map_outlined,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('New Civic Case'), findsOneWidget);
+    expect(find.text('Describe the issue for city response.'), findsOneWidget);
+    expect(find.byIcon(Icons.map_outlined), findsOneWidget);
   });
 }

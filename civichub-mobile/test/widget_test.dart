@@ -237,8 +237,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('My Reports'), findsOneWidget);
     expect(find.text('Reports'), findsWidgets);
+    expect(find.text('Filter workspace'), findsOneWidget);
   });
 
   testWidgets('Home renders authenticated greeting and report data', (
@@ -407,9 +407,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.drag(
+      find.byType(CustomScrollView).first,
+      const Offset(0, -700),
+    );
+    await tester.pumpAndSettle();
+
     expect(find.text('Broken sidewalk'), findsOneWidget);
     expect(find.text('Roads'), findsWidgets);
-    expect(find.text('Newest'), findsOneWidget);
+    expect(find.text('Newest'), findsWidgets);
     expect(find.text('All categories'), findsOneWidget);
   });
 
@@ -437,13 +443,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilterChip, 'Roads'));
+    await tester.ensureVisible(find.text('Roads').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Roads').first);
     await tester.pumpAndSettle();
     expect(repository.calls.last.categoryId, 7);
 
-    await tester.tap(find.byTooltip('Sort reports'));
+    await tester.ensureVisible(find.byTooltip('Sort reports').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Title A-Z'));
+    await tester.tap(find.byTooltip('Sort reports').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Title A-Z').last);
     await tester.pumpAndSettle();
 
     expect(repository.calls.last.sortBy, 'title');
@@ -895,6 +905,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.drag(
+      find.byType(CustomScrollView).first,
+      const Offset(0, -700),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Broken sidewalk').first);
     await tester.pumpAndSettle();
 

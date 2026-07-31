@@ -7,6 +7,8 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_empty.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/app_loading.dart';
+import '../../../../core/widgets/app_responsive.dart';
+import '../../../../core/widgets/civic_background.dart';
 import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../cubit/profile_cubit.dart';
@@ -83,53 +85,69 @@ class _ProfileViewState extends State<_ProfileView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
-      body: SafeArea(
-        child: BlocBuilder<ProfileCubit, ProfileState>(
-          builder: (context, state) {
-            return RefreshIndicator(
-              onRefresh: context.read<ProfileCubit>().refresh,
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  if (state.isInitialLoading)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: AppLoading(message: 'Loading profile'),
-                    )
-                  else if (state.status == ProfileStatus.failure &&
-                      state.user == null)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.lg),
-                        child: AppError(
-                          title: 'Unable to load profile',
-                          message:
-                              state.errorMessage ?? 'Please try again later.',
-                          onRetry: context.read<ProfileCubit>().retry,
+      body: CivicBackground(
+        child: SafeArea(
+          child: BlocBuilder<ProfileCubit, ProfileState>(
+            builder: (context, state) {
+              return RefreshIndicator(
+                onRefresh: context.read<ProfileCubit>().refresh,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    if (state.isInitialLoading)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Padding(
+                          padding: EdgeInsets.all(AppSpacing.lg),
+                          child: AppResponsive(
+                            child: AppLoading(
+                              message: 'Loading profile',
+                              rows: 3,
+                              showAvatar: true,
+                            ),
+                          ),
+                        ),
+                      )
+                    else if (state.status == ProfileStatus.failure &&
+                        state.user == null)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          child: AppResponsive(
+                            child: AppError(
+                              title: 'Unable to load profile',
+                              message:
+                                  state.errorMessage ??
+                                  'Please try again later.',
+                              onRetry: context.read<ProfileCubit>().retry,
+                            ),
+                          ),
+                        ),
+                      )
+                    else if (state.user == null)
+                      const AppEmpty(
+                        title: 'Profile unavailable',
+                        message:
+                            'Your account details could not be displayed right now.',
+                        icon: Icons.person_off_outlined,
+                      ).asSliver()
+                    else
+                      SliverToBoxAdapter(
+                        child: AppResponsive(
+                          child: ProfileContent(
+                            user: state.user!,
+                            isLoggingOut: _isLoggingOut,
+                            errorMessage: state.errorMessage,
+                            onLogout: () => _confirmLogout(context),
+                          ),
                         ),
                       ),
-                    )
-                  else if (state.user == null)
-                    const AppEmpty(
-                      title: 'Profile unavailable',
-                      message:
-                          'Your account details could not be displayed right now.',
-                      icon: Icons.person_off_outlined,
-                    ).asSliver()
-                  else
-                    SliverToBoxAdapter(
-                      child: ProfileContent(
-                        user: state.user!,
-                        isLoggingOut: _isLoggingOut,
-                        errorMessage: state.errorMessage,
-                        onLogout: () => _confirmLogout(context),
-                      ),
-                    ),
-                ],
-              ),
-            );
-          },
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
