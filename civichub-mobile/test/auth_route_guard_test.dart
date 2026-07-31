@@ -4,6 +4,8 @@ import 'package:civichub_mobile/core/network/api_exception.dart';
 import 'package:civichub_mobile/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:civichub_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:civichub_mobile/features/auth/presentation/cubit/login_cubit.dart';
+import 'package:civichub_mobile/features/notifications/domain/repositories/notifications_repository.dart';
+import 'package:civichub_mobile/features/reports/domain/repositories/reports_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,7 +27,17 @@ Widget _buildRouterApp({
       BlocProvider.value(value: authCubit),
       BlocProvider.value(value: loginCubit),
     ],
-    child: MaterialApp.router(routerConfig: router),
+    child: MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider<ReportsRepository>.value(
+          value: FakeReportsRepository(),
+        ),
+        RepositoryProvider<NotificationsRepository>.value(
+          value: FakeNotificationsRepository(),
+        ),
+      ],
+      child: MaterialApp.router(routerConfig: router),
+    ),
   );
 }
 

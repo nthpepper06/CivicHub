@@ -8,9 +8,13 @@ import 'package:civichub_mobile/features/auth/data/repositories/auth_repository_
 import 'package:civichub_mobile/features/auth/data/models/login_response.dart';
 import 'package:civichub_mobile/features/auth/domain/models/citizen_profile.dart';
 import 'package:civichub_mobile/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:civichub_mobile/features/auth/presentation/cubit/auth_state.dart';
 import 'package:civichub_mobile/features/auth/presentation/cubit/login_cubit.dart';
 import 'package:civichub_mobile/features/auth/presentation/cubit/login_state.dart';
 import 'package:civichub_mobile/features/auth/presentation/screens/login_screen.dart';
+import 'package:civichub_mobile/features/home/presentation/screens/home_screen.dart';
+import 'package:civichub_mobile/features/notifications/presentation/screens/notifications_screen.dart';
+import 'package:civichub_mobile/features/notifications/domain/repositories/notifications_repository.dart';
 import 'package:civichub_mobile/features/profile/presentation/screens/profile_screen.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_detail.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_status.dart';
@@ -92,6 +96,9 @@ Future<GoRouter> pumpRouterApp(
     MultiRepositoryProvider(
       providers: [
         RepositoryProvider<ReportsRepository>.value(value: repository),
+        RepositoryProvider<NotificationsRepository>.value(
+          value: FakeNotificationsRepository(),
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -115,6 +122,9 @@ void main() {
         providers: [
           RepositoryProvider<ReportsRepository>.value(
             value: FakeReportsRepository(),
+          ),
+          RepositoryProvider<NotificationsRepository>.value(
+            value: FakeNotificationsRepository(),
           ),
           BlocProvider.value(value: stack.authCubit),
           BlocProvider.value(value: stack.loginCubit),
@@ -146,6 +156,33 @@ void main() {
     expect(find.text('Logout'), findsOneWidget);
   });
 
+  testWidgets('Profile logout requires confirmation', (tester) async {
+    tester.view.physicalSize = const Size(1080, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final stack = await buildAuthStack();
+    stack.authCubit.setAuthenticated(sampleUser());
+
+    await tester.pumpWidget(
+      BlocProvider.value(
+        value: stack.authCubit,
+        child: const MaterialApp(home: ProfileScreen()),
+      ),
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('profile_logout_button')),
+    );
+    await tester.tap(find.byKey(const ValueKey('profile_logout_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Log out?'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(stack.authCubit.state.status, AuthStatus.authenticated);
+  });
+
   testWidgets('Bottom navigation changes tab', (tester) async {
     final stack = await buildAuthStack();
     stack.authCubit.setAuthenticated(sampleUser());
@@ -170,12 +207,159 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.assignment_outlined));
+    await tester.tap(find.byIcon(Icons.assignment_outlined).last);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('My Reports'), findsOneWidget);
     expect(find.text('Reports'), findsWidgets);
+  });
+
+  testWidgets('Home renders authenticated greeting and report data', (
+    tester,
+  ) async {
+    final stack = await buildAuthStack();
+    stack.authCubit.setAuthenticated(sampleUser());
+    final repository = FakeReportsRepository(
+      pages: [
+        sampleReportsPage(
+          content: [
+            sampleReport(id: 1, title: 'Street light outage'),
+            sampleReport(id: 2, title: 'Drain blocked'),
+          ],
+          totalElements: 8,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<ReportsRepository>.value(value: repository),
+        ],
+        child: BlocProvider.value(
+          value: stack.authCubit,
+          child: const MaterialApp(home: HomeScreen()),
+        ),
+      ),
+    );
+
+    expect(find.text('Loading summary'), findsOneWidget);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hello, Nguyen'), findsOneWidget);
+    expect(find.text('8'), findsOneWidget);
+    expect(find.text('Street light outage'), findsOneWidget);
+    expect(repository.calls.single.size, 5);
+  });
+
+  testWidgets('Home shows empty state without fake report data', (
+    tester,
+  ) async {
+    final stack = await buildAuthStack();
+    stack.authCubit.setAuthenticated(sampleUser());
+    final repository = FakeReportsRepository(
+      pages: [sampleReportsPage(content: const [], totalElements: 0)],
+    );
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<ReportsRepository>.value(value: repository),
+        ],
+        child: BlocProvider.value(
+          value: stack.authCubit,
+          child: const MaterialApp(home: HomeScreen()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No reports yet'), findsOneWidget);
+    expect(find.text('Street light outage'), findsNothing);
+    expect(find.text('Road repair'), findsNothing);
+  });
+
+  testWidgets('Home shows error and retry state', (tester) async {
+    final stack = await buildAuthStack();
+    stack.authCubit.setAuthenticated(sampleUser());
+    final repository = FakeReportsRepository()..error = ApiException.network;
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<ReportsRepository>.value(value: repository),
+        ],
+        child: BlocProvider.value(
+          value: stack.authCubit,
+          child: const MaterialApp(home: HomeScreen()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unable to load summary'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+
+    repository.error = null;
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(repository.calls, hasLength(2));
+    expect(find.text('Broken sidewalk'), findsOneWidget);
+  });
+
+  testWidgets('Home navigation opens create and reports routes', (
+    tester,
+  ) async {
+    final stack = await buildAuthStack();
+    stack.authCubit.setAuthenticated(sampleUser());
+    final repository = FakeReportsRepository();
+    final router = AppRouter.create(
+      authCubit: stack.authCubit,
+      initialLocation: AppRoutes.home,
+    );
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<ReportsRepository>.value(value: repository),
+        ],
+        child: MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: stack.authCubit),
+            BlocProvider.value(value: stack.loginCubit),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Create Report'));
+    await tester.tap(find.text('Create Report'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CreateReportScreen), findsOneWidget);
+
+    router.go(AppRoutes.home);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('My Reports').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Reports'), findsWidgets);
+  });
+
+  testWidgets('Notifications screen does not show fake alerts', (tester) async {
+    await tester.pumpWidget(
+      RepositoryProvider<NotificationsRepository>.value(
+        value: FakeNotificationsRepository(),
+        child: const MaterialApp(home: NotificationsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No notifications yet'), findsOneWidget);
+    expect(find.text('Mock alerts'), findsNothing);
+    expect(find.text('Report received'), findsNothing);
   });
 
   testWidgets('Reports screen loads reports', (tester) async {
@@ -187,6 +371,9 @@ void main() {
         providers: [
           RepositoryProvider<ReportsRepository>.value(
             value: FakeReportsRepository(),
+          ),
+          RepositoryProvider<NotificationsRepository>.value(
+            value: FakeNotificationsRepository(),
           ),
         ],
         child: const MaterialApp(home: ReportsScreen()),
@@ -660,12 +847,15 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MultiBlocProvider(
-        providers: [
-          BlocProvider.value(value: stack.authCubit),
-          BlocProvider.value(value: stack.loginCubit),
-        ],
-        child: MaterialApp.router(routerConfig: router),
+      RepositoryProvider<ReportsRepository>.value(
+        value: FakeReportsRepository(),
+        child: MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: stack.authCubit),
+            BlocProvider.value(value: stack.loginCubit),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
       ),
     );
 
@@ -695,12 +885,15 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MultiBlocProvider(
-        providers: [
-          BlocProvider.value(value: stack.authCubit),
-          BlocProvider.value(value: stack.loginCubit),
-        ],
-        child: MaterialApp.router(routerConfig: router),
+      RepositoryProvider<ReportsRepository>.value(
+        value: FakeReportsRepository(),
+        child: MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: stack.authCubit),
+            BlocProvider.value(value: stack.loginCubit),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -717,12 +910,15 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MultiBlocProvider(
-        providers: [
-          BlocProvider.value(value: stack.authCubit),
-          BlocProvider.value(value: stack.loginCubit),
-        ],
-        child: MaterialApp.router(routerConfig: router),
+      RepositoryProvider<ReportsRepository>.value(
+        value: FakeReportsRepository(),
+        child: MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: stack.authCubit),
+            BlocProvider.value(value: stack.loginCubit),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
       ),
     );
     await tester.pumpAndSettle();

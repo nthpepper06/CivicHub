@@ -13,6 +13,9 @@ import '../features/auth/data/repositories/auth_repository_impl.dart';
 import '../features/auth/domain/repositories/auth_repository.dart';
 import '../features/auth/presentation/cubit/auth_cubit.dart';
 import '../features/auth/presentation/cubit/login_cubit.dart';
+import '../features/notifications/data/datasources/notifications_remote_data_source.dart';
+import '../features/notifications/data/repositories/notifications_repository_impl.dart';
+import '../features/notifications/domain/repositories/notifications_repository.dart';
 import '../features/reports/data/datasources/reports_remote_data_source.dart';
 import '../features/reports/data/repositories/reports_repository_impl.dart';
 import '../features/reports/domain/repositories/reports_repository.dart';
@@ -32,6 +35,8 @@ class _CivicHubAppState extends State<CivicHubApp> {
   late final AuthRepository _authRepository;
   late final ReportsRemoteDataSourceImpl _reportsRemoteDataSource;
   late final ReportsRepository _reportsRepository;
+  late final NotificationsRemoteDataSourceImpl _notificationsRemoteDataSource;
+  late final NotificationsRepository _notificationsRepository;
   late final AuthCubit _authCubit;
   late final LoginCubit _loginCubit;
   late final GoRouter _router;
@@ -51,6 +56,12 @@ class _CivicHubAppState extends State<CivicHubApp> {
     );
     _reportsRepository = ReportsRepositoryImpl(
       remoteDataSource: _reportsRemoteDataSource,
+    );
+    _notificationsRemoteDataSource = NotificationsRemoteDataSourceImpl(
+      apiClient: _apiClient,
+    );
+    _notificationsRepository = NotificationsRepositoryImpl(
+      remoteDataSource: _notificationsRemoteDataSource,
     );
     _authCubit = AuthCubit(authRepository: _authRepository);
     _loginCubit = LoginCubit(
@@ -84,6 +95,12 @@ class _CivicHubAppState extends State<CivicHubApp> {
           value: _reportsRemoteDataSource,
         ),
         RepositoryProvider<ReportsRepository>.value(value: _reportsRepository),
+        RepositoryProvider<NotificationsRemoteDataSource>.value(
+          value: _notificationsRemoteDataSource,
+        ),
+        RepositoryProvider<NotificationsRepository>.value(
+          value: _notificationsRepository,
+        ),
       ],
       child: MultiBlocProvider(
         providers: [

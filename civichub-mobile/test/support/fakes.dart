@@ -5,6 +5,10 @@ import 'package:civichub_mobile/features/auth/data/models/login_response.dart';
 import 'package:civichub_mobile/features/auth/domain/models/auth_enums.dart';
 import 'package:civichub_mobile/features/auth/domain/models/auth_session.dart';
 import 'package:civichub_mobile/features/auth/domain/models/citizen_profile.dart';
+import 'package:civichub_mobile/features/notifications/domain/models/citizen_notification.dart';
+import 'package:civichub_mobile/features/notifications/domain/models/notification_type.dart';
+import 'package:civichub_mobile/features/notifications/domain/models/notifications_page.dart';
+import 'package:civichub_mobile/features/notifications/domain/repositories/notifications_repository.dart';
 import 'package:civichub_mobile/features/reports/domain/models/create_report_request.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_category.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_detail.dart';
@@ -266,6 +270,86 @@ class ReportRepositoryCall {
   final int? categoryId;
   final String? sortBy;
   final String? direction;
+}
+
+class FakeNotificationsRepository implements NotificationsRepository {
+  FakeNotificationsRepository({
+    List<CitizenNotification>? notifications,
+    this.unreadCount = 0,
+  }) : _notifications = notifications ?? const [];
+
+  List<CitizenNotification> _notifications;
+  int unreadCount;
+  int listCalls = 0;
+  int countCalls = 0;
+  int markCalls = 0;
+  Object? error;
+  Object? countError;
+  Object? markError;
+
+  @override
+  Future<NotificationsPage<CitizenNotification>> getMyNotifications({
+    required int page,
+    required int size,
+    bool? unread,
+    String? type,
+    String? sortBy,
+    String? direction,
+  }) async {
+    listCalls += 1;
+    if (error != null) {
+      throw error!;
+    }
+    return NotificationsPage(
+      content: _notifications,
+      page: 0,
+      size: size,
+      totalElements: _notifications.length,
+      totalPages: 1,
+      first: true,
+      last: true,
+    );
+  }
+
+  @override
+  Future<int> getUnreadCount() async {
+    countCalls += 1;
+    if (countError != null) {
+      throw countError!;
+    }
+    return unreadCount;
+  }
+
+  @override
+  Future<CitizenNotification> markAsRead(int id) async {
+    markCalls += 1;
+    if (markError != null) {
+      throw markError!;
+    }
+    final updated = _notifications
+        .firstWhere((notification) => notification.id == id)
+        .copyWith(isRead: true);
+    _notifications = _notifications
+        .map((notification) => notification.id == id ? updated : notification)
+        .toList(growable: false);
+    return updated;
+  }
+}
+
+CitizenNotification sampleCitizenNotification({
+  int id = 1,
+  bool isRead = false,
+  int? reportId = 12,
+}) {
+  return CitizenNotification(
+    id: id,
+    type: CitizenNotificationType.reportAssigned,
+    title: 'Report assigned',
+    message: 'Your report was assigned to Public Works.',
+    reportId: reportId,
+    isRead: isRead,
+    createdAt: DateTime.parse('2026-07-20T10:15:00'),
+  );
 }
 
 CitizenReportSummary sampleReport({

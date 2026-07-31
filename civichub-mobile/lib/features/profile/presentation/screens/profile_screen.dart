@@ -10,8 +10,55 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../auth/presentation/cubit/auth_state.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _isLoggingOut = false;
+
+  Future<void> _confirmLogout(BuildContext context) async {
+    if (_isLoggingOut) {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Log out?'),
+          content: const Text(
+            'You will need to sign in again to use CivicHub.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Log out'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!context.mounted || confirmed != true) {
+      return;
+    }
+
+    setState(() {
+      _isLoggingOut = true;
+    });
+    await context.read<AuthCubit>().logout();
+    if (context.mounted) {
+      context.go(AppRoutes.login);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,15 +92,6 @@ class ProfileScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
-                const SizedBox(height: AppSpacing.md),
-                Center(
-                  child: AppButton(
-                    label: 'Edit Profile',
-                    variant: AppButtonVariant.outline,
-                    expand: false,
-                    onPressed: () => context.push(AppRoutes.editProfile),
-                  ),
-                ),
                 const SizedBox(height: AppSpacing.xl),
                 Text('Profile', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: AppSpacing.md),
@@ -79,14 +117,12 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 AppButton(
-                  label: 'Logout',
+                  key: const ValueKey('profile_logout_button'),
+                  label: _isLoggingOut ? 'Logging out...' : 'Logout',
                   variant: AppButtonVariant.outline,
-                  onPressed: () async {
-                    await context.read<AuthCubit>().logout();
-                    if (context.mounted) {
-                      context.go(AppRoutes.login);
-                    }
-                  },
+                  onPressed: _isLoggingOut
+                      ? null
+                      : () => _confirmLogout(context),
                 ),
               ],
             );

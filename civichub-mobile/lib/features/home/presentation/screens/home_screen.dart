@@ -3,87 +3,162 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/routing/app_routes.dart';
-import '../../../../core/config/mock_data.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
-import '../../../home/domain/models/report_summary.dart';
+import '../../../../core/widgets/app_empty.dart';
+import '../../../../core/widgets/app_error.dart';
+import '../../../../core/widgets/app_loading.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../auth/presentation/cubit/auth_state.dart';
+import '../../../reports/domain/models/report_summary.dart';
+import '../../../reports/domain/repositories/reports_repository.dart';
+import '../cubit/home_cubit.dart';
+import '../cubit/home_state.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) =>
+          HomeCubit(reportsRepository: context.read<ReportsRepository>())
+            ..load(),
+      child: const _HomeView(),
+    );
+  }
+}
+
+class _HomeView extends StatelessWidget {
+  const _HomeView();
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            const SliverToBoxAdapter(child: _HomeHeader()),
-            SliverPadding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              sliver: SliverList.list(
-                children: [
-                  AppButton(
-                    label: 'Create Report',
-                    icon: Icons.add_circle_outline,
-                    onPressed: () {},
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    'My Reports',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  const _SummaryGrid(),
-                  const SizedBox(height: AppSpacing.lg),
-                  _SectionHeader(
-                    title: 'Recent Reports',
-                    action: 'View all',
-                    onTap: () => context.go(AppRoutes.reports),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  ...MockReports.recent.map(
-                    (report) => Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                      child: _RecentReportTile(report: report),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  AppCard(
-                    onTap: () => context.go(AppRoutes.notifications),
-                    child: Row(
+        child: BlocBuilder<HomeCubit, HomeState>(
+          builder: (context, state) {
+            return RefreshIndicator(
+              onRefresh: context.read<HomeCubit>().refresh,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  const SliverToBoxAdapter(child: _HomeHeader()),
+                  SliverPadding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    sliver: SliverList.list(
                       children: [
-                        const _IconBubble(icon: Icons.notifications_outlined),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Civic notifications',
-                                style: Theme.of(context).textTheme.titleMedium,
+                        AppButton(
+                          label: 'Create Report',
+                          icon: Icons.add_circle_outline,
+                          onPressed: () async {
+                            final created = await context.push<bool>(
+                              AppRoutes.createReport,
+                            );
+                            if (!context.mounted || created != true) {
+                              return;
+                            }
+                            await context.read<HomeCubit>().refresh();
+                          },
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        AppButton(
+                          label: 'My Reports',
+                          icon: Icons.assignment_outlined,
+                          variant: AppButtonVariant.outline,
+                          onPressed: () => context.go(AppRoutes.reports),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Text(
+                          'My Reports',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        if (state.isInitialLoading)
+                          const SizedBox(
+                            height: 180,
+                            child: AppLoading(message: 'Loading summary'),
+                          )
+                        else if (state.status == HomeStatus.failure &&
+                            state.recentReports.isEmpty)
+                          AppError(
+                            title: 'Unable to load summary',
+                            message:
+                                state.errorMessage ?? 'Please try again later.',
+                            onRetry: context.read<HomeCubit>().retry,
+                          )
+                        else ...[
+                          _SummaryGrid(state: state),
+                          const SizedBox(height: AppSpacing.lg),
+                          _SectionHeader(
+                            title: 'Recent Reports',
+                            action: 'View all',
+                            onTap: () => context.go(AppRoutes.reports),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          if (state.recentReports.isEmpty)
+                            const AppEmpty(
+                              title: 'No reports yet',
+                              message:
+                                  'Create a report to start tracking city service requests.',
+                              icon: Icons.assignment_outlined,
+                            )
+                          else
+                            for (final report in state.recentReports)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: AppSpacing.md,
+                                ),
+                                child: _RecentReportTile(report: report),
                               ),
-                              const SizedBox(height: AppSpacing.xs),
-                              Text(
-                                'See city updates and report status alerts.',
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(color: AppColors.muted),
+                        ],
+                        const SizedBox(height: AppSpacing.sm),
+                        AppCard(
+                          onTap: () => context.go(AppRoutes.notifications),
+                          child: Row(
+                            children: [
+                              const _IconBubble(
+                                icon: Icons.notifications_outlined,
+                              ),
+                              const SizedBox(width: AppSpacing.md),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Civic notifications',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium,
+                                    ),
+                                    const SizedBox(height: AppSpacing.xs),
+                                    Text(
+                                      'Check city updates and report status alerts.',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(color: AppColors.muted),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(
+                                Icons.chevron_right,
+                                color: AppColors.muted,
                               ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right, color: AppColors.muted),
                       ],
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -170,18 +245,23 @@ class _HomeHeader extends StatelessWidget {
 }
 
 class _SummaryGrid extends StatelessWidget {
-  const _SummaryGrid();
+  const _SummaryGrid({required this.state});
+
+  final HomeState state;
 
   @override
   Widget build(BuildContext context) {
+    final latest = state.recentReports.isEmpty
+        ? null
+        : state.recentReports.first;
     final items = [
-      _SummaryItem('Pending', MockReports.summary.pending, AppColors.warning),
+      _SummaryItem('Total', state.totalReports.toString(), AppColors.primary),
       _SummaryItem(
-        'In Progress',
-        MockReports.summary.inProgress,
-        AppColors.primary,
+        'Recent',
+        state.recentReports.length.toString(),
+        AppColors.warning,
       ),
-      _SummaryItem('Resolved', MockReports.summary.resolved, AppColors.success),
+      _SummaryItem('Latest', latest?.status.label ?? '-', AppColors.success),
     ];
 
     return Row(
@@ -198,7 +278,9 @@ class _SummaryGrid extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item.value.toString(),
+                        item.value,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: Theme.of(
                           context,
                         ).textTheme.headlineMedium?.copyWith(color: item.color),
@@ -225,7 +307,7 @@ class _SummaryItem {
   const _SummaryItem(this.label, this.value, this.color);
 
   final String label;
-  final int value;
+  final String value;
   final Color color;
 }
 
@@ -256,14 +338,14 @@ class _SectionHeader extends StatelessWidget {
 class _RecentReportTile extends StatelessWidget {
   const _RecentReportTile({required this.report});
 
-  final RecentReport report;
+  final CitizenReportSummary report;
 
   @override
   Widget build(BuildContext context) {
     return AppCard(
       child: Row(
         children: [
-          _IconBubble(icon: report.icon),
+          const _IconBubble(icon: Icons.assignment_outlined),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
@@ -271,11 +353,17 @@ class _RecentReportTile extends StatelessWidget {
               children: [
                 Text(
                   report.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  report.location,
+                  report.address.isEmpty
+                      ? 'No address provided'
+                      : report.address,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(
                     context,
                   ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
