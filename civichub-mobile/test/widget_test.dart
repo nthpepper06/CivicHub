@@ -408,7 +408,46 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Broken sidewalk'), findsOneWidget);
-    expect(find.text('Roads'), findsOneWidget);
+    expect(find.text('Roads'), findsWidgets);
+    expect(find.text('Newest'), findsOneWidget);
+    expect(find.text('All categories'), findsOneWidget);
+  });
+
+  testWidgets('Reports screen applies category and sort controls', (
+    tester,
+  ) async {
+    final repository = FakeReportsRepository(
+      pages: [
+        sampleReportsPage(content: [sampleReport(id: 1)]),
+        sampleReportsPage(content: const []),
+        sampleReportsPage(content: const []),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<ReportsRepository>.value(value: repository),
+          RepositoryProvider<NotificationsRepository>.value(
+            value: FakeNotificationsRepository(),
+          ),
+        ],
+        child: const MaterialApp(home: ReportsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Roads'));
+    await tester.pumpAndSettle();
+    expect(repository.calls.last.categoryId, 7);
+
+    await tester.tap(find.byTooltip('Sort reports'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Title A-Z'));
+    await tester.pumpAndSettle();
+
+    expect(repository.calls.last.sortBy, 'title');
+    expect(repository.calls.last.direction, 'ASC');
   });
 
   testWidgets('Create report validates required fields', (tester) async {

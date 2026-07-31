@@ -172,4 +172,53 @@ void main() {
     expect(repository.calls.last.status, ReportStatus.resolved);
     expect(cubit.state.statusFilter, ReportStatus.resolved);
   });
+
+  test('Category filter reloads with backend category id', () async {
+    final repository = FakeReportsRepository(
+      pages: [
+        sampleReportsPage(content: const []),
+        sampleReportsPage(content: const []),
+      ],
+    );
+    final cubit = ReportsCubit(reportsRepository: repository);
+
+    await cubit.loadInitial();
+    await cubit.applyCategoryFilter(7);
+
+    expect(repository.calls.last.categoryId, 7);
+    expect(cubit.state.categoryIdFilter, 7);
+  });
+
+  test('Sort reloads with verified backend sort fields', () async {
+    final repository = FakeReportsRepository(
+      pages: [
+        sampleReportsPage(content: const []),
+        sampleReportsPage(content: const []),
+      ],
+    );
+    final cubit = ReportsCubit(reportsRepository: repository);
+
+    await cubit.loadInitial();
+    await cubit.applySort(ReportsSortOption.titleAsc);
+
+    expect(repository.calls.last.sortBy, 'title');
+    expect(repository.calls.last.direction, 'ASC');
+    expect(cubit.state.sortOption, ReportsSortOption.titleAsc);
+  });
+
+  test('Initial load fetches active categories once', () async {
+    final repository = FakeReportsRepository(
+      categories: [
+        sampleCategory(id: 7, name: 'Roads'),
+        sampleCategory(id: 8, name: 'Hidden', isActive: false),
+      ],
+    );
+    final cubit = ReportsCubit(reportsRepository: repository);
+
+    await cubit.loadInitial();
+    await cubit.loadInitial();
+
+    expect(cubit.state.categories.map((category) => category.name), ['Roads']);
+    expect(repository.categoryCalls, 1);
+  });
 }

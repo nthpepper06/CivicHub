@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../domain/models/report_category.dart';
 import '../../domain/models/report_status.dart';
 import '../../domain/models/report_summary.dart';
 import '../../domain/repositories/reports_repository.dart';
@@ -20,6 +21,7 @@ class ReportsCubit extends Cubit<ReportsState> {
     if (state.status == ReportsStatus.loading && state.reports.isEmpty) {
       return;
     }
+    await _loadCategoriesIfNeeded();
     await _loadFirstPage(refreshing: false);
   }
 
@@ -39,6 +41,22 @@ class ReportsCubit extends Cubit<ReportsState> {
       return;
     }
     emit(state.copyWith(statusFilter: status));
+    await _loadFirstPage(refreshing: false);
+  }
+
+  Future<void> applyCategoryFilter(int? categoryId) async {
+    if (state.categoryIdFilter == categoryId) {
+      return;
+    }
+    emit(state.copyWith(categoryIdFilter: categoryId));
+    await _loadFirstPage(refreshing: false);
+  }
+
+  Future<void> applySort(ReportsSortOption sortOption) async {
+    if (state.sortOption == sortOption) {
+      return;
+    }
+    emit(state.copyWith(sortOption: sortOption));
     await _loadFirstPage(refreshing: false);
   }
 
@@ -69,8 +87,9 @@ class ReportsCubit extends Cubit<ReportsState> {
         size: pageSize,
         search: state.search,
         status: state.statusFilter,
-        sortBy: 'createdAt',
-        direction: 'DESC',
+        categoryId: state.categoryIdFilter,
+        sortBy: state.sortOption.sortBy,
+        direction: state.sortOption.direction,
       );
       if (generation != _requestGeneration) {
         return;
@@ -135,8 +154,9 @@ class ReportsCubit extends Cubit<ReportsState> {
         size: pageSize,
         search: state.search,
         status: state.statusFilter,
-        sortBy: 'createdAt',
-        direction: 'DESC',
+        categoryId: state.categoryIdFilter,
+        sortBy: state.sortOption.sortBy,
+        direction: state.sortOption.direction,
       );
       if (generation != _requestGeneration) {
         return;
@@ -185,6 +205,37 @@ class ReportsCubit extends Cubit<ReportsState> {
     }
   }
 
+  Future<void> _loadCategoriesIfNeeded() async {
+    if (state.categories.isNotEmpty || state.isLoadingCategories) {
+      return;
+    }
+    emit(state.copyWith(isLoadingCategories: true, categoryErrorMessage: null));
+    try {
+      final categories = await _reportsRepository.getCategories();
+      emit(
+        state.copyWith(
+          categories: _activeCategories(categories),
+          isLoadingCategories: false,
+          categoryErrorMessage: null,
+        ),
+      );
+    } on ApiException catch (error) {
+      emit(
+        state.copyWith(
+          isLoadingCategories: false,
+          categoryErrorMessage: _friendlyMessage(error),
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          isLoadingCategories: false,
+          categoryErrorMessage: ApiException.unknown.message,
+        ),
+      );
+    }
+  }
+
   List<CitizenReportSummary> _mergeUnique(
     List<CitizenReportSummary> existing,
     List<CitizenReportSummary> incoming,
@@ -195,6 +246,10 @@ class ReportsCubit extends Cubit<ReportsState> {
       for (final report in incoming)
         if (seenIds.add(report.id)) report,
     ];
+  }
+
+  List<ReportCategory> _activeCategories(List<ReportCategory> categories) {
+    return categories.where((category) => category.isActive).toList();
   }
 
   String _friendlyMessage(ApiException error) {

@@ -172,6 +172,7 @@ class FakeReportsRepository implements ReportsRepository {
   final createRequests = <CreateReportRequest>[];
   final updateRequests = <({int id, CreateReportRequest request})>[];
   final cancelCalls = <int>[];
+  int categoryCalls = 0;
   Object? error;
   Object? categoryError;
   Object? createError;
@@ -186,6 +187,7 @@ class FakeReportsRepository implements ReportsRepository {
 
   @override
   Future<List<ReportCategory>> getCategories() async {
+    categoryCalls += 1;
     if (categoryError != null) {
       throw categoryError!;
     }

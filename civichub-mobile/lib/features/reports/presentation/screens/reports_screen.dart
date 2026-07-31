@@ -39,6 +39,7 @@ class _ReportsView extends StatefulWidget {
 
 class _ReportsViewState extends State<_ReportsView> {
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -48,6 +49,7 @@ class _ReportsViewState extends State<_ReportsView> {
 
   @override
   void dispose() {
+    _searchController.dispose();
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
@@ -88,6 +90,31 @@ class _ReportsViewState extends State<_ReportsView> {
             },
             icon: const Icon(Icons.add),
           ),
+          BlocBuilder<ReportsCubit, ReportsState>(
+            buildWhen: (previous, current) =>
+                previous.sortOption != current.sortOption,
+            builder: (context, state) {
+              return PopupMenuButton<ReportsSortOption>(
+                tooltip: 'Sort reports',
+                icon: const Icon(Icons.sort),
+                initialValue: state.sortOption,
+                onSelected: context.read<ReportsCubit>().applySort,
+                itemBuilder: (context) => [
+                  for (final option in ReportsSortOption.values)
+                    PopupMenuItem(
+                      value: option,
+                      child: Row(
+                        children: [
+                          Expanded(child: Text(option.label)),
+                          if (state.sortOption == option)
+                            const Icon(Icons.check, size: 18),
+                        ],
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         ],
       ),
       body: SafeArea(
@@ -96,6 +123,7 @@ class _ReportsViewState extends State<_ReportsView> {
             return RefreshIndicator(
               onRefresh: context.read<ReportsCubit>().refresh,
               child: CustomScrollView(
+                key: const PageStorageKey('reports_scroll_view'),
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
@@ -106,7 +134,12 @@ class _ReportsViewState extends State<_ReportsView> {
                       AppSpacing.lg,
                       AppSpacing.md,
                     ),
-                    sliver: SliverToBoxAdapter(child: _Header(state: state)),
+                    sliver: SliverToBoxAdapter(
+                      child: _Header(
+                        state: state,
+                        searchController: _searchController,
+                      ),
+                    ),
                   ),
                   if (state.isInitialLoading)
                     const SliverFillRemaining(
@@ -130,10 +163,13 @@ class _ReportsViewState extends State<_ReportsView> {
                       ),
                     )
                   else if (state.reports.isEmpty)
-                    const AppEmpty(
-                      title: 'No reports yet',
-                      message:
-                          'Submitted reports will appear here once they are created.',
+                    AppEmpty(
+                      title: state.hasActiveFilters
+                          ? 'No matching reports'
+                          : 'No reports yet',
+                      message: state.hasActiveFilters
+                          ? 'Try adjusting search or filters to see more reports.'
+                          : 'Submitted reports will appear here once they are created.',
                       icon: Icons.assignment_outlined,
                     ).asSliver()
                   else
@@ -167,26 +203,54 @@ class _ReportsViewState extends State<_ReportsView> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.state});
+  const _Header({required this.state, required this.searchController});
 
   final ReportsState state;
+  final TextEditingController searchController;
 
   @override
   Widget build(BuildContext context) {
+    if (searchController.text != state.search) {
+      searchController.text = state.search;
+      searchController.selection = TextSelection.collapsed(
+        offset: searchController.text.length,
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Reports', style: Theme.of(context).textTheme.headlineMedium),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Reports',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+            ),
+            _SortPill(option: state.sortOption),
+          ],
+        ),
         const SizedBox(height: AppSpacing.md),
         AppCard(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           child: TextField(
+            controller: searchController,
             onSubmitted: context.read<ReportsCubit>().applySearch,
             textInputAction: TextInputAction.search,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Search reports',
               border: InputBorder.none,
-              prefixIcon: Icon(Icons.search),
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: state.search.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Clear search',
+                      onPressed: () {
+                        searchController.clear();
+                        context.read<ReportsCubit>().applySearch('');
+                      },
+                      icon: const Icon(Icons.close),
+                    ),
             ),
           ),
         ),
@@ -217,7 +281,76 @@ class _Header extends StatelessWidget {
               ),
           ],
         ),
+        if (state.isLoadingCategories) ...[
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Loading categories...',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
+          ),
+        ] else if (state.categories.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              _CategoryChip(
+                label: 'All categories',
+                selected: state.categoryIdFilter == null,
+                onSelected: () =>
+                    context.read<ReportsCubit>().applyCategoryFilter(null),
+              ),
+              for (final category in state.categories)
+                _CategoryChip(
+                  label: category.name,
+                  selected: state.categoryIdFilter == category.id,
+                  onSelected: () => context
+                      .read<ReportsCubit>()
+                      .applyCategoryFilter(category.id),
+                ),
+            ],
+          ),
+        ] else if (state.categoryErrorMessage != null) ...[
+          const SizedBox(height: AppSpacing.md),
+          AppError(
+            title: 'Categories did not load',
+            message: state.categoryErrorMessage!,
+            onRetry: context.read<ReportsCubit>().loadInitial,
+          ),
+        ],
       ],
+    );
+  }
+}
+
+class _SortPill extends StatelessWidget {
+  const _SortPill({required this.option});
+
+  final ReportsSortOption option;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.softIcon,
+        borderRadius: BorderRadius.circular(AppRadius.xs),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        child: Text(
+          option.label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: AppColors.muted,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -386,6 +519,40 @@ class _StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChoiceChip(
       label: Text(label),
+      selected: selected,
+      onSelected: (_) => onSelected(),
+      labelStyle: TextStyle(
+        color: selected ? AppColors.surface : AppColors.ink,
+        fontWeight: FontWeight.w700,
+      ),
+      selectedColor: AppColors.primary,
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      side: BorderSide(color: selected ? AppColors.primary : AppColors.line),
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilterChip(
+      label: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 150),
+        child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
       selected: selected,
       onSelected: (_) => onSelected(),
       labelStyle: TextStyle(

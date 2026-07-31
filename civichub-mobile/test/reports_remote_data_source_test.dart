@@ -155,14 +155,20 @@ void main() {
       final page = await dataSource.getMyReports(
         page: 0,
         size: 10,
+        search: 'road',
         status: ReportStatus.pending,
+        categoryId: 7,
         sortBy: 'createdAt',
         direction: 'DESC',
       );
 
       expect(adapter.request?.path, '/api/reports/my');
       expect(adapter.request?.headers['Authorization'], 'Bearer jwt-token');
+      expect(adapter.request?.queryParameters['search'], 'road');
       expect(adapter.request?.queryParameters['status'], 'PENDING');
+      expect(adapter.request?.queryParameters['categoryId'], 7);
+      expect(adapter.request?.queryParameters['sortBy'], 'createdAt');
+      expect(adapter.request?.queryParameters['direction'], 'DESC');
       expect(page.content.single.id, 1);
     },
   );
