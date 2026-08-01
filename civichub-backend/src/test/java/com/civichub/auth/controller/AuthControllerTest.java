@@ -90,6 +90,39 @@ class AuthControllerTest {
     }
 
     @Test
+    void staffLoginShouldReturnOkWithDepartmentName() throws Exception {
+        CurrentUserResponse staff = CurrentUserResponse.builder()
+                .id(2L)
+                .fullName("Staff User")
+                .email("staff@example.com")
+                .role(UserRole.STAFF)
+                .status(UserStatus.ACTIVE)
+                .isActive(true)
+                .departmentId(3L)
+                .departmentName("Public Works")
+                .build();
+        when(authService.login(any())).thenReturn(AuthResponse.builder()
+                .accessToken("jwt-token")
+                .tokenType("Bearer")
+                .expiresIn(86400L)
+                .user(staff)
+                .build());
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "staff@example.com",
+                                  "password": "strongPassword"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.user.role").value("STAFF"))
+                .andExpect(jsonPath("$.data.user.departmentName").value("Public Works"));
+    }
+
+    @Test
     void invalidRegisterRequestShouldReturnBadRequest() throws Exception {
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

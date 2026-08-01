@@ -15,6 +15,8 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_responsive.dart';
 import '../../../../core/widgets/civic_background.dart';
 import '../../../../core/widgets/premium_surface.dart';
+import '../../../auth/domain/models/auth_enums.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../domain/models/citizen_notification.dart';
 import '../../domain/repositories/notifications_repository.dart';
 import '../cubit/notifications_cubit.dart';
@@ -375,7 +377,16 @@ class _NotificationTile extends StatelessWidget {
               if (!context.mounted || !canOpenReport) {
                 return;
               }
-              await context.push(AppRoutes.reportDetailPath(reportId));
+              UserRole? role;
+              try {
+                role = context.read<AuthCubit>().state.user?.role;
+              } catch (_) {
+                role = null;
+              }
+              final route = role == UserRole.staff
+                  ? AppRoutes.staffReportDetailPath(reportId)
+                  : AppRoutes.reportDetailPath(reportId);
+              await context.push(route);
             },
       borderColor: isUnread ? accent.withValues(alpha: 0.28) : AppColors.line,
       padding: EdgeInsets.zero,

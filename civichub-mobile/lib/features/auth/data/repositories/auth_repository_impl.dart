@@ -25,7 +25,7 @@ class AuthRepositoryImpl implements AuthRepository {
       final response = await _remoteDataSource.login(request);
       _ensureUsableToken(response.accessToken);
       _ensureValidProfile(response.user);
-      _ensureCitizen(response.user);
+      _ensureSupportedAppRole(response.user);
       await _tokenStorage.saveAccessToken(response.accessToken);
       return response.toSession();
     } on ApiException catch (error) {
@@ -45,7 +45,7 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final user = await _remoteDataSource.getCurrentUser();
       _ensureValidProfile(user);
-      _ensureCitizen(user);
+      _ensureSupportedAppRole(user);
       return user;
     } on ApiException catch (error) {
       if (error.kind == ApiErrorKind.unauthorized ||
@@ -62,7 +62,7 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final user = await _remoteDataSource.getCurrentUser();
       _ensureValidProfile(user);
-      _ensureCitizen(user);
+      _ensureSupportedAppRole(user);
       return user;
     } on ApiException catch (error) {
       if (error.kind == ApiErrorKind.unauthorized ||
@@ -78,7 +78,7 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final user = await _remoteDataSource.updateCurrentUser(request);
       _ensureValidProfile(user);
-      _ensureCitizen(user);
+      _ensureSupportedAppRole(user);
       return user;
     } on ApiException catch (error) {
       if (error.kind == ApiErrorKind.unauthorized ||
@@ -112,10 +112,10 @@ class AuthRepositoryImpl implements AuthRepository {
     return _tokenStorage.hasAccessToken();
   }
 
-  void _ensureCitizen(CitizenProfile user) {
-    if (user.role != UserRole.citizen) {
+  void _ensureSupportedAppRole(CitizenProfile user) {
+    if (user.role == UserRole.admin) {
       throw ApiException.forbidden.copyWith(
-        message: 'This app is available to citizen accounts only.',
+        message: 'Admin accounts must use the CivicHub admin console.',
       );
     }
   }

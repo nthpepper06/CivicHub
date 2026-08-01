@@ -1,6 +1,7 @@
 package com.civichub.report.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -62,6 +63,8 @@ class StaffReportControllerTest {
                         .with(user("staff@example.com").roles("STAFF")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].id").value(99));
+
+        verify(reportService).getStaffReports(0, 10, null, null, null, null, null, null);
     }
 
     @Test

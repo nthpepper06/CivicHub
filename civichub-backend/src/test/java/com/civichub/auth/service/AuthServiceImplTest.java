@@ -21,6 +21,7 @@ import com.civichub.common.exception.InvalidReportStateException;
 import com.civichub.common.exception.ResourceAlreadyExistsException;
 import com.civichub.security.CivicHubUserPrincipal;
 import com.civichub.security.JwtService;
+import com.civichub.department.entity.Department;
 import com.civichub.user.entity.User;
 import com.civichub.user.repository.UserRepository;
 import java.util.Optional;
@@ -147,7 +148,7 @@ class AuthServiceImplTest {
 
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
-        when(userRepository.findByEmail("citizen@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findWithDepartmentByEmail("citizen@example.com")).thenReturn(Optional.of(user));
         when(jwtService.generateToken(principal)).thenReturn("jwt-token");
         when(jwtService.getExpirationSeconds()).thenReturn(86400L);
         when(authMapper.toCurrentUserResponse(user)).thenReturn(currentUser);
@@ -160,6 +161,54 @@ class AuthServiceImplTest {
         assertThat(authCaptor.getValue().getPrincipal()).isEqualTo("citizen@example.com");
         assertThat(authCaptor.getValue().getCredentials()).isEqualTo("strongPassword");
         assertThat(response.getAccessToken()).isEqualTo("jwt-token");
+        assertThat(response.getUser().getDepartmentName()).isNull();
+    }
+
+    @Test
+    void loginShouldFetchStaffDepartmentBeforeMapping() {
+        LoginRequest request = new LoginRequest(" Staff@Example.COM ", "strongPassword");
+        Department department = Department.builder()
+                .id(3L)
+                .name("Public Works")
+                .isActive(true)
+                .build();
+        User user = User.builder()
+                .id(2L)
+                .fullName("Staff User")
+                .email("staff@example.com")
+                .password("encoded-password")
+                .role(UserRole.STAFF)
+                .status(UserStatus.ACTIVE)
+                .isActive(true)
+                .department(department)
+                .build();
+        CivicHubUserPrincipal principal = CivicHubUserPrincipal.from(user);
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+        CurrentUserResponse currentUser = CurrentUserResponse.builder()
+                .id(2L)
+                .email("staff@example.com")
+                .role(UserRole.STAFF)
+                .status(UserStatus.ACTIVE)
+                .isActive(true)
+                .departmentId(3L)
+                .departmentName("Public Works")
+                .build();
+
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(authentication);
+        when(userRepository.findWithDepartmentByEmail("staff@example.com")).thenReturn(Optional.of(user));
+        when(jwtService.generateToken(principal)).thenReturn("jwt-token");
+        when(jwtService.getExpirationSeconds()).thenReturn(86400L);
+        when(authMapper.toCurrentUserResponse(user)).thenReturn(currentUser);
+
+        AuthResponse response = authService.login(request);
+
+        verify(userRepository).findWithDepartmentByEmail("staff@example.com");
+        verify(userRepository, never()).findByEmail("staff@example.com");
+        assertThat(response.getUser().getRole()).isEqualTo(UserRole.STAFF);
+        assertThat(response.getUser().getDepartmentId()).isEqualTo(3L);
+        assertThat(response.getUser().getDepartmentName()).isEqualTo("Public Works");
     }
 
     @Test
@@ -171,7 +220,7 @@ class AuthServiceImplTest {
         assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOf(BadCredentialsException.class)
                 .hasMessage("Invalid email or password");
-        verify(userRepository, never()).findByEmail(any());
+        verify(userRepository, never()).findWithDepartmentByEmail(any());
     }
 
     @Test
@@ -187,7 +236,7 @@ class AuthServiceImplTest {
                 .status(UserStatus.ACTIVE)
                 .isActive(true)
                 .build();
-        when(userRepository.findByEmail("citizen@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findWithDepartmentByEmail("citizen@example.com")).thenReturn(Optional.of(user));
         when(userRepository.save(user)).thenReturn(user);
         when(authMapper.toCurrentUserResponse(user)).thenReturn(mapped);
 
@@ -207,7 +256,7 @@ class AuthServiceImplTest {
     void changePasswordShouldRejectWrongCurrentPassword() {
         authenticate("citizen@example.com");
         User user = citizenUser();
-        when(userRepository.findByEmail("citizen@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findWithDepartmentByEmail("citizen@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrong-password", "encoded-password")).thenReturn(false);
 
         assertThatThrownBy(() -> authService.changePassword(
@@ -222,7 +271,7 @@ class AuthServiceImplTest {
     void changePasswordShouldRejectSamePassword() {
         authenticate("citizen@example.com");
         User user = citizenUser();
-        when(userRepository.findByEmail("citizen@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findWithDepartmentByEmail("citizen@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("old-password", "encoded-password")).thenReturn(true);
         when(passwordEncoder.matches("old-password-new", "encoded-password")).thenReturn(true);
 
@@ -237,7 +286,7 @@ class AuthServiceImplTest {
     void changePasswordShouldSaveNewHashAndAudit() {
         authenticate("citizen@example.com");
         User user = citizenUser();
-        when(userRepository.findByEmail("citizen@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findWithDepartmentByEmail("citizen@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("old-password", "encoded-password")).thenReturn(true);
         when(passwordEncoder.matches("new-password", "encoded-password")).thenReturn(false);
         when(passwordEncoder.encode("new-password")).thenReturn("new-hash");

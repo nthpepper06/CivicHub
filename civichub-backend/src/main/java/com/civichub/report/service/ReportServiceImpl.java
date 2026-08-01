@@ -399,8 +399,9 @@ public class ReportServiceImpl implements ReportService {
     private Pageable pageable(int page, int size, String sortBy, String direction) {
         int normalizedPage = Math.max(page, 0);
         int normalizedSize = size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
-        String safeSortBy = ALLOWED_SORT_FIELDS.contains(sortBy) ? sortBy : "createdAt";
-        Sort.Direction safeDirection = "ASC".equalsIgnoreCase(direction) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        String safeSortBy = sortBy == null || !ALLOWED_SORT_FIELDS.contains(sortBy) ? "createdAt" : sortBy;
+        String safeDirectionValue = direction == null ? "DESC" : direction;
+        Sort.Direction safeDirection = "ASC".equalsIgnoreCase(safeDirectionValue) ? Sort.Direction.ASC : Sort.Direction.DESC;
         return PageRequest.of(normalizedPage, normalizedSize, Sort.by(safeDirection, safeSortBy));
     }
 

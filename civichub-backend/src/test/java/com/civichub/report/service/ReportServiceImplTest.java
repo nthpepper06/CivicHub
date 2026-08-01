@@ -41,6 +41,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -160,6 +162,61 @@ class ReportServiceImplTest {
     }
 
     @Test
+    void getMyReportsShouldDefaultNullSortByToCreatedAt() {
+        authenticate(1L, UserRole.CITIZEN);
+        when(reportRepository.findAll(anyReportSpecification(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        reportService.getMyReports(0, 10, null, null, null, null, "ASC");
+
+        Pageable pageable = capturedPageable();
+        Sort.Order order = pageable.getSort().getOrderFor("createdAt");
+        assertThat(order).isNotNull();
+        assertThat(order.getDirection()).isEqualTo(Sort.Direction.ASC);
+    }
+
+    @Test
+    void getMyReportsShouldDefaultNullDirectionToDesc() {
+        authenticate(1L, UserRole.CITIZEN);
+        when(reportRepository.findAll(anyReportSpecification(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        reportService.getMyReports(0, 10, null, null, null, "title", null);
+
+        Pageable pageable = capturedPageable();
+        Sort.Order order = pageable.getSort().getOrderFor("title");
+        assertThat(order).isNotNull();
+        assertThat(order.getDirection()).isEqualTo(Sort.Direction.DESC);
+    }
+
+    @Test
+    void getMyReportsShouldDefaultInvalidSortByToCreatedAt() {
+        authenticate(1L, UserRole.CITIZEN);
+        when(reportRepository.findAll(anyReportSpecification(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        reportService.getMyReports(0, 10, null, null, null, "department.name", "ASC");
+
+        Pageable pageable = capturedPageable();
+        assertThat(pageable.getSort().getOrderFor("createdAt")).isNotNull();
+        assertThat(pageable.getSort().getOrderFor("department.name")).isNull();
+    }
+
+    @Test
+    void getMyReportsShouldDefaultInvalidDirectionToDesc() {
+        authenticate(1L, UserRole.CITIZEN);
+        when(reportRepository.findAll(anyReportSpecification(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        reportService.getMyReports(0, 10, null, null, null, "status", "SIDEWAYS");
+
+        Pageable pageable = capturedPageable();
+        Sort.Order order = pageable.getSort().getOrderFor("status");
+        assertThat(order).isNotNull();
+        assertThat(order.getDirection()).isEqualTo(Sort.Direction.DESC);
+    }
+
+    @Test
     void getMyReportShouldReturnNotFoundForAnotherUserReport() {
         authenticate(1L, UserRole.CITIZEN);
         when(reportRepository.findDetailByIdAndUserId(99L, 1L)).thenReturn(Optional.empty());
@@ -238,6 +295,23 @@ class ReportServiceImplTest {
 
         assertThatThrownBy(() -> reportService.getStaffReports(0, 10, null, null, null, null, null, null))
                 .isInstanceOf(InvalidReportStateException.class);
+    }
+
+    @Test
+    void staffReportsShouldAcceptMissingSortParamsAndDefaultCreatedAtDesc() {
+        authenticate(2L, UserRole.STAFF);
+        Department department = department(5L, true);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(staff(2L, department)));
+        when(departmentRepository.findById(5L)).thenReturn(Optional.of(department));
+        when(reportRepository.findAll(anyReportSpecification(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        reportService.getStaffReports(0, 10, null, null, null, null, null, null);
+
+        Pageable pageable = capturedPageable();
+        Sort.Order order = pageable.getSort().getOrderFor("createdAt");
+        assertThat(order).isNotNull();
+        assertThat(order.getDirection()).isEqualTo(Sort.Direction.DESC);
     }
 
     @Test
@@ -511,6 +585,12 @@ class ReportServiceImplTest {
 
     private Specification<Report> anyReportSpecification() {
         return any();
+    }
+
+    private Pageable capturedPageable() {
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(reportRepository).findAll(anyReportSpecification(), pageableCaptor.capture());
+        return pageableCaptor.getValue();
     }
 
     private ReportCreateRequest createRequest(List<String> imageUrls) {

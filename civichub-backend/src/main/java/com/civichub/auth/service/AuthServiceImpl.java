@@ -76,7 +76,7 @@ public class AuthServiceImpl implements AuthService {
                     new UsernamePasswordAuthenticationToken(email, request.getPassword()));
 
             CivicHubUserPrincipal principal = (CivicHubUserPrincipal) authentication.getPrincipal();
-            User user = userRepository.findByEmail(email)
+            User user = userRepository.findWithDepartmentByEmail(email)
                     .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
             String token = jwtService.generateToken(principal);
             return buildAuthResponse(token, user);
@@ -155,7 +155,7 @@ public class AuthServiceImpl implements AuthService {
             throw new ResourceNotFoundException("Current user not found");
         }
 
-        return userRepository.findByEmail(authentication.getName())
+        return userRepository.findWithDepartmentByEmail(authentication.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
     }
 

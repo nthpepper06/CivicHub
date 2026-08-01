@@ -18,6 +18,8 @@ import 'package:civichub_mobile/features/reports/domain/models/report_status.dar
 import 'package:civichub_mobile/features/reports/domain/models/report_summary.dart';
 import 'package:civichub_mobile/features/reports/domain/models/reports_page.dart';
 import 'package:civichub_mobile/features/reports/domain/repositories/reports_repository.dart';
+import 'package:civichub_mobile/features/staff/domain/models/staff_dashboard_summary.dart';
+import 'package:civichub_mobile/features/staff/domain/repositories/staff_repository.dart';
 
 class MemoryAuthTokenStorage implements AuthTokenStorage {
   String? _token;
@@ -383,6 +385,80 @@ class FakeNotificationsRepository implements NotificationsRepository {
   }
 }
 
+class FakeStaffRepository implements StaffRepository {
+  FakeStaffRepository({
+    StaffDashboardSummary? summary,
+    List<ReportsPage<CitizenReportSummary>>? pages,
+  }) : _summary = summary ?? sampleStaffSummary(),
+       _pages = List.of(pages ?? [sampleReportsPage()]);
+
+  final StaffDashboardSummary _summary;
+  final List<ReportsPage<CitizenReportSummary>> _pages;
+  final assignedCalls = <ReportRepositoryCall>[];
+  final detailCalls = <int>[];
+  int summaryCalls = 0;
+  int recentCalls = 0;
+  Object? summaryError;
+  Object? recentError;
+  Object? assignedError;
+  Object? detailError;
+
+  @override
+  Future<StaffDashboardSummary> getDashboardSummary() async {
+    summaryCalls += 1;
+    if (summaryError != null) {
+      throw summaryError!;
+    }
+    return _summary;
+  }
+
+  @override
+  Future<ReportsPage<CitizenReportSummary>> getRecentReports({
+    int size = 5,
+  }) async {
+    recentCalls += 1;
+    if (recentError != null) {
+      throw recentError!;
+    }
+    return sampleReportsPage(totalElements: 1);
+  }
+
+  @override
+  Future<ReportsPage<CitizenReportSummary>> getAssignedReports({
+    required int page,
+    required int size,
+    String? search,
+    ReportStatus? status,
+    int? categoryId,
+  }) async {
+    assignedCalls.add(
+      ReportRepositoryCall(
+        page: page,
+        size: size,
+        search: search,
+        status: status,
+        categoryId: categoryId,
+      ),
+    );
+    if (assignedError != null) {
+      throw assignedError!;
+    }
+    if (_pages.isEmpty) {
+      return sampleReportsPage(content: const [], page: page, last: true);
+    }
+    return _pages.removeAt(0);
+  }
+
+  @override
+  Future<CitizenReportDetail> getAssignedReport(int id) async {
+    detailCalls.add(id);
+    if (detailError != null) {
+      throw detailError!;
+    }
+    return sampleReportDetail(id: id);
+  }
+}
+
 CitizenNotification sampleCitizenNotification({
   int id = 1,
   bool isRead = false,
@@ -396,6 +472,18 @@ CitizenNotification sampleCitizenNotification({
     reportId: reportId,
     isRead: isRead,
     createdAt: DateTime.parse('2026-07-20T10:15:00'),
+  );
+}
+
+StaffDashboardSummary sampleStaffSummary() {
+  return const StaffDashboardSummary(
+    pendingReports: 1,
+    receivedReports: 2,
+    inProgressReports: 3,
+    resolvedReports: 4,
+    rejectedReports: 0,
+    cancelledReports: 0,
+    totalAssigned: 10,
   );
 }
 

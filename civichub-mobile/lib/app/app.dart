@@ -19,6 +19,9 @@ import '../features/notifications/domain/repositories/notifications_repository.d
 import '../features/reports/data/datasources/reports_remote_data_source.dart';
 import '../features/reports/data/repositories/reports_repository_impl.dart';
 import '../features/reports/domain/repositories/reports_repository.dart';
+import '../features/staff/data/datasources/staff_remote_data_source.dart';
+import '../features/staff/data/repositories/staff_repository_impl.dart';
+import '../features/staff/domain/repositories/staff_repository.dart';
 import 'routing/app_router.dart';
 
 class CivicHubApp extends StatefulWidget {
@@ -37,6 +40,8 @@ class _CivicHubAppState extends State<CivicHubApp> {
   late final ReportsRepository _reportsRepository;
   late final NotificationsRemoteDataSourceImpl _notificationsRemoteDataSource;
   late final NotificationsRepository _notificationsRepository;
+  late final StaffRemoteDataSourceImpl _staffRemoteDataSource;
+  late final StaffRepository _staffRepository;
   late final AuthCubit _authCubit;
   late final LoginCubit _loginCubit;
   late final GoRouter _router;
@@ -62,6 +67,10 @@ class _CivicHubAppState extends State<CivicHubApp> {
     );
     _notificationsRepository = NotificationsRepositoryImpl(
       remoteDataSource: _notificationsRemoteDataSource,
+    );
+    _staffRemoteDataSource = StaffRemoteDataSourceImpl(apiClient: _apiClient);
+    _staffRepository = StaffRepositoryImpl(
+      remoteDataSource: _staffRemoteDataSource,
     );
     _authCubit = AuthCubit(authRepository: _authRepository);
     _loginCubit = LoginCubit(
@@ -101,6 +110,10 @@ class _CivicHubAppState extends State<CivicHubApp> {
         RepositoryProvider<NotificationsRepository>.value(
           value: _notificationsRepository,
         ),
+        RepositoryProvider<StaffRemoteDataSource>.value(
+          value: _staffRemoteDataSource,
+        ),
+        RepositoryProvider<StaffRepository>.value(value: _staffRepository),
       ],
       child: MultiBlocProvider(
         providers: [

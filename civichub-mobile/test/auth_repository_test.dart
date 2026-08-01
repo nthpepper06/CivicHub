@@ -89,52 +89,86 @@ void main() {
     expect(await storage.hasAccessToken(), isFalse);
   });
 
-  test('STAFF and ADMIN login are rejected', () async {
-    for (final role in [UserRole.staff, UserRole.admin]) {
-      final storage = MemoryAuthTokenStorage();
-      await storage.saveAccessToken('old-token');
-      final repository = AuthRepositoryImpl(
-        remoteDataSource: FakeAuthRemoteDataSource(
-          loginResponse: LoginResponse(
-            accessToken: 'jwt-token',
-            tokenType: 'Bearer',
-            expiresIn: 86400,
-            user: sampleUser(role: role),
-          ),
+  test('STAFF login is accepted and stores token', () async {
+    final storage = MemoryAuthTokenStorage();
+    final repository = AuthRepositoryImpl(
+      remoteDataSource: FakeAuthRemoteDataSource(
+        loginResponse: LoginResponse(
+          accessToken: 'jwt-token',
+          tokenType: 'Bearer',
+          expiresIn: 86400,
+          user: sampleUser(role: UserRole.staff),
         ),
-        tokenStorage: storage,
-      );
+      ),
+      tokenStorage: storage,
+    );
 
-      await expectLater(
-        repository.login(
-          const LoginRequest(email: 'staff@civichub.vn', password: 'secret'),
-        ),
-        throwsA(
-          isA<ApiException>().having(
-            (error) => error.kind,
-            'kind',
-            ApiErrorKind.forbidden,
-          ),
-        ),
-      );
-      expect(await storage.hasAccessToken(), isFalse);
-    }
+    final session = await repository.login(
+      const LoginRequest(email: 'staff@civichub.vn', password: 'secret'),
+    );
+
+    expect(session.user.role, UserRole.staff);
+    expect(await storage.readAccessToken(), 'jwt-token');
   });
 
-  test('STAFF and ADMIN bootstrap are rejected and clear token', () async {
-    for (final role in [UserRole.staff, UserRole.admin]) {
-      final storage = MemoryAuthTokenStorage();
-      await storage.saveAccessToken('jwt-token');
-      final repository = AuthRepositoryImpl(
-        remoteDataSource: FakeAuthRemoteDataSource(
-          currentUserResponse: sampleUser(role: role),
+  test('ADMIN login is rejected', () async {
+    final storage = MemoryAuthTokenStorage();
+    await storage.saveAccessToken('old-token');
+    final repository = AuthRepositoryImpl(
+      remoteDataSource: FakeAuthRemoteDataSource(
+        loginResponse: LoginResponse(
+          accessToken: 'jwt-token',
+          tokenType: 'Bearer',
+          expiresIn: 86400,
+          user: sampleUser(role: UserRole.admin),
         ),
-        tokenStorage: storage,
-      );
+      ),
+      tokenStorage: storage,
+    );
 
-      expect(await repository.bootstrapSession(), isNull);
-      expect(await storage.hasAccessToken(), isFalse);
-    }
+    await expectLater(
+      repository.login(
+        const LoginRequest(email: 'admin@civichub.vn', password: 'secret'),
+      ),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.kind,
+          'kind',
+          ApiErrorKind.forbidden,
+        ),
+      ),
+    );
+    expect(await storage.hasAccessToken(), isFalse);
+  });
+
+  test('STAFF bootstrap restores session', () async {
+    final storage = MemoryAuthTokenStorage();
+    await storage.saveAccessToken('jwt-token');
+    final repository = AuthRepositoryImpl(
+      remoteDataSource: FakeAuthRemoteDataSource(
+        currentUserResponse: sampleUser(role: UserRole.staff),
+      ),
+      tokenStorage: storage,
+    );
+
+    final user = await repository.bootstrapSession();
+
+    expect(user?.role, UserRole.staff);
+    expect(await storage.hasAccessToken(), isTrue);
+  });
+
+  test('ADMIN bootstrap is rejected and clears token', () async {
+    final storage = MemoryAuthTokenStorage();
+    await storage.saveAccessToken('jwt-token');
+    final repository = AuthRepositoryImpl(
+      remoteDataSource: FakeAuthRemoteDataSource(
+        currentUserResponse: sampleUser(role: UserRole.admin),
+      ),
+      tokenStorage: storage,
+    );
+
+    expect(await repository.bootstrapSession(), isNull);
+    expect(await storage.hasAccessToken(), isFalse);
   });
 
   test('Logout clears token', () async {

@@ -57,7 +57,7 @@ void main() {
     expect(authCubit.state.status, AuthStatus.unknown);
   });
 
-  test('Login rejects non-citizen account', () async {
+  test('Login rejects admin account', () async {
     final storage = MemoryAuthTokenStorage();
     final repository = AuthRepositoryImpl(
       remoteDataSource: FakeAuthRemoteDataSource(
@@ -65,7 +65,7 @@ void main() {
           accessToken: 'jwt-token',
           tokenType: 'Bearer',
           expiresIn: 86400,
-          user: sampleUser(role: UserRole.staff),
+          user: sampleUser(role: UserRole.admin),
         ),
       ),
       tokenStorage: storage,
@@ -74,13 +74,13 @@ void main() {
     final cubit = LoginCubit(authRepository: repository, authCubit: authCubit);
 
     await cubit.submit(
-      const LoginRequest(email: 'staff@civichub.vn', password: 'secret'),
+      const LoginRequest(email: 'admin@civichub.vn', password: 'secret'),
     );
 
     expect(cubit.state.status, LoginStatus.failure);
     expect(
       cubit.state.errorMessage,
-      'This app is available to citizen accounts only.',
+      'Admin accounts must use the CivicHub admin console.',
     );
     expect(authCubit.state.status, AuthStatus.unknown);
     expect(await storage.hasAccessToken(), isFalse);
