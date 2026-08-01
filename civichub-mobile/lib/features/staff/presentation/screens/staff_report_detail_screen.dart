@@ -236,7 +236,7 @@ class _HeroPanel extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
-              ReportStatusChip(status: report.status),
+              _LargeStatusBadge(status: report.status),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -654,7 +654,7 @@ class _ImagesPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Images',
+            images.isEmpty ? 'Attachments' : 'Attachments (${images.length})',
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
@@ -704,7 +704,7 @@ class _ImagesPanel extends StatelessWidget {
                     crossAxisCount: columns,
                     mainAxisSpacing: AppSpacing.sm,
                     crossAxisSpacing: AppSpacing.sm,
-                    mainAxisExtent: 132,
+                    mainAxisExtent: 154,
                   ),
                   itemBuilder: (context, index) {
                     final image = images[index];
@@ -714,19 +714,26 @@ class _ImagesPanel extends StatelessWidget {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                         onTap: () => _showImagePreview(context, image.url),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                          child: Image.network(
-                            image.url,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Container(
-                                  color: AppColors.surfaceAlt,
-                                  child: const Icon(
-                                    Icons.broken_image_outlined,
-                                    color: AppColors.muted,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceAlt,
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            border: Border.all(color: AppColors.line),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            child: Image.network(
+                              image.url,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    color: AppColors.surfaceAlt,
+                                    child: const Icon(
+                                      Icons.broken_image_outlined,
+                                      color: AppColors.muted,
+                                    ),
                                   ),
-                                ),
+                            ),
                           ),
                         ),
                       ),
@@ -778,6 +785,44 @@ class _ImagesPanel extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _LargeStatusBadge extends StatelessWidget {
+  const _LargeStatusBadge({required this.status});
+
+  final ReportStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = statusColorFor(status.apiValue);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(_statusIcon(status), size: 16, color: color),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              status.label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -404,6 +404,7 @@ class FakeStaffRepository implements StaffRepository {
   Object? assignedError;
   Object? detailError;
   Object? updateStatusError;
+  ReportsPage<CitizenReportSummary>? recentReportsPage;
   CitizenReportDetail? assignedReportDetail;
   Future<CitizenReportDetail>? pendingUpdateStatusResponse;
 
@@ -423,6 +424,9 @@ class FakeStaffRepository implements StaffRepository {
     recentCalls += 1;
     if (recentError != null) {
       throw recentError!;
+    }
+    if (recentReportsPage != null) {
+      return recentReportsPage!;
     }
     return sampleReportsPage(totalElements: 1);
   }
@@ -511,6 +515,8 @@ CitizenReportSummary sampleReport({
   String title = 'Broken sidewalk',
   String address = '12 Nguyen Hue',
   ReportStatus status = ReportStatus.pending,
+  DateTime? createdAt,
+  DateTime? updatedAt,
 }) {
   return CitizenReportSummary(
     id: id,
@@ -524,8 +530,8 @@ CitizenReportSummary sampleReport({
     citizenId: 1,
     citizenName: 'Nguyen Minh Anh',
     primaryImageUrl: null,
-    createdAt: DateTime.parse('2026-07-20T10:15:00'),
-    updatedAt: DateTime.parse('2026-07-20T10:15:00'),
+    createdAt: createdAt ?? DateTime.parse('2026-07-20T10:15:00'),
+    updatedAt: updatedAt ?? DateTime.parse('2026-07-20T10:15:00'),
   );
 }
 

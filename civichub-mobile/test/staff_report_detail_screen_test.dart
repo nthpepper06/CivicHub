@@ -131,7 +131,7 @@ void main() {
     await tester.pumpWidget(_App(repository: repository));
     await tester.pumpAndSettle();
 
-    expect(find.text('Images'), findsOneWidget);
+    expect(find.text('Attachments'), findsOneWidget);
     expect(find.text('No attachments'), findsOneWidget);
   });
 

@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/semantic_colors.dart';
 import '../../../../core/widgets/app_empty.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/app_loading.dart';
@@ -17,12 +18,12 @@ import '../../../auth/domain/models/citizen_profile.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../notifications/domain/repositories/notifications_repository.dart';
 import '../../../reports/domain/models/report_summary.dart';
+import '../../../reports/domain/models/report_status.dart';
 import '../../domain/models/staff_dashboard_summary.dart';
 import '../../domain/repositories/staff_repository.dart';
 import '../cubit/staff_home_cubit.dart';
 import '../cubit/staff_home_state.dart';
 import '../cubit/staff_workspace_cubit.dart';
-import '../widgets/staff_report_card.dart';
 
 class StaffHomeScreen extends StatelessWidget {
   const StaffHomeScreen({super.key});
@@ -70,12 +71,10 @@ class _StaffHomeView extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                _StaffHero(user: user),
-                                const SizedBox(height: AppSpacing.lg),
                                 if (state.isInitialLoading)
                                   const AppLoading(
-                                    message: 'Loading staff workspace',
-                                    rows: 4,
+                                    message: 'Loading workspace',
+                                    rows: 3,
                                   )
                                 else if (state.status ==
                                         StaffHomeStatus.failure &&
@@ -90,17 +89,25 @@ class _StaffHomeView extends StatelessWidget {
                                         .retry,
                                   )
                                 else ...[
+                                  _OperationsHero(
+                                    user: user,
+                                    summary: state.summary,
+                                  ),
+                                  const SizedBox(height: AppSpacing.lg),
                                   _SummaryGrid(
                                     summary: state.summary,
                                     unreadCount: state.unreadCount,
+                                    recentReports: state.recentReports,
                                   ),
                                   const SizedBox(height: AppSpacing.lg),
-                                  _StaffModules(unreadCount: state.unreadCount),
+                                  _TodaysPriority(reports: state.recentReports),
                                   const SizedBox(height: AppSpacing.lg),
-                                  _RecentReports(
+                                  _RecentActivity(
                                     reports: state.recentReports,
                                     hasSummary: state.summary != null,
                                   ),
+                                  const SizedBox(height: AppSpacing.lg),
+                                  _StaffModules(unreadCount: state.unreadCount),
                                   if (state.errorMessage != null) ...[
                                     const SizedBox(height: AppSpacing.lg),
                                     AppError(
@@ -129,91 +136,132 @@ class _StaffHomeView extends StatelessWidget {
   }
 }
 
-class _StaffHero extends StatelessWidget {
-  const _StaffHero({required this.user});
+class _OperationsHero extends StatelessWidget {
+  const _OperationsHero({required this.user, required this.summary});
 
   final CitizenProfile? user;
+  final StaffDashboardSummary? summary;
 
   @override
   Widget build(BuildContext context) {
     final department = user?.departmentName?.trim();
+    final name = user?.fullName.trim();
+    final active = summary?.activeReports ?? 0;
     return PremiumSurface(
-      gradient: AppGradients.profile,
+      gradient: AppGradients.cityHero,
       padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 720;
+          final identity = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: AppColors.surface.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  border: Border.all(
-                    color: AppColors.surface.withValues(alpha: 0.2),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.badge_outlined,
-                  color: AppColors.surface,
+              Text(
+                department == null || department.isEmpty
+                    ? 'Department workspace'
+                    : department,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: AppColors.surface.withValues(alpha: 0.76),
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      user?.fullName.isNotEmpty == true
-                          ? user!.fullName
-                          : 'Staff workspace',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            color: AppColors.surface,
-                            fontWeight: FontWeight.w900,
-                          ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      department == null || department.isEmpty
-                          ? 'Department assignment required by backend'
-                          : department,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.surface.withValues(alpha: 0.78),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                name == null || name.isEmpty ? 'Staff dashboard' : name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: AppColors.surface,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                _todayLabel(DateTime.now()),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.surface.withValues(alpha: 0.76),
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            'Review department-assigned civic reports and keep residents informed through verified backend workflows.',
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.surface.withValues(alpha: 0.78),
+          );
+          final workload = _HeroWorkload(active: active);
+          if (!wide) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                identity,
+                const SizedBox(height: AppSpacing.lg),
+                workload,
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: identity),
+              const SizedBox(width: AppSpacing.lg),
+              SizedBox(width: 260, child: workload),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _HeroWorkload extends StatelessWidget {
+  const _HeroWorkload({required this.active});
+
+  final int active;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.surface.withValues(alpha: 0.18)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.work_outline, color: AppColors.surface),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              '$active',
+              style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                color: AppColors.surface,
+                fontWeight: FontWeight.w900,
+              ),
             ),
-          ),
-        ],
+            Text(
+              'Current workload',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.surface.withValues(alpha: 0.78),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _SummaryGrid extends StatelessWidget {
-  const _SummaryGrid({required this.summary, required this.unreadCount});
+  const _SummaryGrid({
+    required this.summary,
+    required this.unreadCount,
+    required this.recentReports,
+  });
 
   final StaffDashboardSummary? summary;
   final int unreadCount;
+  final List<CitizenReportSummary> recentReports;
 
   @override
   Widget build(BuildContext context) {
@@ -222,18 +270,38 @@ class _SummaryGrid extends StatelessWidget {
         'Assigned',
         summary?.totalAssigned ?? 0,
         Icons.assignment_outlined,
+        AppColors.primary,
+        'Department total',
       ),
-      _Metric('Active', summary?.activeReports ?? 0, Icons.pending_actions),
       _Metric(
-        'Resolved',
-        summary?.resolvedReports ?? 0,
-        Icons.verified_outlined,
+        'In Progress',
+        summary?.inProgressReports ?? 0,
+        Icons.construction_outlined,
+        AppColors.warning,
+        'Open work',
       ),
-      _Metric('Unread', unreadCount, Icons.notifications_active_outlined),
+      _Metric(
+        'Resolved Today',
+        _resolvedToday(recentReports),
+        Icons.verified_outlined,
+        AppColors.success,
+        'Loaded recent',
+      ),
+      _Metric(
+        'Unread',
+        unreadCount,
+        Icons.notifications_active_outlined,
+        AppColors.violet,
+        'Notifications',
+      ),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 780 ? 4 : 2;
+        final columns = constraints.maxWidth >= 780
+            ? 4
+            : constraints.maxWidth >= 430
+            ? 2
+            : 1;
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -252,11 +320,13 @@ class _SummaryGrid extends StatelessWidget {
 }
 
 class _Metric {
-  const _Metric(this.label, this.value, this.icon);
+  const _Metric(this.label, this.value, this.icon, this.color, this.caption);
 
   final String label;
   final int value;
   final IconData icon;
+  final Color color;
+  final String caption;
 }
 
 class _MetricTile extends StatelessWidget {
@@ -271,13 +341,13 @@ class _MetricTile extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
+              color: metric.color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
-            child: Icon(metric.icon, color: AppColors.primary),
+            child: Icon(metric.icon, color: metric.color),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -300,6 +370,14 @@ class _MetricTile extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                Text(
+                  metric.caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: AppColors.muted),
+                ),
               ],
             ),
           ),
@@ -316,26 +394,57 @@ class _StaffModules extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _ModuleCard(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 760 ? 3 : 1;
+        final modules = [
+          _ModuleCard(
             title: 'Assigned Reports',
-            subtitle: 'Department-scoped cases',
+            subtitle: 'Review and progress department cases',
             icon: Icons.assignment_ind_outlined,
+            color: AppColors.primary,
             onTap: () => context.go(AppRoutes.staffReports),
           ),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: _ModuleCard(
+          _ModuleCard(
             title: 'Notifications',
             subtitle: unreadCount > 0 ? '$unreadCount unread' : 'All caught up',
             icon: Icons.notifications_none_outlined,
+            color: AppColors.violet,
             onTap: () => context.go(AppRoutes.staffNotifications),
           ),
-        ),
-      ],
+          _ModuleCard(
+            title: 'Profile',
+            subtitle: 'Staff account and department identity',
+            icon: Icons.account_circle_outlined,
+            color: AppColors.cyan,
+            onTap: () => context.go(AppRoutes.staffProfile),
+          ),
+        ];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Quick actions',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: modules.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                mainAxisSpacing: AppSpacing.md,
+                crossAxisSpacing: AppSpacing.md,
+                mainAxisExtent: 132,
+              ),
+              itemBuilder: (context, index) => modules[index],
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -345,12 +454,14 @@ class _ModuleCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.icon,
+    required this.color,
     required this.onTap,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
+  final Color color;
   final VoidCallback onTap;
 
   @override
@@ -360,10 +471,19 @@ class _ModuleCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Row(
         children: [
-          Icon(icon, color: AppColors.primary),
-          const SizedBox(width: AppSpacing.sm),
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: Icon(icon, color: color),
+          ),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -383,14 +503,102 @@ class _ModuleCard extends StatelessWidget {
               ],
             ),
           ),
+          const Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.muted),
         ],
       ),
     );
   }
 }
 
-class _RecentReports extends StatelessWidget {
-  const _RecentReports({required this.reports, required this.hasSummary});
+class _TodaysPriority extends StatelessWidget {
+  const _TodaysPriority({required this.reports});
+
+  final List<CitizenReportSummary> reports;
+
+  @override
+  Widget build(BuildContext context) {
+    final priority = _priorityReport(reports);
+    if (priority == null) {
+      return AppEmpty(
+        title: 'No priority case in loaded reports',
+        message: 'Pending or received reports will be highlighted here.',
+        icon: Icons.low_priority_outlined,
+        actionLabel: 'View assigned reports',
+        onAction: () => context.go(AppRoutes.staffReports),
+      );
+    }
+    return PremiumSurface(
+      onTap: () => context.push(AppRoutes.staffReportDetailPath(priority.id)),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      borderColor: AppColors.warning.withValues(alpha: 0.25),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: AppColors.warning.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: const Icon(
+              Icons.priority_high_outlined,
+              color: AppColors.warning,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Today's Priority",
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: AppColors.warning,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  priority.title.isEmpty ? 'Untitled report' : priority.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    _ActivityMeta(
+                      icon: Icons.schedule_outlined,
+                      label: _date(priority.createdAt),
+                    ),
+                    _ActivityMeta(
+                      icon: Icons.category_outlined,
+                      label: priority.categoryName ?? 'Uncategorized',
+                    ),
+                    if (priority.address.trim().isNotEmpty)
+                      _ActivityMeta(
+                        icon: Icons.place_outlined,
+                        label: priority.address.trim(),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.muted),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentActivity extends StatelessWidget {
+  const _RecentActivity({required this.reports, required this.hasSummary});
 
   final List<CitizenReportSummary> reports;
   final bool hasSummary;
@@ -402,31 +610,232 @@ class _RecentReports extends StatelessWidget {
     }
     if (reports.isEmpty) {
       return const AppEmpty(
-        title: 'No recent assigned reports',
-        message: 'Reports assigned to your department will appear here.',
-        icon: Icons.assignment_ind_outlined,
+        title: 'No recent activity',
+        message: 'Recently updated department reports will appear here.',
+        icon: Icons.history_outlined,
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Recent assigned reports',
+          'Recent activity',
           style: Theme.of(
             context,
           ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: AppSpacing.md),
-        for (final report in reports) ...[
-          StaffReportCard(
-            report: report,
-            compact: true,
-            onTap: () =>
-                context.push(AppRoutes.staffReportDetailPath(report.id)),
+        PremiumSurface(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              for (var index = 0; index < reports.length; index++) ...[
+                _ActivityRow(report: reports[index]),
+                if (index != reports.length - 1)
+                  const Divider(height: 1, color: AppColors.line),
+              ],
+            ],
           ),
-          const SizedBox(height: AppSpacing.md),
-        ],
+        ),
       ],
     );
   }
+}
+
+class _ActivityRow extends StatelessWidget {
+  const _ActivityRow({required this.report});
+
+  final CitizenReportSummary report;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = statusColorFor(report.status.apiValue);
+    return InkWell(
+      onTap: () => context.push(AppRoutes.staffReportDetailPath(report.id)),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(_activityIcon(report.status), color: color, size: 18),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _activityTitle(report),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    report.title.isEmpty ? 'Untitled report' : report.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSoft),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.xs,
+                    children: [
+                      _ActivityMeta(
+                        icon: Icons.update_outlined,
+                        label: _date(report.updatedAt ?? report.createdAt),
+                      ),
+                      _ActivityMeta(
+                        icon: Icons.person_outline,
+                        label: report.citizenName ?? 'Citizen unavailable',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            const Icon(
+              Icons.arrow_forward_ios,
+              size: 14,
+              color: AppColors.muted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityMeta extends StatelessWidget {
+  const _ActivityMeta({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: AppColors.muted),
+        const SizedBox(width: AppSpacing.xs),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 150),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.muted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+CitizenReportSummary? _priorityReport(List<CitizenReportSummary> reports) {
+  final pending =
+      reports.where((report) => report.status == ReportStatus.pending).toList()
+        ..sort(_oldestFirst);
+  if (pending.isNotEmpty) {
+    return pending.first;
+  }
+  final received =
+      reports.where((report) => report.status == ReportStatus.received).toList()
+        ..sort(_oldestFirst);
+  return received.isEmpty ? null : received.first;
+}
+
+int _oldestFirst(CitizenReportSummary a, CitizenReportSummary b) {
+  final left = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+  final right = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+  return left.compareTo(right);
+}
+
+int _resolvedToday(List<CitizenReportSummary> reports) {
+  final now = DateTime.now();
+  return reports.where((report) {
+    final updated = report.updatedAt?.toLocal();
+    return report.status == ReportStatus.resolved &&
+        updated != null &&
+        updated.year == now.year &&
+        updated.month == now.month &&
+        updated.day == now.day;
+  }).length;
+}
+
+String _activityTitle(CitizenReportSummary report) {
+  return switch (report.status) {
+    ReportStatus.resolved => 'Completed report',
+    ReportStatus.rejected || ReportStatus.cancelled => 'Closed report',
+    ReportStatus.inProgress => 'Status moved to in progress',
+    ReportStatus.received => 'Report received',
+    ReportStatus.pending => 'Assigned report pending review',
+    ReportStatus.unknown => 'Report updated',
+  };
+}
+
+IconData _activityIcon(ReportStatus status) {
+  return switch (status) {
+    ReportStatus.resolved => Icons.verified_outlined,
+    ReportStatus.rejected => Icons.block_outlined,
+    ReportStatus.cancelled => Icons.cancel_outlined,
+    ReportStatus.inProgress => Icons.construction_outlined,
+    ReportStatus.received => Icons.move_to_inbox_outlined,
+    ReportStatus.pending => Icons.pending_actions_outlined,
+    ReportStatus.unknown => Icons.help_outline,
+  };
+}
+
+String _todayLabel(DateTime value) {
+  const weekdays = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+  const months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  return '${weekdays[value.weekday - 1]}, ${months[value.month - 1]} ${value.day}, ${value.year}';
+}
+
+String _date(DateTime? value) {
+  if (value == null) {
+    return 'Unknown date';
+  }
+  final local = value.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  return '${local.year}-$month-$day';
 }
