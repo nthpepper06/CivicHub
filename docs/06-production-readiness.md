@@ -49,6 +49,20 @@ Notification types currently supported:
 - `REPORT_ASSIGNED`
 - `REPORT_STATUS_CHANGED`
 
+## GIS And Location
+
+- Report create/update/detail contracts support `address`, `latitude`, and
+  `longitude`.
+- Report list responses include nullable coordinates for Citizen, Staff, and
+  Admin map views.
+- Maps must label their scope as loaded/current results unless a future backend
+  endpoint returns a complete GIS dataset.
+- Invalid or missing coordinates are excluded; reports must never be placed at
+  `0,0` as a fallback.
+- Configure `CIVICHUB_MAP_TILE_URL` for Flutter or `VITE_MAP_TILE_URL` for React
+  Admin when using an approved production tile provider.
+- Public OpenStreetMap tiles are not intended for heavy production traffic.
+
 ## Release Gates
 
 - Backend `mvn test` passes.
@@ -111,8 +125,9 @@ mvn spring-boot:run
 
 ## Known Release Risks
 
-- Launcher icons and splash artwork still use generated Flutter placeholder assets; replace with approved CivicHub brand assets before store submission.
+- Launcher icons and splash artwork still use generated Flutter assets; replace with approved CivicHub brand assets before store submission.
 - React Admin intentionally fails production builds if `VITE_API_URL` is omitted or points to localhost.
 - Flutter Web build emits wasm dry-run warnings from `flutter_secure_storage_web`; JavaScript web builds still pass.
 - Admin status transitions are duplicated in React presentation code and backend service rules.
 - No automated browser-driven full E2E test currently validates the complete Citizen -> Admin -> Staff -> Citizen loop against a live database.
+- Public OpenStreetMap tile usage must be replaced or approved before high-traffic production deployment.

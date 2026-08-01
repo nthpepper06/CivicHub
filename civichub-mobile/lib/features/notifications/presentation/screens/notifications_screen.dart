@@ -12,6 +12,7 @@ import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_empty.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/app_loading.dart';
+import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_responsive.dart';
 import '../../../../core/widgets/civic_background.dart';
 import '../../../../core/widgets/premium_surface.dart';
@@ -239,25 +240,7 @@ class _InboxGroupHeader extends StatelessWidget {
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
         ),
         const SizedBox(width: AppSpacing.sm),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(AppRadius.xs),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: AppSpacing.xs,
-            ),
-            child: Text(
-              '$count',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ),
+        AppBadge(label: '$count'),
         const Expanded(
           child: Padding(
             padding: EdgeInsets.only(left: AppSpacing.md),
@@ -331,24 +314,9 @@ class _UnreadBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       label: '$count unread notifications',
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppColors.primary,
-          borderRadius: BorderRadius.circular(AppRadius.xs),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: AppSpacing.xs,
-          ),
-          child: Text(
-            count > 99 ? '99+' : '$count unread',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: AppColors.surface,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
+      child: AppBadge(
+        label: count > 99 ? '99+ unread' : '$count unread',
+        icon: Icons.mark_email_unread_outlined,
       ),
     );
   }

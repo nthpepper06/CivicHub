@@ -274,13 +274,13 @@ class _LocationPill extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Current area',
+                    'Workspace',
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: AppColors.surface.withValues(alpha: 0.68),
                     ),
                   ),
                   Text(
-                    'CivicHub City',
+                    'My civic reports',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(

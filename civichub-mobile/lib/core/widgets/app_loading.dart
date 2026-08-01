@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
+import 'app_card.dart';
 
 class AppLoading extends StatelessWidget {
   const AppLoading({
@@ -27,7 +28,7 @@ class AppLoading extends StatelessWidget {
             _LoadingRow(showAvatar: showAvatar || index == 0),
             if (index != rows - 1) const SizedBox(height: AppSpacing.md),
           ],
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -63,14 +64,8 @@ class _LoadingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    return AppCard(
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.line),
-      ),
       child: Row(
         children: [
           if (showAvatar) ...[

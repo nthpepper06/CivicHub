@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_elevation.dart';
-import '../theme/app_gradients.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 
@@ -38,7 +37,7 @@ class _PremiumSurfaceState extends State<PremiumSurface> {
     final borderRadius = BorderRadius.circular(widget.radius);
     final decoration = BoxDecoration(
       color: widget.gradient == null ? AppColors.surface : null,
-      gradient: widget.gradient ?? AppGradients.surfaceGlow,
+      gradient: widget.gradient,
       borderRadius: borderRadius,
       border: Border.all(
         color:

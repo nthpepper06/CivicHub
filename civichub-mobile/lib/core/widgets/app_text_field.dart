@@ -54,7 +54,7 @@ class AppTextField extends StatelessWidget {
           label,
           style: Theme.of(
             context,
-          ).textTheme.titleMedium?.copyWith(color: AppColors.muted),
+          ).textTheme.labelMedium?.copyWith(color: AppColors.inkSoft),
         ),
         const SizedBox(height: AppSpacing.sm),
         TextFormField(
