@@ -6,6 +6,7 @@ import '../../../reports/domain/models/report_status.dart';
 import '../../../reports/domain/models/report_summary.dart';
 import '../../../reports/domain/repositories/reports_repository.dart';
 import '../../domain/repositories/staff_repository.dart';
+import 'staff_reports_filters.dart';
 import 'staff_reports_state.dart';
 
 class StaffReportsCubit extends Cubit<StaffReportsState> {
@@ -14,9 +15,23 @@ class StaffReportsCubit extends Cubit<StaffReportsState> {
     required ReportsRepository reportsRepository,
   }) : _staffRepository = staffRepository,
        _reportsRepository = reportsRepository,
-       super(const StaffReportsState());
+       super(
+         StaffReportsState(
+           search: _savedFilters.search,
+           statusFilter: _savedFilters.status,
+           categoryIdFilter: _savedFilters.categoryId,
+           citizenIdFilter: _savedFilters.citizenId,
+           createdFromFilter: _savedFilters.createdFrom,
+           createdToFilter: _savedFilters.createdTo,
+         ),
+       );
 
   static const int pageSize = 10;
+  static StaffReportsFilters _savedFilters = const StaffReportsFilters();
+
+  static void resetSessionFiltersForTest() {
+    _savedFilters = const StaffReportsFilters();
+  }
 
   final StaffRepository _staffRepository;
   final ReportsRepository _reportsRepository;
@@ -47,6 +62,7 @@ class StaffReportsCubit extends Cubit<StaffReportsState> {
       return;
     }
     emit(state.copyWith(search: normalized));
+    _rememberFilters();
     await _loadFirstPage(refreshing: false);
   }
 
@@ -55,6 +71,7 @@ class StaffReportsCubit extends Cubit<StaffReportsState> {
       return;
     }
     emit(state.copyWith(statusFilter: status));
+    _rememberFilters();
     await _loadFirstPage(refreshing: false);
   }
 
@@ -63,6 +80,30 @@ class StaffReportsCubit extends Cubit<StaffReportsState> {
       return;
     }
     emit(state.copyWith(categoryIdFilter: categoryId));
+    _rememberFilters();
+    await _loadFirstPage(refreshing: false);
+  }
+
+  Future<void> applyCitizenFilter(String value) async {
+    final trimmed = value.trim();
+    final citizenId = trimmed.isEmpty ? null : int.tryParse(trimmed);
+    if (trimmed.isNotEmpty && citizenId == null) {
+      return;
+    }
+    if (state.citizenIdFilter == citizenId) {
+      return;
+    }
+    emit(state.copyWith(citizenIdFilter: citizenId));
+    _rememberFilters();
+    await _loadFirstPage(refreshing: false);
+  }
+
+  Future<void> applyDateRange(DateTime? from, DateTime? to) async {
+    if (state.createdFromFilter == from && state.createdToFilter == to) {
+      return;
+    }
+    emit(state.copyWith(createdFromFilter: from, createdToFilter: to));
+    _rememberFilters();
     await _loadFirstPage(refreshing: false);
   }
 
@@ -71,8 +112,16 @@ class StaffReportsCubit extends Cubit<StaffReportsState> {
       return;
     }
     emit(
-      state.copyWith(search: '', statusFilter: null, categoryIdFilter: null),
+      state.copyWith(
+        search: '',
+        statusFilter: null,
+        categoryIdFilter: null,
+        citizenIdFilter: null,
+        createdFromFilter: null,
+        createdToFilter: null,
+      ),
     );
+    _rememberFilters();
     await _loadFirstPage(refreshing: false);
   }
 
@@ -95,6 +144,9 @@ class StaffReportsCubit extends Cubit<StaffReportsState> {
         search: state.search,
         status: state.statusFilter,
         categoryId: state.categoryIdFilter,
+        citizenId: state.citizenIdFilter,
+        createdFrom: state.createdFromFilter,
+        createdTo: state.createdToFilter,
       );
       if (generation != _requestGeneration) {
         return;
@@ -136,6 +188,28 @@ class StaffReportsCubit extends Cubit<StaffReportsState> {
     }
   }
 
+  CitizenReportSummary? nextReportAfter(int reportId) {
+    final index = state.reports.indexWhere((report) => report.id == reportId);
+    if (index == -1 || index + 1 >= state.reports.length) {
+      return null;
+    }
+    return state.reports[index + 1];
+  }
+
+  CitizenReportSummary? previousReportBefore(int reportId) {
+    final index = state.reports.indexWhere((report) => report.id == reportId);
+    if (index <= 0) {
+      return null;
+    }
+    return state.reports[index - 1];
+  }
+
+  CitizenReportSummary? get oldestPending {
+    return _oldestByCreated(
+      state.reports.where((report) => report.status == ReportStatus.pending),
+    );
+  }
+
   Future<void> _loadFirstPage({required bool refreshing}) async {
     final generation = ++_requestGeneration;
     emit(
@@ -158,6 +232,9 @@ class StaffReportsCubit extends Cubit<StaffReportsState> {
         search: state.search,
         status: state.statusFilter,
         categoryId: state.categoryIdFilter,
+        citizenId: state.citizenIdFilter,
+        createdFrom: state.createdFromFilter,
+        createdTo: state.createdToFilter,
       );
       if (generation != _requestGeneration) {
         return;
@@ -251,6 +328,29 @@ class StaffReportsCubit extends Cubit<StaffReportsState> {
 
   List<ReportCategory> _activeCategories(List<ReportCategory> categories) {
     return categories.where((category) => category.isActive).toList();
+  }
+
+  CitizenReportSummary? _oldestByCreated(
+    Iterable<CitizenReportSummary> reports,
+  ) {
+    final sorted = reports.toList()
+      ..sort((a, b) {
+        final left = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final right = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return left.compareTo(right);
+      });
+    return sorted.isEmpty ? null : sorted.first;
+  }
+
+  void _rememberFilters() {
+    _savedFilters = StaffReportsFilters(
+      search: state.search,
+      status: state.statusFilter,
+      categoryId: state.categoryIdFilter,
+      citizenId: state.citizenIdFilter,
+      createdFrom: state.createdFromFilter,
+      createdTo: state.createdToFilter,
+    );
   }
 
   String _friendlyMessage(ApiException error) {

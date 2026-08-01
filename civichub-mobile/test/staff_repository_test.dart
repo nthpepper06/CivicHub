@@ -25,11 +25,49 @@ void main() {
       expect(dataSource.updatedStatus, ReportStatus.received);
     },
   );
+
+  test(
+    'StaffRepository forwards backend-supported assigned report filters',
+    () async {
+      final dataSource = _FakeStaffRemoteDataSource();
+      final repository = StaffRepositoryImpl(remoteDataSource: dataSource);
+      final from = DateTime.parse('2026-07-01T00:00:00');
+      final to = DateTime.parse('2026-07-31T23:59:59');
+
+      await repository.getAssignedReports(
+        page: 2,
+        size: 25,
+        search: 'drain',
+        status: ReportStatus.received,
+        categoryId: 7,
+        citizenId: 9,
+        createdFrom: from,
+        createdTo: to,
+      );
+
+      expect(dataSource.assignedPage, 2);
+      expect(dataSource.assignedSize, 25);
+      expect(dataSource.assignedSearch, 'drain');
+      expect(dataSource.assignedStatus, ReportStatus.received);
+      expect(dataSource.assignedCategoryId, 7);
+      expect(dataSource.assignedCitizenId, 9);
+      expect(dataSource.assignedCreatedFrom, from);
+      expect(dataSource.assignedCreatedTo, to);
+    },
+  );
 }
 
 class _FakeStaffRemoteDataSource implements StaffRemoteDataSource {
   int? updatedId;
   ReportStatus? updatedStatus;
+  int? assignedPage;
+  int? assignedSize;
+  String? assignedSearch;
+  ReportStatus? assignedStatus;
+  int? assignedCategoryId;
+  int? assignedCitizenId;
+  DateTime? assignedCreatedFrom;
+  DateTime? assignedCreatedTo;
 
   @override
   Future<StaffDashboardSummaryResponse> getDashboardSummary() {
@@ -50,8 +88,27 @@ class _FakeStaffRemoteDataSource implements StaffRemoteDataSource {
     String? search,
     ReportStatus? status,
     int? categoryId,
-  }) {
-    throw UnimplementedError();
+    int? citizenId,
+    DateTime? createdFrom,
+    DateTime? createdTo,
+  }) async {
+    assignedPage = page;
+    assignedSize = size;
+    assignedSearch = search;
+    assignedStatus = status;
+    assignedCategoryId = categoryId;
+    assignedCitizenId = citizenId;
+    assignedCreatedFrom = createdFrom;
+    assignedCreatedTo = createdTo;
+    return ReportsPageResponse(
+      content: const [],
+      page: page,
+      size: size,
+      totalElements: 0,
+      totalPages: 0,
+      first: true,
+      last: true,
+    );
   }
 
   @override

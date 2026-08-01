@@ -33,6 +33,9 @@ class StaffRepositoryImpl implements StaffRepository {
     String? search,
     ReportStatus? status,
     int? categoryId,
+    int? citizenId,
+    DateTime? createdFrom,
+    DateTime? createdTo,
   }) async {
     final response = await _remoteDataSource.getAssignedReports(
       page: page,
@@ -40,6 +43,9 @@ class StaffRepositoryImpl implements StaffRepository {
       search: search,
       status: status,
       categoryId: categoryId,
+      citizenId: citizenId,
+      createdFrom: createdFrom,
+      createdTo: createdTo,
     );
     return response.toDomain((report) => report.toDomain());
   }

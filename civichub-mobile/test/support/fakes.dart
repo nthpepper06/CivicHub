@@ -308,6 +308,9 @@ class ReportRepositoryCall {
     this.search,
     this.status,
     this.categoryId,
+    this.citizenId,
+    this.createdFrom,
+    this.createdTo,
     this.sortBy,
     this.direction,
   });
@@ -317,6 +320,9 @@ class ReportRepositoryCall {
   final String? search;
   final ReportStatus? status;
   final int? categoryId;
+  final int? citizenId;
+  final DateTime? createdFrom;
+  final DateTime? createdTo;
   final String? sortBy;
   final String? direction;
 }
@@ -438,6 +444,9 @@ class FakeStaffRepository implements StaffRepository {
     String? search,
     ReportStatus? status,
     int? categoryId,
+    int? citizenId,
+    DateTime? createdFrom,
+    DateTime? createdTo,
   }) async {
     assignedCalls.add(
       ReportRepositoryCall(
@@ -446,6 +455,9 @@ class FakeStaffRepository implements StaffRepository {
         search: search,
         status: status,
         categoryId: categoryId,
+        citizenId: citizenId,
+        createdFrom: createdFrom,
+        createdTo: createdTo,
       ),
     );
     if (assignedError != null) {

@@ -22,6 +22,9 @@ class StaffReportsState extends Equatable {
     this.search = '',
     this.statusFilter,
     this.categoryIdFilter,
+    this.citizenIdFilter,
+    this.createdFromFilter,
+    this.createdToFilter,
     this.errorMessage,
     this.paginationErrorMessage,
     this.categoryErrorMessage,
@@ -41,6 +44,9 @@ class StaffReportsState extends Equatable {
   final String search;
   final ReportStatus? statusFilter;
   final int? categoryIdFilter;
+  final int? citizenIdFilter;
+  final DateTime? createdFromFilter;
+  final DateTime? createdToFilter;
   final String? errorMessage;
   final String? paginationErrorMessage;
   final String? categoryErrorMessage;
@@ -50,7 +56,12 @@ class StaffReportsState extends Equatable {
       status == StaffReportsStatus.loading && reports.isEmpty && !isRefreshing;
 
   bool get hasActiveFilters =>
-      search.isNotEmpty || statusFilter != null || categoryIdFilter != null;
+      search.isNotEmpty ||
+      statusFilter != null ||
+      categoryIdFilter != null ||
+      citizenIdFilter != null ||
+      createdFromFilter != null ||
+      createdToFilter != null;
 
   StaffReportsState copyWith({
     StaffReportsStatus? status,
@@ -66,6 +77,9 @@ class StaffReportsState extends Equatable {
     String? search,
     Object? statusFilter = _unchanged,
     Object? categoryIdFilter = _unchanged,
+    Object? citizenIdFilter = _unchanged,
+    Object? createdFromFilter = _unchanged,
+    Object? createdToFilter = _unchanged,
     Object? errorMessage = _unchanged,
     Object? paginationErrorMessage = _unchanged,
     Object? categoryErrorMessage = _unchanged,
@@ -89,6 +103,15 @@ class StaffReportsState extends Equatable {
       categoryIdFilter: categoryIdFilter == _unchanged
           ? this.categoryIdFilter
           : categoryIdFilter as int?,
+      citizenIdFilter: citizenIdFilter == _unchanged
+          ? this.citizenIdFilter
+          : citizenIdFilter as int?,
+      createdFromFilter: createdFromFilter == _unchanged
+          ? this.createdFromFilter
+          : createdFromFilter as DateTime?,
+      createdToFilter: createdToFilter == _unchanged
+          ? this.createdToFilter
+          : createdToFilter as DateTime?,
       errorMessage: errorMessage == _unchanged
           ? this.errorMessage
           : errorMessage as String?,
@@ -119,6 +142,9 @@ class StaffReportsState extends Equatable {
     search,
     statusFilter,
     categoryIdFilter,
+    citizenIdFilter,
+    createdFromFilter,
+    createdToFilter,
     errorMessage,
     paginationErrorMessage,
     categoryErrorMessage,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../app/routing/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -19,6 +21,7 @@ import '../../domain/repositories/staff_repository.dart';
 import '../cubit/staff_report_detail_cubit.dart';
 import '../cubit/staff_report_detail_state.dart';
 import '../cubit/staff_workspace_cubit.dart';
+import '../workflow/staff_queue_session.dart';
 
 class StaffReportDetailScreen extends StatelessWidget {
   const StaffReportDetailScreen({required this.reportId, super.key});
@@ -148,6 +151,8 @@ class _ResponsiveDetail extends StatelessWidget {
           children: [
             _HeroPanel(report: report),
             const SizedBox(height: AppSpacing.lg),
+            _QueueNavigationPanel(reportId: report.id),
+            const SizedBox(height: AppSpacing.lg),
             _DescriptionPanel(report: report),
             const SizedBox(height: AppSpacing.lg),
             _ImagesPanel(images: report.images),
@@ -241,6 +246,58 @@ class _HeroPanel extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           _MetaGrid(report: report),
+        ],
+      ),
+    );
+  }
+}
+
+class _QueueNavigationPanel extends StatelessWidget {
+  const _QueueNavigationPanel({required this.reportId});
+
+  final int reportId;
+
+  @override
+  Widget build(BuildContext context) {
+    return PremiumSurface(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          OutlinedButton.icon(
+            onPressed: () {
+              final target = StaffQueueSession.previous(reportId);
+              if (target == null) {
+                return;
+              }
+              context.pushReplacement(
+                AppRoutes.staffReportDetailPath(target.id),
+              );
+            },
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Previous report'),
+          ),
+          FilledButton.icon(
+            onPressed: () => context.go(AppRoutes.staffReports),
+            icon: const Icon(Icons.view_kanban_outlined),
+            label: const Text('Return to queue'),
+          ),
+          OutlinedButton.icon(
+            onPressed: () {
+              final target = StaffQueueSession.next(reportId);
+              if (target == null) {
+                return;
+              }
+              context.pushReplacement(
+                AppRoutes.staffReportDetailPath(target.id),
+              );
+            },
+            icon: const Icon(Icons.arrow_forward),
+            label: const Text('Next report'),
+          ),
         ],
       ),
     );

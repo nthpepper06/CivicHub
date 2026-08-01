@@ -2,6 +2,7 @@ import 'package:civichub_mobile/features/reports/domain/models/report_status.dar
 import 'package:civichub_mobile/features/staff/domain/repositories/staff_repository.dart';
 import 'package:civichub_mobile/features/staff/presentation/cubit/staff_workspace_cubit.dart';
 import 'package:civichub_mobile/features/staff/presentation/screens/staff_report_detail_screen.dart';
+import 'package:civichub_mobile/features/staff/presentation/workflow/staff_queue_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -186,6 +187,20 @@ void main() {
     expect(repository.statusUpdateCalls.single.status, ReportStatus.resolved);
     expect(find.text('Report marked as resolved.'), findsOneWidget);
   });
+
+  test(
+    'queue session resolves previous and next report navigation targets',
+    () {
+      StaffQueueSession.remember([
+        sampleReport(id: 41, title: 'Previous'),
+        sampleReport(id: 42, title: 'Current'),
+        sampleReport(id: 43, title: 'Next'),
+      ]);
+
+      expect(StaffQueueSession.previous(42)?.id, 41);
+      expect(StaffQueueSession.next(42)?.id, 43);
+    },
+  );
 }
 
 class _App extends StatelessWidget {

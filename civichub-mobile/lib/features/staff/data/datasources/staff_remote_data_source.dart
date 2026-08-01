@@ -22,6 +22,9 @@ abstract class StaffRemoteDataSource {
     String? search,
     ReportStatus? status,
     int? categoryId,
+    int? citizenId,
+    DateTime? createdFrom,
+    DateTime? createdTo,
   });
 
   Future<ReportDetailResponse> getAssignedReport(int id);
@@ -85,6 +88,9 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     String? search,
     ReportStatus? status,
     int? categoryId,
+    int? citizenId,
+    DateTime? createdFrom,
+    DateTime? createdTo,
   }) async {
     try {
       final response = await _apiClient.dio.get<Map<String, dynamic>>(
@@ -97,6 +103,9 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
               ? null
               : status.apiValue,
           'categoryId': categoryId,
+          'citizenId': citizenId,
+          'createdFrom': createdFrom?.toIso8601String(),
+          'createdTo': createdTo?.toIso8601String(),
         }),
       );
       return ReportsPageResponse.fromJson(

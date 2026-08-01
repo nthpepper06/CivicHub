@@ -96,6 +96,7 @@ void main() {
     late ReportsRepository reportsRepository;
 
     setUp(() {
+      StaffReportsCubit.resetSessionFiltersForTest();
       staffRepository = FakeStaffRepository();
       reportsRepository = FakeReportsRepository();
     });
@@ -163,11 +164,70 @@ void main() {
       await cubit.applySearch('sidewalk');
       await cubit.applyStatusFilter(ReportStatus.inProgress);
       await cubit.applyCategoryFilter(7);
+      await cubit.applyCitizenFilter('42');
+      final from = DateTime.parse('2026-07-01T00:00:00');
+      final to = DateTime.parse('2026-07-31T23:59:59');
+      await cubit.applyDateRange(from, to);
 
       final lastCall = fakeStaff.assignedCalls.last;
       expect(lastCall.search, 'sidewalk');
       expect(lastCall.status, ReportStatus.inProgress);
       expect(lastCall.categoryId, 7);
+      expect(lastCall.citizenId, 42);
+      expect(lastCall.createdFrom, from);
+      expect(lastCall.createdTo, to);
+    });
+
+    test('persists selected filters for the app session', () async {
+      final firstCubit = StaffReportsCubit(
+        staffRepository: staffRepository,
+        reportsRepository: reportsRepository,
+      );
+
+      await firstCubit.applySearch('water');
+      await firstCubit.applyStatusFilter(ReportStatus.received);
+      await firstCubit.applyCitizenFilter('9');
+
+      final secondCubit = StaffReportsCubit(
+        staffRepository: FakeStaffRepository(),
+        reportsRepository: FakeReportsRepository(),
+      );
+
+      expect(secondCubit.state.search, 'water');
+      expect(secondCubit.state.statusFilter, ReportStatus.received);
+      expect(secondCubit.state.citizenIdFilter, 9);
+    });
+
+    test('exposes queue navigation helpers from loaded reports', () async {
+      staffRepository = FakeStaffRepository(
+        pages: [
+          sampleReportsPage(
+            content: [
+              sampleReport(
+                id: 1,
+                status: ReportStatus.pending,
+                createdAt: DateTime.parse('2026-07-20T10:00:00'),
+              ),
+              sampleReport(
+                id: 2,
+                status: ReportStatus.pending,
+                createdAt: DateTime.parse('2026-07-19T10:00:00'),
+              ),
+              sampleReport(id: 3, status: ReportStatus.inProgress),
+            ],
+          ),
+        ],
+      );
+      final cubit = StaffReportsCubit(
+        staffRepository: staffRepository,
+        reportsRepository: reportsRepository,
+      );
+
+      await cubit.loadInitial();
+
+      expect(cubit.nextReportAfter(1)?.id, 2);
+      expect(cubit.previousReportBefore(2)?.id, 1);
+      expect(cubit.oldestPending?.id, 2);
     });
   });
 

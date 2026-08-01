@@ -15,6 +15,9 @@ abstract class StaffRepository {
     String? search,
     ReportStatus? status,
     int? categoryId,
+    int? citizenId,
+    DateTime? createdFrom,
+    DateTime? createdTo,
   });
 
   Future<CitizenReportDetail> getAssignedReport(int id);
