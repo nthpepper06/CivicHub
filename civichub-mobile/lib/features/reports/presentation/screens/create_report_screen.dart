@@ -10,6 +10,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/civic_page_shell.dart';
 import '../../../../core/widgets/civic_background.dart';
+import '../../../../core/widgets/location_picker.dart';
 import '../../domain/models/create_report_request.dart';
 import '../../domain/models/report_category.dart';
 import '../../domain/repositories/reports_repository.dart';
@@ -217,28 +218,14 @@ class _CreateReportViewState extends State<_CreateReportView> {
                       CivicFormSection(
                         title: 'Location',
                         subtitle:
-                            'Add the street location and optional coordinates.',
+                            'Add an address, use current location, or pin the point on the map.',
                         icon: Icons.map_outlined,
                         children: [
-                          AppTextField(
-                            label: 'Address',
-                            controller: _addressController,
-                            hintText: 'Street address or nearby landmark',
-                            textInputAction: TextInputAction.next,
-                            enabled: !_isSubmitting(state),
-                            validator: (value) => _requiredMax(
-                              value,
-                              requiredMessage: 'Address is required',
-                              maxLength: 500,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.lg),
-                          _LocationFields(
+                          LocationPicker(
+                            addressController: _addressController,
                             latitudeController: _latitudeController,
                             longitudeController: _longitudeController,
                             enabled: !_isSubmitting(state),
-                            locationLoading: state.locationLoading,
-                            locationErrorMessage: state.locationErrorMessage,
                           ),
                         ],
                       ),
@@ -341,102 +328,6 @@ class _CategoryPicker extends StatelessWidget {
           : null,
       validator: (value) => value == null ? 'Category is required' : null,
     );
-  }
-}
-
-class _LocationFields extends StatelessWidget {
-  const _LocationFields({
-    required this.latitudeController,
-    required this.longitudeController,
-    required this.enabled,
-    required this.locationLoading,
-    required this.locationErrorMessage,
-  });
-
-  final TextEditingController latitudeController;
-  final TextEditingController longitudeController;
-  final bool enabled;
-  final bool locationLoading;
-  final String? locationErrorMessage;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: AppTextField(
-                label: 'Latitude',
-                controller: latitudeController,
-                hintText: 'Optional',
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                  signed: true,
-                ),
-                enabled: enabled,
-                validator: (value) =>
-                    _coordinateValidator(value, min: -90, max: 90),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: AppTextField(
-                label: 'Longitude',
-                controller: longitudeController,
-                hintText: 'Optional',
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                  signed: true,
-                ),
-                enabled: enabled,
-                validator: (value) =>
-                    _coordinateValidator(value, min: -180, max: 180),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        AppButton(
-          label: locationLoading ? 'Getting Location...' : 'Use Current GPS',
-          icon: Icons.my_location_outlined,
-          variant: AppButtonVariant.outline,
-          onPressed: enabled
-              ? context.read<CreateReportCubit>().useCurrentLocation
-              : null,
-        ),
-        if (locationErrorMessage != null) ...[
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            locationErrorMessage!,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.danger,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  String? _coordinateValidator(
-    String? value, {
-    required double min,
-    required double max,
-  }) {
-    final normalized = value?.trim() ?? '';
-    if (normalized.isEmpty) {
-      return null;
-    }
-    final parsed = double.tryParse(normalized);
-    if (parsed == null) {
-      return 'Enter a valid number';
-    }
-    if (parsed < min || parsed > max) {
-      return 'Must be between $min and $max';
-    }
-    return null;
   }
 }
 

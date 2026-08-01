@@ -11,6 +11,7 @@ import com.civichub.report.dto.response.ReportSummaryResponse;
 import com.civichub.report.entity.Report;
 import com.civichub.report.entity.ReportImage;
 import com.civichub.user.entity.User;
+import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 
 class ReportMapperTest {
@@ -32,7 +33,11 @@ class ReportMapperTest {
         assertThat(summary.getDepartmentName()).isEqualTo("Urban Services");
         assertThat(summary.getCitizenId()).isEqualTo(1L);
         assertThat(summary.getCitizenName()).isEqualTo("Citizen");
+        assertThat(summary.getLatitude()).isEqualByComparingTo("10.7769000");
+        assertThat(summary.getLongitude()).isEqualByComparingTo("106.7009000");
         assertThat(summary.getPrimaryImageUrl()).isEqualTo("https://a.test/1.png");
+        assertThat(detail.getLatitude()).isEqualByComparingTo("10.7769000");
+        assertThat(detail.getLongitude()).isEqualByComparingTo("106.7009000");
         assertThat(detail.getImages()).extracting("url")
                 .containsExactly("https://a.test/1.png", "https://a.test/2.png");
     }
@@ -62,6 +67,8 @@ class ReportMapperTest {
                 .title("Report")
                 .description("Description")
                 .address("Address")
+                .latitude(new BigDecimal("10.7769000"))
+                .longitude(new BigDecimal("106.7009000"))
                 .status(ReportStatus.PENDING)
                 .priority(Priority.MEDIUM)
                 .user(user)

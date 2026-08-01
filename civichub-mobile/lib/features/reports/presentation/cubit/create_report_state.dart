@@ -17,8 +17,6 @@ class CreateReportState extends Equatable {
     this.categoryErrorMessage,
     this.submitErrorMessage,
     this.submitErrorKind,
-    this.locationLoading = false,
-    this.locationErrorMessage,
     this.createdReport,
   });
 
@@ -29,8 +27,6 @@ class CreateReportState extends Equatable {
   final String? categoryErrorMessage;
   final String? submitErrorMessage;
   final ApiErrorKind? submitErrorKind;
-  final bool locationLoading;
-  final String? locationErrorMessage;
   final CitizenReportDetail? createdReport;
 
   bool get canSubmit =>
@@ -46,8 +42,6 @@ class CreateReportState extends Equatable {
     Object? categoryErrorMessage = _unchanged,
     Object? submitErrorMessage = _unchanged,
     Object? submitErrorKind = _unchanged,
-    bool? locationLoading,
-    Object? locationErrorMessage = _unchanged,
     Object? createdReport = _unchanged,
   }) {
     return CreateReportState(
@@ -66,10 +60,6 @@ class CreateReportState extends Equatable {
       submitErrorKind: submitErrorKind == _unchanged
           ? this.submitErrorKind
           : submitErrorKind as ApiErrorKind?,
-      locationLoading: locationLoading ?? this.locationLoading,
-      locationErrorMessage: locationErrorMessage == _unchanged
-          ? this.locationErrorMessage
-          : locationErrorMessage as String?,
       createdReport: createdReport == _unchanged
           ? this.createdReport
           : createdReport as CitizenReportDetail?,
@@ -85,8 +75,6 @@ class CreateReportState extends Equatable {
     categoryErrorMessage,
     submitErrorMessage,
     submitErrorKind,
-    locationLoading,
-    locationErrorMessage,
     createdReport,
   ];
 }

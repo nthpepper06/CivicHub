@@ -4,6 +4,8 @@ import 'package:civichub_mobile/app/routing/app_router.dart';
 import 'package:civichub_mobile/app/routing/app_routes.dart';
 import 'package:civichub_mobile/core/network/api_exception.dart';
 import 'package:civichub_mobile/core/storage/auth_token_storage.dart';
+import 'package:civichub_mobile/core/widgets/app_network_image.dart';
+import 'package:civichub_mobile/core/widgets/location_preview_card.dart';
 import 'package:civichub_mobile/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:civichub_mobile/features/auth/data/models/login_response.dart';
 import 'package:civichub_mobile/features/auth/domain/models/citizen_profile.dart';
@@ -482,8 +484,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Roads').last);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Submit Report'));
-    await tester.tap(find.text('Submit Report'));
+    final submitButton = find.widgetWithText(FilledButton, 'Submit Report');
+    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    await tester.pumpAndSettle();
+    await tester.tap(submitButton);
     await tester.pump();
 
     expect(find.text('Title is required'), findsOneWidget);
@@ -542,7 +546,7 @@ void main() {
     expect(find.text('Reports refreshed'), findsOneWidget);
   });
 
-  testWidgets('Create report GPS button shows limitation', (tester) async {
+  testWidgets('Create report shows reusable location picker', (tester) async {
     tester.view.physicalSize = const Size(1080, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -560,11 +564,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Use Current GPS'));
-    await tester.tap(find.text('Use Current GPS'));
-    await tester.pump();
+    await tester.ensureVisible(find.text('Use Current Location'));
 
-    expect(find.textContaining('GPS is not available'), findsOneWidget);
+    expect(find.text('Use Current Location'), findsOneWidget);
+    expect(
+      find.textContaining('Tap the map or drag the marker'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Report detail loads and shows empty images state', (
@@ -593,6 +599,7 @@ void main() {
     expect(find.text('Broken sidewalk'), findsOneWidget);
     expect(find.text('Uneven pavement near the bus stop.'), findsOneWidget);
     expect(find.text('No images'), findsOneWidget);
+    expect(find.byType(LocationPreviewCard), findsOneWidget);
   });
 
   testWidgets('Report detail renders image previews', (tester) async {
@@ -621,7 +628,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Images'), findsOneWidget);
-    expect(find.byType(Image), findsOneWidget);
+    expect(find.byType(AppNetworkImage), findsOneWidget);
   });
 
   testWidgets('Report detail shows not found state', (tester) async {
@@ -780,8 +787,10 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(0), 'Updated title');
-    await tester.ensureVisible(find.text('Update Report'));
-    await tester.tap(find.text('Update Report'));
+    final updateButton = find.widgetWithText(FilledButton, 'Update Report');
+    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    await tester.pumpAndSettle();
+    await tester.tap(updateButton);
     await tester.pumpAndSettle();
 
     expect(repository.updateRequests.single.id, 12);

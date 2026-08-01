@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/routing/app_routes.dart';
+import '../../../../core/location/location_point.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -14,6 +15,8 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_network_image.dart';
 import '../../../../core/widgets/app_responsive.dart';
 import '../../../../core/widgets/civic_background.dart';
+import '../../../../core/widgets/location_map.dart';
+import '../../../../core/widgets/location_preview_card.dart';
 import '../../../../core/widgets/premium_surface.dart';
 import '../../domain/models/report_detail.dart';
 import '../../domain/models/report_status.dart';
@@ -312,10 +315,12 @@ class _DetailContent extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
-              _LocationMapCard(
+              LocationPreviewCard(
                 address: detail.address,
-                latitude: _number(detail.latitude),
-                longitude: _number(detail.longitude),
+                point: _locationPoint(detail),
+                onOpen: _locationPoint(detail) == null
+                    ? null
+                    : () => _showLocationMap(context, detail),
               ),
               const SizedBox(height: AppSpacing.lg),
               _Section(
@@ -343,11 +348,54 @@ class _DetailContent extends StatelessWidget {
     );
   }
 
-  String? _number(double? value) {
-    if (value == null) {
+  LocationPoint? _locationPoint(CitizenReportDetail detail) {
+    final latitude = detail.latitude;
+    final longitude = detail.longitude;
+    if (latitude == null || longitude == null) {
       return null;
     }
-    return value.toString();
+    final point = LocationPoint(latitude: latitude, longitude: longitude);
+    return point.isValid ? point : null;
+  }
+
+  void _showLocationMap(BuildContext context, CitizenReportDetail detail) {
+    final point = _locationPoint(detail);
+    if (point == null) {
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return Dialog.fullscreen(
+          child: SafeArea(
+            child: Column(
+              children: [
+                ListTile(
+                  title: Text(
+                    detail.address.trim().isEmpty
+                        ? 'Report location'
+                        : detail.address.trim(),
+                  ),
+                  subtitle: Text(point.coordinatesLabel),
+                  trailing: IconButton(
+                    tooltip: 'Close map',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ),
+                Expanded(
+                  child: LocationMap(
+                    point: point,
+                    height: double.infinity,
+                    interactive: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   String? _date(DateTime? value) {
@@ -382,109 +430,6 @@ class _Section extends StatelessWidget {
       ),
     );
   }
-}
-
-class _LocationMapCard extends StatelessWidget {
-  const _LocationMapCard({
-    required this.address,
-    required this.latitude,
-    required this.longitude,
-  });
-
-  final String? address;
-  final String? latitude;
-  final String? longitude;
-
-  @override
-  Widget build(BuildContext context) {
-    return PremiumSurface(
-      padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            height: 150,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppColors.primary.withValues(alpha: 0.14),
-                          AppColors.cyan.withValues(alpha: 0.08),
-                          AppColors.surfaceAlt,
-                        ],
-                      ),
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(AppRadius.md),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned.fill(child: CustomPaint(painter: _MiniMapPainter())),
-                const Center(
-                  child: Icon(
-                    Icons.location_pin,
-                    size: 56,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Location',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                _InfoRow(label: 'Address', value: address),
-                _InfoRow(label: 'Latitude', value: latitude),
-                _InfoRow(label: 'Longitude', value: longitude),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MiniMapPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final roadPaint = Paint()
-      ..color = AppColors.primary.withValues(alpha: 0.12)
-      ..strokeWidth = 8
-      ..strokeCap = StrokeCap.round;
-    final thinPaint = Paint()
-      ..color = AppColors.navy.withValues(alpha: 0.08)
-      ..strokeWidth = 2;
-
-    canvas.drawLine(
-      Offset(-20, size.height * 0.35),
-      Offset(size.width + 20, size.height * 0.18),
-      roadPaint,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.18, -20),
-      Offset(size.width * 0.78, size.height + 20),
-      roadPaint,
-    );
-    for (var x = 20.0; x < size.width; x += 52) {
-      canvas.drawLine(Offset(x, 0), Offset(x + 34, size.height), thinPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _InfoRow extends StatelessWidget {

@@ -26,7 +26,7 @@ void main() {
 
     expect(find.text('Broken sidewalk'), findsOneWidget);
     expect(find.text('Uneven pavement near the bus stop.'), findsOneWidget);
-    expect(find.text('12 Nguyen Hue'), findsOneWidget);
+    expect(find.text('12 Nguyen Hue'), findsWidgets);
     expect(find.text('Nguyen Minh Anh'), findsOneWidget);
     expect(find.text('Mark Received'), findsOneWidget);
     expect(find.text('Mark Rejected'), findsOneWidget);
@@ -46,7 +46,10 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('Mark Received'));
-    await tester.tap(find.text('Mark Received'));
+    final receivedButton = find.widgetWithText(FilledButton, 'Mark Received');
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    await tester.tap(receivedButton);
     await tester.pumpAndSettle();
 
     expect(repository.statusUpdateCalls.single.status, ReportStatus.received);
@@ -153,8 +156,10 @@ void main() {
     await tester.pumpWidget(_App(repository: repository));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Mark Resolved'));
-    await tester.tap(find.text('Mark Resolved'));
+    final resolveButton = find.widgetWithText(FilledButton, 'Mark Resolved');
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    await tester.tap(resolveButton);
     await tester.pumpAndSettle();
 
     expect(find.text('Mark this report as resolved?'), findsOneWidget);
@@ -179,8 +184,10 @@ void main() {
     await tester.pumpWidget(_App(repository: repository));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Mark Resolved'));
-    await tester.tap(find.text('Mark Resolved'));
+    final resolveButton = find.widgetWithText(FilledButton, 'Mark Resolved');
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    await tester.tap(resolveButton);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Confirm'));
     await tester.pumpAndSettle();

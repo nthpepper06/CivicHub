@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/routing/app_routes.dart';
+import '../../../../core/location/report_map_projection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -15,6 +16,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_responsive.dart';
 import '../../../../core/widgets/civic_background.dart';
 import '../../../../core/widgets/premium_surface.dart';
+import '../../../../core/widgets/spatial_report_map.dart';
 import '../../../reports/domain/models/report_status.dart';
 import '../../../reports/domain/models/report_summary.dart';
 import '../../../reports/domain/repositories/reports_repository.dart';
@@ -54,6 +56,7 @@ class _StaffReportsViewState extends State<_StaffReportsView> {
   final _searchController = TextEditingController();
   final _citizenController = TextEditingController();
   Timer? _searchDebounce;
+  bool _mapMode = false;
 
   @override
   void initState() {
@@ -182,7 +185,32 @@ class _StaffReportsViewState extends State<_StaffReportsView> {
                                 children: [
                                   _ProductivityBar(state: state),
                                   const SizedBox(height: AppSpacing.lg),
-                                  _QueueSections(buckets: buckets),
+                                  _StaffViewModeToggle(
+                                    mapMode: _mapMode,
+                                    onChanged: (value) {
+                                      setState(() => _mapMode = value);
+                                    },
+                                  ),
+                                  const SizedBox(height: AppSpacing.lg),
+                                  if (_mapMode)
+                                    SpatialReportMap(
+                                      points: ReportMapProjection.fromSummaries(
+                                        state.reports,
+                                      ).points,
+                                      excludedCount:
+                                          ReportMapProjection.fromSummaries(
+                                            state.reports,
+                                          ).excluded,
+                                      scopeLabel:
+                                          'Reports assigned to your department',
+                                      onOpenReport: (reportId) => context.push(
+                                        AppRoutes.staffReportDetailPath(
+                                          reportId,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    _QueueSections(buckets: buckets),
                                 ],
                               ),
                             ),
@@ -222,6 +250,36 @@ class _StaffReportsViewState extends State<_StaffReportsView> {
         offset: _citizenController.text.length,
       );
     }
+  }
+}
+
+class _StaffViewModeToggle extends StatelessWidget {
+  const _StaffViewModeToggle({required this.mapMode, required this.onChanged});
+
+  final bool mapMode;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Assigned reports view mode',
+      child: SegmentedButton<bool>(
+        segments: const [
+          ButtonSegment(
+            value: false,
+            icon: Icon(Icons.view_kanban_outlined),
+            label: Text('Queue'),
+          ),
+          ButtonSegment(
+            value: true,
+            icon: Icon(Icons.map_outlined),
+            label: Text('Department Map'),
+          ),
+        ],
+        selected: {mapMode},
+        onSelectionChanged: (values) => onChanged(values.first),
+      ),
+    );
   }
 }
 

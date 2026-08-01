@@ -8,6 +8,8 @@ class CitizenReportSummary extends Equatable {
     required this.title,
     required this.address,
     required this.status,
+    this.latitude,
+    this.longitude,
     this.categoryId,
     this.categoryName,
     this.departmentId,
@@ -23,6 +25,8 @@ class CitizenReportSummary extends Equatable {
   final String title;
   final String address;
   final ReportStatus status;
+  final double? latitude;
+  final double? longitude;
   final int? categoryId;
   final String? categoryName;
   final int? departmentId;
@@ -39,6 +43,8 @@ class CitizenReportSummary extends Equatable {
     title,
     address,
     status,
+    latitude,
+    longitude,
     categoryId,
     categoryName,
     departmentId,

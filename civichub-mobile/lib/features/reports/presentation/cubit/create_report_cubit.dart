@@ -64,16 +64,6 @@ class CreateReportCubit extends Cubit<CreateReportState> {
     );
   }
 
-  Future<void> useCurrentLocation() async {
-    emit(
-      state.copyWith(
-        locationLoading: false,
-        locationErrorMessage:
-            'GPS is not available in this build. Enter latitude and longitude manually.',
-      ),
-    );
-  }
-
   Future<void> submit(CreateReportRequest request) async {
     if (state.submitStatus == CreateReportSubmitStatus.submitting) {
       return;

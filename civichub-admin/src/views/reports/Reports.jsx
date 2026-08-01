@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   CButton,
   CCard,
@@ -25,6 +25,8 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilInfo, cilSearch } from '@coreui/icons'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
 import { getAuditLogs } from '../../api/auditLogService'
 import { getCategories } from '../../api/categoryService'
@@ -55,6 +57,9 @@ const reportTransitions = {
   RECEIVED: ['IN_PROGRESS', 'REJECTED'],
   IN_PROGRESS: ['RESOLVED', 'REJECTED'],
 }
+const mapTileUrl =
+  import.meta.env.VITE_MAP_TILE_URL || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+const mapAttribution = '&copy; OpenStreetMap contributors'
 
 const Reports = () => {
   const [reports, setReports] = useState([])
@@ -67,6 +72,7 @@ const Reports = () => {
   const [categoryId, setCategoryId] = useState('')
   const [departmentId, setDepartmentId] = useState('')
   const [direction, setDirection] = useState('DESC')
+  const [viewMode, setViewMode] = useState('list')
   const [loading, setLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
   const [timelineLoading, setTimelineLoading] = useState(false)
@@ -82,6 +88,7 @@ const Reports = () => {
   const debouncedSearch = useDebouncedValue(search, 400)
   const selectedSameDepartment =
     detail?.departmentId && Number(assignDepartmentId) === Number(detail.departmentId)
+  const mapProjection = useMemo(() => projectReportMapPoints(reports), [reports])
 
   const loadReports = useCallback(async () => {
     setLoading(true)
@@ -334,54 +341,86 @@ const Reports = () => {
               </CFormSelect>
             </CCol>
           </CRow>
+          <div className="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
+            <div className="small text-body-secondary">
+              Map reflects the current loaded admin result page.
+              {mapProjection.excluded
+                ? ` ${mapProjection.excluded} loaded reports do not contain valid coordinates.`
+                : ''}
+            </div>
+            <div className="btn-group" role="group" aria-label="Reports view mode">
+              <CButton
+                color="primary"
+                variant={viewMode === 'list' ? undefined : 'outline'}
+                onClick={() => setViewMode('list')}
+              >
+                List
+              </CButton>
+              <CButton
+                color="primary"
+                variant={viewMode === 'map' ? undefined : 'outline'}
+                onClick={() => setViewMode('map')}
+              >
+                Map
+              </CButton>
+            </div>
+          </div>
 
           {loading ? (
             <LoadingState label="Loading reports..." />
           ) : reports.length ? (
             <>
-              <CTable align="middle" responsive hover aria-label="Reports table">
-                <CTableHead>
-                  <CTableRow>
-                    <CTableHeaderCell>ID</CTableHeaderCell>
-                    <CTableHeaderCell>Title</CTableHeaderCell>
-                    <CTableHeaderCell>Citizen</CTableHeaderCell>
-                    <CTableHeaderCell>Category</CTableHeaderCell>
-                    <CTableHeaderCell>Department</CTableHeaderCell>
-                    <CTableHeaderCell>Status</CTableHeaderCell>
-                    <CTableHeaderCell>Created</CTableHeaderCell>
-                    <CTableHeaderCell className="text-end">Actions</CTableHeaderCell>
-                  </CTableRow>
-                </CTableHead>
-                <CTableBody>
-                  {reports.map((report) => (
-                    <CTableRow key={report.id}>
-                      <CTableDataCell>#{report.id}</CTableDataCell>
-                      <CTableDataCell>
-                        <div className="fw-semibold">{report.title || '-'}</div>
-                        <div className="small text-body-secondary">{report.address || '-'}</div>
-                      </CTableDataCell>
-                      <CTableDataCell>{report.citizenName || '-'}</CTableDataCell>
-                      <CTableDataCell>{report.categoryName || '-'}</CTableDataCell>
-                      <CTableDataCell>{report.departmentName || '-'}</CTableDataCell>
-                      <CTableDataCell>
-                        <StatusBadge type="report" value={report.status} />
-                      </CTableDataCell>
-                      <CTableDataCell>{formatDateTime(report.createdAt)}</CTableDataCell>
-                      <CTableDataCell className="text-end">
-                        <CButton
-                          color="primary"
-                          variant="outline"
-                          size="sm"
-                          aria-label={`View report ${report.id}`}
-                          onClick={() => openDetail(report.id)}
-                        >
-                          <CIcon icon={cilInfo} />
-                        </CButton>
-                      </CTableDataCell>
+              {viewMode === 'map' ? (
+                <AdminReportsMap
+                  points={mapProjection.points}
+                  excluded={mapProjection.excluded}
+                  onOpenReport={openDetail}
+                />
+              ) : (
+                <CTable align="middle" responsive hover aria-label="Reports table">
+                  <CTableHead>
+                    <CTableRow>
+                      <CTableHeaderCell>ID</CTableHeaderCell>
+                      <CTableHeaderCell>Title</CTableHeaderCell>
+                      <CTableHeaderCell>Citizen</CTableHeaderCell>
+                      <CTableHeaderCell>Category</CTableHeaderCell>
+                      <CTableHeaderCell>Department</CTableHeaderCell>
+                      <CTableHeaderCell>Status</CTableHeaderCell>
+                      <CTableHeaderCell>Created</CTableHeaderCell>
+                      <CTableHeaderCell className="text-end">Actions</CTableHeaderCell>
                     </CTableRow>
-                  ))}
-                </CTableBody>
-              </CTable>
+                  </CTableHead>
+                  <CTableBody>
+                    {reports.map((report) => (
+                      <CTableRow key={report.id}>
+                        <CTableDataCell>#{report.id}</CTableDataCell>
+                        <CTableDataCell>
+                          <div className="fw-semibold">{report.title || '-'}</div>
+                          <div className="small text-body-secondary">{report.address || '-'}</div>
+                        </CTableDataCell>
+                        <CTableDataCell>{report.citizenName || '-'}</CTableDataCell>
+                        <CTableDataCell>{report.categoryName || '-'}</CTableDataCell>
+                        <CTableDataCell>{report.departmentName || '-'}</CTableDataCell>
+                        <CTableDataCell>
+                          <StatusBadge type="report" value={report.status} />
+                        </CTableDataCell>
+                        <CTableDataCell>{formatDateTime(report.createdAt)}</CTableDataCell>
+                        <CTableDataCell className="text-end">
+                          <CButton
+                            color="primary"
+                            variant="outline"
+                            size="sm"
+                            aria-label={`View report ${report.id}`}
+                            onClick={() => openDetail(report.id)}
+                          >
+                            <CIcon icon={cilInfo} />
+                          </CButton>
+                        </CTableDataCell>
+                      </CTableRow>
+                    ))}
+                  </CTableBody>
+                </CTable>
+              )}
               <div className="small text-body-secondary">{pageInfo.totalElements} reports</div>
               <PagePagination
                 page={pageInfo.page}
@@ -412,6 +451,12 @@ const Reports = () => {
                   <h5>{detail.title || `Report #${detail.id}`}</h5>
                   <p className="text-body-secondary mb-2">{detail.description || '-'}</p>
                   <div>{detail.address || '-'}</div>
+                  <div className="small text-body-secondary mt-2">
+                    Coordinates:{' '}
+                    {detail.latitude != null && detail.longitude != null
+                      ? `${Number(detail.latitude).toFixed(5)}, ${Number(detail.longitude).toFixed(5)}`
+                      : '-'}
+                  </div>
                 </CCol>
                 <CCol md={4}>
                   <div className="mb-2">
@@ -577,5 +622,163 @@ const Reports = () => {
     </>
   )
 }
+
+const AdminReportsMap = ({ points, excluded, onOpenReport }) => {
+  const mapRef = useRef(null)
+  const containerRef = useRef(null)
+  const markerLayerRef = useRef(null)
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) {
+      return
+    }
+    mapRef.current = L.map(containerRef.current, {
+      center: [10.7769, 106.7009],
+      zoom: 11,
+      scrollWheelZoom: true,
+    })
+    L.tileLayer(mapTileUrl, {
+      attribution: mapAttribution,
+    }).addTo(mapRef.current)
+    markerLayerRef.current = L.layerGroup().addTo(mapRef.current)
+    return () => {
+      mapRef.current?.remove()
+      mapRef.current = null
+      markerLayerRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!mapRef.current || !markerLayerRef.current) {
+      return
+    }
+    markerLayerRef.current.clearLayers()
+    points.forEach((point) => {
+      const marker = L.circleMarker([point.latitude, point.longitude], {
+        radius: 11,
+        color: statusColor(point.status),
+        fillColor: statusColor(point.status),
+        fillOpacity: 0.78,
+        weight: 3,
+      })
+      marker.bindPopup(`
+        <strong>${escapeHtml(point.title || `Report #${point.id}`)}</strong><br/>
+        ${escapeHtml(formatLabel(point.status))}<br/>
+        ${escapeHtml(point.categoryName || 'Uncategorized')}<br/>
+        ${escapeHtml(point.address || `${point.latitude.toFixed(5)}, ${point.longitude.toFixed(5)}`)}
+      `)
+      marker.on('click', () => onOpenReport(point.id))
+      markerLayerRef.current.addLayer(marker)
+    })
+    if (points.length === 1) {
+      mapRef.current.setView([points[0].latitude, points[0].longitude], 15)
+    } else if (points.length > 1) {
+      mapRef.current.fitBounds(points.map((point) => [point.latitude, point.longitude]), {
+        padding: [32, 32],
+      })
+    }
+  }, [points, onOpenReport])
+
+  return (
+    <div className="mb-3">
+      <div className="d-flex flex-wrap gap-2 mb-2" aria-label="Report map legend">
+        <span className="badge text-bg-light">{points.length} loaded on map</span>
+        <span className="badge text-bg-light">{excluded} excluded coordinates</span>
+        {statuses.map((item) => (
+          <span className="badge text-bg-light" key={item}>
+            <span
+              aria-hidden="true"
+              className="d-inline-block rounded-circle me-1"
+              style={{ width: 10, height: 10, backgroundColor: statusColor(item) }}
+            />
+            {formatLabel(item)}
+          </span>
+        ))}
+      </div>
+      <div
+        ref={containerRef}
+        role="application"
+        aria-label="Admin report map for current loaded results"
+        style={{ minHeight: 420, borderRadius: 12, overflow: 'hidden', border: '1px solid #d8dbe0' }}
+      />
+      {!points.length && (
+        <EmptyState
+          title="No mapped reports in the current result set"
+          description="Loaded reports do not contain valid coordinates."
+        />
+      )}
+      <div className="mt-3">
+        <h6>Accessible mapped report list</h6>
+        {points.length ? (
+          <CTable responsive small aria-label="Mapped reports fallback list">
+            <CTableBody>
+              {points.map((point) => (
+                <CTableRow key={point.id}>
+                  <CTableDataCell>#{point.id}</CTableDataCell>
+                  <CTableDataCell>{point.title || '-'}</CTableDataCell>
+                  <CTableDataCell>
+                    <StatusBadge type="report" value={point.status} />
+                  </CTableDataCell>
+                  <CTableDataCell>{point.address || '-'}</CTableDataCell>
+                  <CTableDataCell className="text-end">
+                    <CButton color="primary" variant="outline" size="sm" onClick={() => onOpenReport(point.id)}>
+                      Open
+                    </CButton>
+                  </CTableDataCell>
+                </CTableRow>
+              ))}
+            </CTableBody>
+          </CTable>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+const projectReportMapPoints = (items) => {
+  const points = []
+  let excluded = 0
+  items.forEach((report) => {
+    const latitude = Number(report.latitude)
+    const longitude = Number(report.longitude)
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      excluded += 1
+      return
+    }
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      excluded += 1
+      return
+    }
+    points.push({ ...report, latitude, longitude })
+  })
+  return { points, excluded }
+}
+
+const statusColor = (statusValue) => {
+  switch (statusValue) {
+    case 'PENDING':
+      return '#a16207'
+    case 'RECEIVED':
+      return '#2563eb'
+    case 'IN_PROGRESS':
+      return '#7c3aed'
+    case 'RESOLVED':
+      return '#15803d'
+    case 'REJECTED':
+      return '#b91c1c'
+    case 'CANCELLED':
+      return '#64748b'
+    default:
+      return '#475569'
+  }
+}
+
+const escapeHtml = (value) =>
+  String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
 
 export default Reports

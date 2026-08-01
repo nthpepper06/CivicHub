@@ -7,6 +7,8 @@ class ReportSummaryResponse {
     required this.title,
     required this.address,
     required this.status,
+    this.latitude,
+    this.longitude,
     this.categoryId,
     this.categoryName,
     this.departmentId,
@@ -22,6 +24,8 @@ class ReportSummaryResponse {
   final String title;
   final String address;
   final ReportStatus status;
+  final double? latitude;
+  final double? longitude;
   final int? categoryId;
   final String? categoryName;
   final int? departmentId;
@@ -38,6 +42,8 @@ class ReportSummaryResponse {
       title: _stringOrEmpty(json['title']),
       address: _stringOrEmpty(json['address']),
       status: ReportStatus.fromApiValue(json['status']),
+      latitude: _nullableDouble(json['latitude']),
+      longitude: _nullableDouble(json['longitude']),
       categoryId: _nullableInt(json['categoryId']),
       categoryName: _nullableString(json['categoryName']),
       departmentId: _nullableInt(json['departmentId']),
@@ -56,6 +62,8 @@ class ReportSummaryResponse {
       title: title,
       address: address,
       status: status,
+      latitude: latitude,
+      longitude: longitude,
       categoryId: categoryId,
       categoryName: categoryName,
       departmentId: departmentId,
@@ -82,6 +90,16 @@ class ReportSummaryResponse {
     }
     if (value is num) {
       return value.toInt();
+    }
+    return null;
+  }
+
+  static double? _nullableDouble(Object? value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value);
     }
     return null;
   }

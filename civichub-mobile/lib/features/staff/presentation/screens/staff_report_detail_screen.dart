@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/routing/app_routes.dart';
+import '../../../../core/location/location_point.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -13,6 +14,8 @@ import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_responsive.dart';
 import '../../../../core/widgets/civic_background.dart';
+import '../../../../core/widgets/location_map.dart';
+import '../../../../core/widgets/location_preview_card.dart';
 import '../../../../core/widgets/premium_surface.dart';
 import '../../../reports/domain/models/report_detail.dart';
 import '../../../reports/domain/models/report_status.dart';
@@ -156,6 +159,15 @@ class _ResponsiveDetail extends StatelessWidget {
             const SizedBox(height: AppSpacing.lg),
             _DescriptionPanel(report: report),
             const SizedBox(height: AppSpacing.lg),
+            LocationPreviewCard(
+              title: 'Report location',
+              address: report.address,
+              point: _locationPoint(report),
+              onOpen: _locationPoint(report) == null
+                  ? null
+                  : () => _showLocationMap(context, report),
+            ),
+            const SizedBox(height: AppSpacing.lg),
             _ImagesPanel(images: report.images),
           ],
         );
@@ -188,6 +200,56 @@ class _ResponsiveDetail extends StatelessWidget {
       },
     );
   }
+}
+
+LocationPoint? _locationPoint(CitizenReportDetail report) {
+  final latitude = report.latitude;
+  final longitude = report.longitude;
+  if (latitude == null || longitude == null) {
+    return null;
+  }
+  final point = LocationPoint(latitude: latitude, longitude: longitude);
+  return point.isValid ? point : null;
+}
+
+void _showLocationMap(BuildContext context, CitizenReportDetail report) {
+  final point = _locationPoint(report);
+  if (point == null) {
+    return;
+  }
+  showDialog<void>(
+    context: context,
+    builder: (context) {
+      return Dialog.fullscreen(
+        child: SafeArea(
+          child: Column(
+            children: [
+              ListTile(
+                title: Text(
+                  report.address.trim().isEmpty
+                      ? 'Report location'
+                      : report.address.trim(),
+                ),
+                subtitle: Text(point.coordinatesLabel),
+                trailing: IconButton(
+                  tooltip: 'Close map',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close),
+                ),
+              ),
+              Expanded(
+                child: LocationMap(
+                  point: point,
+                  height: double.infinity,
+                  interactive: true,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _HeroPanel extends StatelessWidget {

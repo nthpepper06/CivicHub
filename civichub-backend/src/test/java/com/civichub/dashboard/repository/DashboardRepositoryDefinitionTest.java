@@ -94,12 +94,16 @@ class DashboardRepositoryDefinitionTest {
         assertThat(queryAnnotation("findRecentReportSummaries", org.springframework.data.domain.Pageable.class)
                 .value())
                 .contains("new com.civichub.report.dto.response.ReportSummaryResponse")
+                .contains("r.latitude")
+                .contains("r.longitude")
                 .contains("order by r.createdAt desc");
 
         assertThat(queryAnnotation(
                 "findRecentReportSummariesByDepartmentId",
                 Long.class,
                 org.springframework.data.domain.Pageable.class).value())
+                .contains("r.latitude")
+                .contains("r.longitude")
                 .contains("where d.id = :departmentId")
                 .contains("order by r.createdAt desc");
     }

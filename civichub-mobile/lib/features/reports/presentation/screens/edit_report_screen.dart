@@ -10,6 +10,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/civic_page_shell.dart';
 import '../../../../core/widgets/civic_background.dart';
+import '../../../../core/widgets/location_picker.dart';
 import '../../domain/models/create_report_request.dart';
 import '../../domain/models/report_category.dart';
 import '../../domain/models/report_detail.dart';
@@ -304,59 +305,14 @@ class _EditReportViewState extends State<_EditReportView> {
                       CivicFormSection(
                         title: 'Location',
                         subtitle:
-                            'Confirm the address and optional coordinates.',
+                            'Confirm the address, use current location, or pin the point on the map.',
                         icon: Icons.map_outlined,
                         children: [
-                          AppTextField(
-                            label: 'Address',
-                            controller: _addressController,
-                            textInputAction: TextInputAction.next,
+                          LocationPicker(
+                            addressController: _addressController,
+                            latitudeController: _latitudeController,
+                            longitudeController: _longitudeController,
                             enabled: !_isUpdating(state),
-                            validator: (value) => _requiredMax(
-                              value,
-                              requiredMessage: 'Address is required',
-                              maxLength: 500,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.lg),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: AppTextField(
-                                  label: 'Latitude',
-                                  controller: _latitudeController,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                        signed: true,
-                                      ),
-                                  enabled: !_isUpdating(state),
-                                  validator: (value) => _coordinateValidator(
-                                    value,
-                                    min: -90,
-                                    max: 90,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: AppSpacing.md),
-                              Expanded(
-                                child: AppTextField(
-                                  label: 'Longitude',
-                                  controller: _longitudeController,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                        signed: true,
-                                      ),
-                                  enabled: !_isUpdating(state),
-                                  validator: (value) => _coordinateValidator(
-                                    value,
-                                    min: -180,
-                                    max: 180,
-                                  ),
-                                ),
-                              ),
-                            ],
                           ),
                         ],
                       ),
@@ -417,25 +373,6 @@ class _EditReportViewState extends State<_EditReportView> {
     }
     if (normalized.length > maxLength) {
       return 'Must be $maxLength characters or fewer';
-    }
-    return null;
-  }
-
-  String? _coordinateValidator(
-    String? value, {
-    required double min,
-    required double max,
-  }) {
-    final normalized = value?.trim() ?? '';
-    if (normalized.isEmpty) {
-      return null;
-    }
-    final parsed = double.tryParse(normalized);
-    if (parsed == null) {
-      return 'Enter a valid number';
-    }
-    if (parsed < min || parsed > max) {
-      return 'Must be between $min and $max';
     }
     return null;
   }

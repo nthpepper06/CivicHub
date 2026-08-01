@@ -1,6 +1,7 @@
 package com.civichub.report.dto.response;
 
 import com.civichub.common.enums.ReportStatus;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,6 +19,8 @@ public class ReportSummaryResponse {
     private Long id;
     private String title;
     private String address;
+    private BigDecimal latitude;
+    private BigDecimal longitude;
     private ReportStatus status;
     private Long categoryId;
     private String categoryName;

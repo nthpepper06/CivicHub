@@ -109,14 +109,4 @@ void main() {
     expect(repository.createRequests, hasLength(1));
     expect(cubit.state.submitStatus, CreateReportSubmitStatus.success);
   });
-
-  test('GPS action reports unavailable without adding dependencies', () async {
-    final repository = FakeReportsRepository();
-    final cubit = CreateReportCubit(reportsRepository: repository);
-
-    await cubit.useCurrentLocation();
-
-    expect(cubit.state.locationLoading, isFalse);
-    expect(cubit.state.locationErrorMessage, contains('GPS is not available'));
-  });
 }

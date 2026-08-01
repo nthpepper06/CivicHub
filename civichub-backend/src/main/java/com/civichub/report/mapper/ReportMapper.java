@@ -16,6 +16,8 @@ public interface ReportMapper {
                 .id(report.getId())
                 .title(report.getTitle())
                 .address(report.getAddress())
+                .latitude(report.getLatitude())
+                .longitude(report.getLongitude())
                 .status(report.getStatus())
                 .categoryId(report.getCategory().getId())
                 .categoryName(report.getCategory().getName())
