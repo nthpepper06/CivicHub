@@ -21,6 +21,7 @@ import '../../domain/repositories/staff_repository.dart';
 import '../cubit/staff_report_detail_cubit.dart';
 import '../cubit/staff_report_detail_state.dart';
 import '../cubit/staff_workspace_cubit.dart';
+import '../widgets/staff_section_header.dart';
 import '../workflow/staff_queue_session.dart';
 
 class StaffReportDetailScreen extends StatelessWidget {
@@ -199,10 +200,10 @@ class _HeroPanel extends StatelessWidget {
     final categoryColor = CategoryColors.colorFor(report.categoryName);
     return PremiumSurface(
       padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 430;
+          final identity = Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
@@ -234,19 +235,33 @@ class _HeroPanel extends StatelessWidget {
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       report.title.isEmpty ? 'Untitled report' : report.title,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(fontWeight: FontWeight.w900),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              _LargeStatusBadge(status: report.status),
+              if (!compact) ...[
+                const SizedBox(width: AppSpacing.sm),
+                _LargeStatusBadge(status: report.status),
+              ],
             ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          _MetaGrid(report: report),
-        ],
+          );
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              identity,
+              if (compact) ...[
+                const SizedBox(height: AppSpacing.md),
+                _LargeStatusBadge(status: report.status),
+              ],
+              const SizedBox(height: AppSpacing.lg),
+              _MetaGrid(report: report),
+            ],
+          );
+        },
       ),
     );
   }
@@ -259,47 +274,96 @@ class _QueueNavigationPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final previousButton = Tooltip(
+      message: 'Open the previous report from this queue',
+      child: OutlinedButton(
+        onPressed: () {
+          final target = StaffQueueSession.previous(reportId);
+          if (target == null) {
+            return;
+          }
+          context.pushReplacement(AppRoutes.staffReportDetailPath(target.id));
+        },
+        child: const _ActionButtonContent(
+          icon: Icons.arrow_back,
+          label: 'Previous report',
+        ),
+      ),
+    );
+    final queueButton = Tooltip(
+      message: 'Return to assigned reports with current filters',
+      child: FilledButton(
+        onPressed: () => context.go(AppRoutes.staffReports),
+        child: const _ActionButtonContent(
+          icon: Icons.view_kanban_outlined,
+          label: 'Return to queue',
+        ),
+      ),
+    );
+    final nextButton = Tooltip(
+      message: 'Open the next report from this queue',
+      child: OutlinedButton(
+        onPressed: () {
+          final target = StaffQueueSession.next(reportId);
+          if (target == null) {
+            return;
+          }
+          context.pushReplacement(AppRoutes.staffReportDetailPath(target.id));
+        },
+        child: const _ActionButtonContent(
+          icon: Icons.arrow_forward,
+          label: 'Next report',
+        ),
+      ),
+    );
     return PremiumSurface(
       padding: const EdgeInsets.all(AppSpacing.md),
-      child: Wrap(
-        spacing: AppSpacing.sm,
-        runSpacing: AppSpacing.sm,
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          OutlinedButton.icon(
-            onPressed: () {
-              final target = StaffQueueSession.previous(reportId);
-              if (target == null) {
-                return;
-              }
-              context.pushReplacement(
-                AppRoutes.staffReportDetailPath(target.id),
-              );
-            },
-            icon: const Icon(Icons.arrow_back),
-            label: const Text('Previous report'),
-          ),
-          FilledButton.icon(
-            onPressed: () => context.go(AppRoutes.staffReports),
-            icon: const Icon(Icons.view_kanban_outlined),
-            label: const Text('Return to queue'),
-          ),
-          OutlinedButton.icon(
-            onPressed: () {
-              final target = StaffQueueSession.next(reportId);
-              if (target == null) {
-                return;
-              }
-              context.pushReplacement(
-                AppRoutes.staffReportDetailPath(target.id),
-              );
-            },
-            icon: const Icon(Icons.arrow_forward),
-            label: const Text('Next report'),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 520) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                previousButton,
+                const SizedBox(height: AppSpacing.sm),
+                queueButton,
+                const SizedBox(height: AppSpacing.sm),
+                nextButton,
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: previousButton),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(child: queueButton),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(child: nextButton),
+            ],
+          );
+        },
       ),
+    );
+  }
+}
+
+class _ActionButtonContent extends StatelessWidget {
+  const _ActionButtonContent({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 18),
+        const SizedBox(width: AppSpacing.xs),
+        Flexible(
+          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+      ],
     );
   }
 }
@@ -442,12 +506,7 @@ class _DescriptionPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Description',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
-          ),
+          const StaffSectionHeader(title: 'Description'),
           const SizedBox(height: AppSpacing.sm),
           Text(
             report.description.trim().isEmpty
@@ -478,11 +537,9 @@ class _StatusWorkflowPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Workflow',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+          const StaffSectionHeader(
+            title: 'Workflow',
+            icon: Icons.account_tree_outlined,
           ),
           const SizedBox(height: AppSpacing.md),
           Row(
@@ -508,18 +565,31 @@ class _StatusWorkflowPanel extends StatelessWidget {
             for (final action in actions) ...[
               SizedBox(
                 width: double.infinity,
-                child: FilledButton.icon(
+                child: FilledButton(
                   onPressed: state.isUpdatingStatus
                       ? null
                       : () => _handleStatusAction(context, action),
-                  icon: state.updatingStatus == action
-                      ? const SizedBox(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (state.updatingStatus == action)
+                        const SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Icon(_statusIcon(action)),
-                  label: Text('Mark ${action.label}'),
+                      else
+                        Icon(_statusIcon(action), size: 18),
+                      const SizedBox(width: AppSpacing.xs),
+                      Flexible(
+                        child: Text(
+                          'Mark ${action.label}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -634,11 +704,9 @@ class _CurrentStatePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Current state',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+          const StaffSectionHeader(
+            title: 'Current state',
+            icon: Icons.track_changes_outlined,
           ),
           const SizedBox(height: AppSpacing.md),
           Row(
@@ -710,11 +778,11 @@ class _ImagesPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            images.isEmpty ? 'Attachments' : 'Attachments (${images.length})',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+          StaffSectionHeader(
+            title: images.isEmpty
+                ? 'Attachments'
+                : 'Attachments (${images.length})',
+            icon: Icons.attach_file_outlined,
           ),
           const SizedBox(height: AppSpacing.md),
           if (images.isEmpty)

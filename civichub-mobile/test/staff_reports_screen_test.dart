@@ -80,6 +80,64 @@ void main() {
     expect(staffRepository.assignedCalls, hasLength(2));
     expect(staffRepository.assignedCalls.last.search, 'drain');
   });
+
+  testWidgets('staff reports exposes accessible filter fields', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final staffRepository = FakeStaffRepository(
+      pages: [
+        sampleReportsPage(content: [sampleReport(id: 1)]),
+      ],
+    );
+
+    try {
+      await tester.pumpWidget(_App(staffRepository: staffRepository));
+      await tester.pumpAndSettle();
+
+      expect(find.bySemanticsLabel('Search assigned reports'), findsOneWidget);
+      expect(find.bySemanticsLabel('Filter by citizen id'), findsOneWidget);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  for (final viewport in const [
+    Size(390, 844),
+    Size(768, 1024),
+    Size(1024, 768),
+    Size(1440, 900),
+  ]) {
+    testWidgets('staff reports is overflow-safe at $viewport', (tester) async {
+      tester.view.physicalSize = viewport;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final staffRepository = FakeStaffRepository(
+        pages: [
+          sampleReportsPage(
+            content: [
+              sampleReport(id: 1, title: 'Pending case'),
+              sampleReport(
+                id: 2,
+                title: 'Active case',
+                status: ReportStatus.inProgress,
+              ),
+              sampleReport(
+                id: 3,
+                title: 'Completed case',
+                status: ReportStatus.resolved,
+              ),
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(_App(staffRepository: staffRepository));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Staff work queue'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
 
 class _App extends StatelessWidget {

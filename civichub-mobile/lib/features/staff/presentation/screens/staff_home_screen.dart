@@ -24,6 +24,8 @@ import '../../domain/repositories/staff_repository.dart';
 import '../cubit/staff_home_cubit.dart';
 import '../cubit/staff_home_state.dart';
 import '../cubit/staff_workspace_cubit.dart';
+import '../widgets/staff_meta_chip.dart';
+import '../widgets/staff_section_header.dart';
 
 class StaffHomeScreen extends StatelessWidget {
   const StaffHomeScreen({super.key});
@@ -572,18 +574,21 @@ class _TodaysPriority extends StatelessWidget {
                   spacing: AppSpacing.sm,
                   runSpacing: AppSpacing.xs,
                   children: [
-                    _ActivityMeta(
+                    StaffMetaChip(
                       icon: Icons.schedule_outlined,
                       label: _date(priority.createdAt),
+                      maxWidth: 150,
                     ),
-                    _ActivityMeta(
+                    StaffMetaChip(
                       icon: Icons.category_outlined,
                       label: priority.categoryName ?? 'Uncategorized',
+                      maxWidth: 150,
                     ),
                     if (priority.address.trim().isNotEmpty)
-                      _ActivityMeta(
+                      StaffMetaChip(
                         icon: Icons.place_outlined,
                         label: priority.address.trim(),
+                        maxWidth: 150,
                       ),
                   ],
                 ),
@@ -618,11 +623,9 @@ class _RecentActivity extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Recent activity',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+        const StaffSectionHeader(
+          title: 'Recent activity',
+          icon: Icons.history_outlined,
         ),
         const SizedBox(height: AppSpacing.md),
         PremiumSurface(
@@ -693,13 +696,15 @@ class _ActivityRow extends StatelessWidget {
                     spacing: AppSpacing.sm,
                     runSpacing: AppSpacing.xs,
                     children: [
-                      _ActivityMeta(
+                      StaffMetaChip(
                         icon: Icons.update_outlined,
                         label: _date(report.updatedAt ?? report.createdAt),
+                        maxWidth: 150,
                       ),
-                      _ActivityMeta(
+                      StaffMetaChip(
                         icon: Icons.person_outline,
                         label: report.citizenName ?? 'Citizen unavailable',
+                        maxWidth: 150,
                       ),
                     ],
                   ),
@@ -715,36 +720,6 @@ class _ActivityRow extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ActivityMeta extends StatelessWidget {
-  const _ActivityMeta({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: AppColors.muted),
-        const SizedBox(width: AppSpacing.xs),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 150),
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.muted,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

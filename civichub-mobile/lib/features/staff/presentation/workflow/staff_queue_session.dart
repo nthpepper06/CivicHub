@@ -9,6 +9,10 @@ class StaffQueueSession {
     _reports = List.unmodifiable(reports);
   }
 
+  static void clear() {
+    _reports = const [];
+  }
+
   static CitizenReportSummary? previous(int reportId) {
     final index = _reports.indexWhere((report) => report.id == reportId);
     if (index <= 0) {

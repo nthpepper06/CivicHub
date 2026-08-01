@@ -70,6 +70,46 @@ void main() {
     expect(find.text('Quick actions'), findsOneWidget);
     expect(find.text('Profile'), findsOneWidget);
   });
+
+  for (final viewport in const [
+    Size(390, 844),
+    Size(768, 1024),
+    Size(1024, 768),
+    Size(1440, 900),
+  ]) {
+    testWidgets('staff dashboard is overflow-safe at $viewport', (
+      tester,
+    ) async {
+      tester.view.physicalSize = viewport;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final staffRepository = FakeStaffRepository()
+        ..recentReportsPage = sampleReportsPage(
+          content: [
+            sampleReport(id: 21, title: 'Queued staff case'),
+            sampleReport(
+              id: 22,
+              title: 'Resolved staff case',
+              status: ReportStatus.resolved,
+              updatedAt: DateTime.now(),
+            ),
+          ],
+        );
+
+      await tester.pumpWidget(
+        _App(
+          staffRepository: staffRepository,
+          notificationsRepository: FakeNotificationsRepository(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Current workload'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
 
 class _App extends StatelessWidget {

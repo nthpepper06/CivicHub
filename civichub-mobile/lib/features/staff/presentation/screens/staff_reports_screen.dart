@@ -22,7 +22,9 @@ import '../../domain/repositories/staff_repository.dart';
 import '../cubit/staff_reports_cubit.dart';
 import '../cubit/staff_reports_state.dart';
 import '../cubit/staff_workspace_cubit.dart';
+import '../widgets/staff_section_header.dart';
 import '../widgets/staff_report_card.dart';
+import '../workflow/staff_queue_buckets.dart';
 import '../workflow/staff_queue_session.dart';
 
 class StaffReportsScreen extends StatelessWidget {
@@ -104,6 +106,7 @@ class _StaffReportsViewState extends State<_StaffReportsView> {
             child: BlocBuilder<StaffReportsCubit, StaffReportsState>(
               builder: (context, state) {
                 StaffQueueSession.remember(state.reports);
+                final buckets = StaffQueueBuckets.fromReports(state.reports);
                 _syncControllers(state);
                 return RefreshIndicator(
                   onRefresh: context.read<StaffReportsCubit>().refresh,
@@ -119,7 +122,7 @@ class _StaffReportsViewState extends State<_StaffReportsView> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                _QueueHeader(state: state),
+                                _QueueHeader(buckets: buckets),
                                 const SizedBox(height: AppSpacing.lg),
                                 _FilterPanel(
                                   state: state,
@@ -179,7 +182,7 @@ class _StaffReportsViewState extends State<_StaffReportsView> {
                                 children: [
                                   _ProductivityBar(state: state),
                                   const SizedBox(height: AppSpacing.lg),
-                                  _QueueSections(state: state),
+                                  _QueueSections(buckets: buckets),
                                 ],
                               ),
                             ),
@@ -223,15 +226,12 @@ class _StaffReportsViewState extends State<_StaffReportsView> {
 }
 
 class _QueueHeader extends StatelessWidget {
-  const _QueueHeader({required this.state});
+  const _QueueHeader({required this.buckets});
 
-  final StaffReportsState state;
+  final StaffQueueBuckets buckets;
 
   @override
   Widget build(BuildContext context) {
-    final attention = _needsAttention(state.reports).length;
-    final inProgress = _inProgress(state.reports).length;
-    final completed = _completed(state.reports).length;
     return PremiumSurface(
       padding: const EdgeInsets.all(AppSpacing.xl),
       child: LayoutBuilder(
@@ -259,9 +259,15 @@ class _QueueHeader extends StatelessWidget {
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.sm,
             children: [
-              _QueuePill(label: 'Needs attention', value: attention),
-              _QueuePill(label: 'In progress', value: inProgress),
-              _QueuePill(label: 'Completed', value: completed),
+              _QueuePill(
+                label: 'Needs attention',
+                value: buckets.needsAttention.length,
+              ),
+              _QueuePill(
+                label: 'In progress',
+                value: buckets.inProgress.length,
+              ),
+              _QueuePill(label: 'Completed', value: buckets.completed.length),
             ],
           );
           if (!wide) {
@@ -351,27 +357,20 @@ class _FilterPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Advanced filters',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-                ),
-              ),
-              if (state.hasActiveFilters)
-                TextButton.icon(
-                  onPressed: () {
-                    searchController.clear();
-                    citizenController.clear();
-                    context.read<StaffReportsCubit>().clearFilters();
-                  },
-                  icon: const Icon(Icons.clear_all, size: 18),
-                  label: const Text('Clear all'),
-                ),
-            ],
+          StaffSectionHeader(
+            title: 'Advanced filters',
+            icon: Icons.tune_outlined,
+            trailing: state.hasActiveFilters
+                ? TextButton.icon(
+                    onPressed: () {
+                      searchController.clear();
+                      citizenController.clear();
+                      context.read<StaffReportsCubit>().clearFilters();
+                    },
+                    icon: const Icon(Icons.clear_all, size: 18),
+                    label: const Text('Clear all'),
+                  )
+                : null,
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
@@ -384,48 +383,56 @@ class _FilterPanel extends StatelessWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               final wide = constraints.maxWidth >= 760;
-              final search = TextField(
-                controller: searchController,
-                onChanged: onSearchChanged,
-                onSubmitted: context.read<StaffReportsCubit>().applySearch,
-                textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
-                  hintText: 'Search reports',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: state.search.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: 'Clear search',
-                          onPressed: () {
-                            searchController.clear();
-                            context.read<StaffReportsCubit>().applySearch('');
-                          },
-                          icon: const Icon(Icons.close),
-                        ),
+              final search = Semantics(
+                textField: true,
+                label: 'Search assigned reports',
+                child: TextField(
+                  controller: searchController,
+                  onChanged: onSearchChanged,
+                  onSubmitted: context.read<StaffReportsCubit>().applySearch,
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    hintText: 'Search reports',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: state.search.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear search',
+                            onPressed: () {
+                              searchController.clear();
+                              context.read<StaffReportsCubit>().applySearch('');
+                            },
+                            icon: const Icon(Icons.close),
+                          ),
+                  ),
                 ),
               );
-              final citizen = TextField(
-                controller: citizenController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                onSubmitted: context
-                    .read<StaffReportsCubit>()
-                    .applyCitizenFilter,
-                decoration: InputDecoration(
-                  hintText: 'Citizen ID',
-                  prefixIcon: const Icon(Icons.person_search_outlined),
-                  suffixIcon: state.citizenIdFilter == null
-                      ? null
-                      : IconButton(
-                          tooltip: 'Clear citizen filter',
-                          onPressed: () {
-                            citizenController.clear();
-                            context
-                                .read<StaffReportsCubit>()
-                                .applyCitizenFilter('');
-                          },
-                          icon: const Icon(Icons.close),
-                        ),
+              final citizen = Semantics(
+                textField: true,
+                label: 'Filter by citizen id',
+                child: TextField(
+                  controller: citizenController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onSubmitted: context
+                      .read<StaffReportsCubit>()
+                      .applyCitizenFilter,
+                  decoration: InputDecoration(
+                    hintText: 'Citizen ID',
+                    prefixIcon: const Icon(Icons.person_search_outlined),
+                    suffixIcon: state.citizenIdFilter == null
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear citizen filter',
+                            onPressed: () {
+                              citizenController.clear();
+                              context
+                                  .read<StaffReportsCubit>()
+                                  .applyCitizenFilter('');
+                            },
+                            icon: const Icon(Icons.close),
+                          ),
+                  ),
                 ),
               );
               if (!wide) {
@@ -708,38 +715,47 @@ class _ProductivityAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PremiumSurface(
-      onTap: enabled ? onTap : null,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      borderColor: enabled
-          ? AppColors.primary.withValues(alpha: 0.24)
-          : AppColors.line,
-      child: Row(
-        children: [
-          Icon(icon, color: enabled ? AppColors.primary : AppColors.muted),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: enabled ? AppColors.ink : AppColors.muted,
-                fontWeight: FontWeight.w900,
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      child: PremiumSurface(
+        onTap: enabled ? onTap : null,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        borderColor: enabled
+            ? AppColors.primary.withValues(alpha: 0.24)
+            : AppColors.line,
+        child: Row(
+          children: [
+            Icon(icon, color: enabled ? AppColors.primary : AppColors.muted),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: enabled ? AppColors.ink : AppColors.muted,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
-          ),
-          const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.muted),
-        ],
+            const Icon(
+              Icons.arrow_forward_ios,
+              size: 14,
+              color: AppColors.muted,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _QueueSections extends StatelessWidget {
-  const _QueueSections({required this.state});
+  const _QueueSections({required this.buckets});
 
-  final StaffReportsState state;
+  final StaffQueueBuckets buckets;
 
   @override
   Widget build(BuildContext context) {
@@ -748,20 +764,20 @@ class _QueueSections extends StatelessWidget {
         title: 'Needs Attention',
         emptyTitle: 'No pending work',
         emptyMessage: 'Pending and received reports will appear here.',
-        reports: _needsAttention(state.reports),
+        reports: buckets.needsAttention,
       ),
       _QueueSectionData(
         title: 'In Progress',
         emptyTitle: 'Nothing in progress',
         emptyMessage: 'Reports being processed will appear here.',
-        reports: _inProgress(state.reports),
+        reports: buckets.inProgress,
       ),
       _QueueSectionData(
         title: 'Completed',
         emptyTitle: 'Everything here is still open',
         emptyMessage:
             'Resolved, rejected, and cancelled reports will appear here.',
-        reports: _completed(state.reports),
+        reports: buckets.completed,
       ),
     ];
     return LayoutBuilder(
@@ -821,24 +837,15 @@ class _QueueSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  section.title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+          StaffSectionHeader(
+            title: section.title,
+            trailing: Text(
+              '${section.reports.length}',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w900,
               ),
-              Text(
-                '${section.reports.length}',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           if (section.reports.isEmpty)
@@ -916,33 +923,6 @@ class _Footer extends StatelessWidget {
       ),
     );
   }
-}
-
-List<CitizenReportSummary> _needsAttention(List<CitizenReportSummary> reports) {
-  return reports
-      .where(
-        (report) =>
-            report.status == ReportStatus.pending ||
-            report.status == ReportStatus.received,
-      )
-      .toList();
-}
-
-List<CitizenReportSummary> _inProgress(List<CitizenReportSummary> reports) {
-  return reports
-      .where((report) => report.status == ReportStatus.inProgress)
-      .toList();
-}
-
-List<CitizenReportSummary> _completed(List<CitizenReportSummary> reports) {
-  return reports
-      .where(
-        (report) =>
-            report.status == ReportStatus.resolved ||
-            report.status == ReportStatus.rejected ||
-            report.status == ReportStatus.cancelled,
-      )
-      .toList();
 }
 
 String _filterSummary(StaffReportsState state) {

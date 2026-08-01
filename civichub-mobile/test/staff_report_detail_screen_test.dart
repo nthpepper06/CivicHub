@@ -14,6 +14,8 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
   });
 
+  tearDown(StaffQueueSession.clear);
+
   testWidgets('Staff detail renders report fields and allowed actions', (
     tester,
   ) async {
@@ -201,6 +203,52 @@ void main() {
       expect(StaffQueueSession.next(42)?.id, 43);
     },
   );
+
+  testWidgets('queue navigation exposes web tooltips', (tester) async {
+    StaffQueueSession.remember([
+      sampleReport(id: 41, title: 'Previous'),
+      sampleReport(id: 42, title: 'Current'),
+      sampleReport(id: 43, title: 'Next'),
+    ]);
+    final repository = FakeStaffRepository();
+
+    await tester.pumpWidget(_App(repository: repository));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byTooltip('Open the previous report from this queue'),
+      findsOneWidget,
+    );
+    expect(
+      find.byTooltip('Return to assigned reports with current filters'),
+      findsOneWidget,
+    );
+    expect(
+      find.byTooltip('Open the next report from this queue'),
+      findsOneWidget,
+    );
+  });
+
+  for (final viewport in const [
+    Size(390, 844),
+    Size(768, 1024),
+    Size(1024, 768),
+    Size(1440, 900),
+  ]) {
+    testWidgets('staff detail is overflow-safe at $viewport', (tester) async {
+      tester.view.physicalSize = viewport;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repository = FakeStaffRepository();
+
+      await tester.pumpWidget(_App(repository: repository));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Broken sidewalk'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
 
 class _App extends StatelessWidget {

@@ -7,6 +7,7 @@ import '../../../../core/theme/semantic_colors.dart';
 import '../../../../core/widgets/premium_surface.dart';
 import '../../../reports/domain/models/report_summary.dart';
 import '../../../reports/presentation/widgets/report_status_chip.dart';
+import 'staff_meta_chip.dart';
 
 class StaffReportCard extends StatelessWidget {
   const StaffReportCard({
@@ -90,16 +91,19 @@ class StaffReportCard extends StatelessWidget {
               spacing: AppSpacing.md,
               runSpacing: AppSpacing.xs,
               children: [
-                _Meta(
+                StaffMetaChip(
                   icon: Icons.person_outline,
                   label: report.citizenName ?? 'Citizen unavailable',
                 ),
-                _Meta(
+                StaffMetaChip(
                   icon: Icons.calendar_today_outlined,
                   label: _date(report.createdAt),
                 ),
                 if (report.address.trim().isNotEmpty)
-                  _Meta(icon: Icons.place_outlined, label: report.address),
+                  StaffMetaChip(
+                    icon: Icons.place_outlined,
+                    label: report.address,
+                  ),
               ],
             ),
           ],
@@ -116,35 +120,5 @@ class StaffReportCard extends StatelessWidget {
     final month = local.month.toString().padLeft(2, '0');
     final day = local.day.toString().padLeft(2, '0');
     return '${local.year}-$month-$day';
-  }
-}
-
-class _Meta extends StatelessWidget {
-  const _Meta({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 15, color: AppColors.muted),
-        const SizedBox(width: AppSpacing.xs),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 180),
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.inkSoft,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
-    );
   }
 }
