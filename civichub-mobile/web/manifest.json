@@ -1,11 +1,11 @@
 {
-    "name": "civichub_mobile",
-    "short_name": "civichub_mobile",
+    "name": "CivicHub",
+    "short_name": "CivicHub",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "CivicHub citizen and staff service portal.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

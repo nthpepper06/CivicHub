@@ -3,12 +3,26 @@ import react from '@vitejs/plugin-react'
 import path from 'node:path'
 import autoprefixer from 'autoprefixer'
 
+const isLocalApiUrl = (value) =>
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(value)
+
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const configuredApiUrl = env.VITE_API_URL?.trim()
 
   if (command === 'build' && !configuredApiUrl) {
     throw new Error('VITE_API_URL is required for production builds')
+  }
+
+  if (
+    command === 'build' &&
+    isLocalApiUrl(configuredApiUrl) &&
+    env.CIVICHUB_ALLOW_LOCAL_API_FOR_BUILD !== 'true'
+  ) {
+    throw new Error(
+      'VITE_API_URL must not point to localhost for production builds. ' +
+        'Set CIVICHUB_ALLOW_LOCAL_API_FOR_BUILD=true only for local release smoke tests.',
+    )
   }
 
   const proxyTarget = configuredApiUrl || 'http://localhost:8080'

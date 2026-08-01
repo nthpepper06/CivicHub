@@ -1,0 +1,23 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        format_sql: false
+
+app:
+  database:
+    auto-sync-audit-log-actions: ${AUTO_SYNC_AUDIT_LOG_ACTIONS:false}
+  cors:
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:${CORS_ALLOWED_ORIGINS}}
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+
+logging:
+  level:
+    root: INFO
+    com.civichub: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
