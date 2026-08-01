@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../reports/domain/models/report_status.dart';
 import '../../domain/repositories/staff_repository.dart';
 import 'staff_report_detail_state.dart';
 
@@ -25,6 +26,8 @@ class StaffReportDetailCubit extends Cubit<StaffReportDetailState> {
         status: StaffReportDetailStatus.loading,
         errorMessage: null,
         errorKind: null,
+        updateErrorMessage: null,
+        updateSuccessMessage: null,
       ),
     );
     try {
@@ -56,6 +59,53 @@ class StaffReportDetailCubit extends Cubit<StaffReportDetailState> {
     }
   }
 
+  Future<void> updateStatus(ReportStatus nextStatus) async {
+    if (state.isUpdatingStatus ||
+        !state.availableActions.contains(nextStatus)) {
+      return;
+    }
+    emit(
+      state.copyWith(
+        updatingStatus: nextStatus,
+        updateErrorMessage: null,
+        updateSuccessMessage: null,
+      ),
+    );
+    try {
+      final report = await _staffRepository.updateAssignedReportStatus(
+        _reportId,
+        nextStatus,
+      );
+      emit(
+        state.copyWith(
+          status: StaffReportDetailStatus.success,
+          report: report,
+          updatingStatus: null,
+          updateErrorMessage: null,
+          updateSuccessMessage: _statusSuccessMessage(nextStatus),
+          errorMessage: null,
+          errorKind: null,
+        ),
+      );
+    } on ApiException catch (error) {
+      emit(
+        state.copyWith(
+          updatingStatus: null,
+          updateErrorMessage: _friendlyMessage(error),
+          updateSuccessMessage: null,
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          updatingStatus: null,
+          updateErrorMessage: ApiException.unknown.message,
+          updateSuccessMessage: null,
+        ),
+      );
+    }
+  }
+
   String _friendlyMessage(ApiException error) {
     return switch (error.kind) {
       ApiErrorKind.network =>
@@ -70,6 +120,18 @@ class StaffReportDetailCubit extends Cubit<StaffReportDetailState> {
       ApiErrorKind.badRequest ||
       ApiErrorKind.conflict ||
       ApiErrorKind.unknown => error.message,
+    };
+  }
+
+  String _statusSuccessMessage(ReportStatus status) {
+    return switch (status) {
+      ReportStatus.received => 'Report marked as received.',
+      ReportStatus.inProgress => 'Report moved to in progress.',
+      ReportStatus.resolved => 'Report marked as resolved.',
+      ReportStatus.rejected => 'Report rejected.',
+      ReportStatus.pending => 'Report moved to pending.',
+      ReportStatus.cancelled => 'Report cancelled.',
+      ReportStatus.unknown => 'Report status updated.',
     };
   }
 }

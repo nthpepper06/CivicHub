@@ -25,6 +25,11 @@ abstract class StaffRemoteDataSource {
   });
 
   Future<ReportDetailResponse> getAssignedReport(int id);
+
+  Future<ReportDetailResponse> updateAssignedReportStatus(
+    int id,
+    ReportStatus status,
+  );
 }
 
 class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
@@ -112,6 +117,26 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     try {
       final response = await _apiClient.dio.get<Map<String, dynamic>>(
         ApiEndpoints.staffReportDetail(id),
+      );
+      return ReportDetailResponse.fromJson(_responseData(response.data));
+    } on DioException catch (error) {
+      throw _apiClient.mapDioError(error);
+    } on ApiException {
+      rethrow;
+    } on FormatException {
+      throw ApiException.invalidResponse;
+    }
+  }
+
+  @override
+  Future<ReportDetailResponse> updateAssignedReportStatus(
+    int id,
+    ReportStatus status,
+  ) async {
+    try {
+      final response = await _apiClient.dio.patch<Map<String, dynamic>>(
+        ApiEndpoints.staffReportStatus(id),
+        data: {'status': status.apiValue},
       );
       return ReportDetailResponse.fromJson(_responseData(response.data));
     } on DioException catch (error) {

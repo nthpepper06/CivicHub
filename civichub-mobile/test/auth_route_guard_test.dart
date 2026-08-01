@@ -9,6 +9,7 @@ import 'package:civichub_mobile/features/auth/presentation/cubit/login_cubit.dar
 import 'package:civichub_mobile/features/notifications/domain/repositories/notifications_repository.dart';
 import 'package:civichub_mobile/features/reports/domain/repositories/reports_repository.dart';
 import 'package:civichub_mobile/features/staff/domain/repositories/staff_repository.dart';
+import 'package:civichub_mobile/features/staff/presentation/cubit/staff_workspace_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +31,7 @@ Widget _buildRouterApp({
     providers: [
       BlocProvider.value(value: authCubit),
       BlocProvider.value(value: loginCubit),
+      BlocProvider(create: (_) => StaffWorkspaceCubit()),
     ],
     child: MultiRepositoryProvider(
       providers: [

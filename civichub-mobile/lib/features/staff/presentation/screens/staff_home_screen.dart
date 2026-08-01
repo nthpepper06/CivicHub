@@ -21,6 +21,7 @@ import '../../domain/models/staff_dashboard_summary.dart';
 import '../../domain/repositories/staff_repository.dart';
 import '../cubit/staff_home_cubit.dart';
 import '../cubit/staff_home_state.dart';
+import '../cubit/staff_workspace_cubit.dart';
 import '../widgets/staff_report_card.dart';
 
 class StaffHomeScreen extends StatelessWidget {
@@ -48,70 +49,79 @@ class _StaffHomeView extends StatelessWidget {
       appBar: AppBar(title: const Text('Staff Workspace')),
       body: CivicBackground(
         child: SafeArea(
-          child: BlocBuilder<StaffHomeCubit, StaffHomeState>(
-            builder: (context, state) {
-              return RefreshIndicator(
-                onRefresh: context.read<StaffHomeCubit>().refresh,
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    SliverPadding(
-                      padding: const EdgeInsets.all(AppSpacing.lg),
-                      sliver: SliverToBoxAdapter(
-                        child: AppResponsive(
-                          maxWidth: 1040,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _StaffHero(user: user),
-                              const SizedBox(height: AppSpacing.lg),
-                              if (state.isInitialLoading)
-                                const AppLoading(
-                                  message: 'Loading staff workspace',
-                                  rows: 4,
-                                )
-                              else if (state.status ==
-                                      StaffHomeStatus.failure &&
-                                  state.summary == null)
-                                AppError(
-                                  title: 'Unable to load staff workspace',
-                                  message:
-                                      state.errorMessage ??
-                                      'Please try again later.',
-                                  onRetry: context.read<StaffHomeCubit>().retry,
-                                )
-                              else ...[
-                                _SummaryGrid(
-                                  summary: state.summary,
-                                  unreadCount: state.unreadCount,
-                                ),
+          child: BlocListener<StaffWorkspaceCubit, StaffWorkspaceState>(
+            listenWhen: (previous, current) =>
+                previous.reportRefreshRevision != current.reportRefreshRevision,
+            listener: (context, state) {
+              context.read<StaffHomeCubit>().refresh();
+            },
+            child: BlocBuilder<StaffHomeCubit, StaffHomeState>(
+              builder: (context, state) {
+                return RefreshIndicator(
+                  onRefresh: context.read<StaffHomeCubit>().refresh,
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        sliver: SliverToBoxAdapter(
+                          child: AppResponsive(
+                            maxWidth: 1040,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _StaffHero(user: user),
                                 const SizedBox(height: AppSpacing.lg),
-                                _StaffModules(unreadCount: state.unreadCount),
-                                const SizedBox(height: AppSpacing.lg),
-                                _RecentReports(
-                                  reports: state.recentReports,
-                                  hasSummary: state.summary != null,
-                                ),
-                                if (state.errorMessage != null) ...[
-                                  const SizedBox(height: AppSpacing.lg),
+                                if (state.isInitialLoading)
+                                  const AppLoading(
+                                    message: 'Loading staff workspace',
+                                    rows: 4,
+                                  )
+                                else if (state.status ==
+                                        StaffHomeStatus.failure &&
+                                    state.summary == null)
                                   AppError(
-                                    title: 'Workspace refresh failed',
-                                    message: state.errorMessage!,
+                                    title: 'Unable to load staff workspace',
+                                    message:
+                                        state.errorMessage ??
+                                        'Please try again later.',
                                     onRetry: context
                                         .read<StaffHomeCubit>()
                                         .retry,
+                                  )
+                                else ...[
+                                  _SummaryGrid(
+                                    summary: state.summary,
+                                    unreadCount: state.unreadCount,
                                   ),
+                                  const SizedBox(height: AppSpacing.lg),
+                                  _StaffModules(unreadCount: state.unreadCount),
+                                  const SizedBox(height: AppSpacing.lg),
+                                  _RecentReports(
+                                    reports: state.recentReports,
+                                    hasSummary: state.summary != null,
+                                  ),
+                                  if (state.errorMessage != null) ...[
+                                    const SizedBox(height: AppSpacing.lg),
+                                    AppError(
+                                      title: 'Workspace refresh failed',
+                                      message: state.errorMessage!,
+                                      onRetry: context
+                                          .read<StaffHomeCubit>()
+                                          .retry,
+                                    ),
+                                  ],
                                 ],
                               ],
-                            ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),

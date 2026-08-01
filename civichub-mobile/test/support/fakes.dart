@@ -396,12 +396,16 @@ class FakeStaffRepository implements StaffRepository {
   final List<ReportsPage<CitizenReportSummary>> _pages;
   final assignedCalls = <ReportRepositoryCall>[];
   final detailCalls = <int>[];
+  final statusUpdateCalls = <({int id, ReportStatus status})>[];
   int summaryCalls = 0;
   int recentCalls = 0;
   Object? summaryError;
   Object? recentError;
   Object? assignedError;
   Object? detailError;
+  Object? updateStatusError;
+  CitizenReportDetail? assignedReportDetail;
+  Future<CitizenReportDetail>? pendingUpdateStatusResponse;
 
   @override
   Future<StaffDashboardSummary> getDashboardSummary() async {
@@ -455,7 +459,22 @@ class FakeStaffRepository implements StaffRepository {
     if (detailError != null) {
       throw detailError!;
     }
-    return sampleReportDetail(id: id);
+    return assignedReportDetail ?? sampleReportDetail(id: id);
+  }
+
+  @override
+  Future<CitizenReportDetail> updateAssignedReportStatus(
+    int id,
+    ReportStatus status,
+  ) async {
+    statusUpdateCalls.add((id: id, status: status));
+    if (updateStatusError != null) {
+      throw updateStatusError!;
+    }
+    if (pendingUpdateStatusResponse != null) {
+      return pendingUpdateStatusResponse!;
+    }
+    return sampleReportDetail(id: id, status: status);
   }
 }
 

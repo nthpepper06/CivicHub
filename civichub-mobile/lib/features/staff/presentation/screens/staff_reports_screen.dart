@@ -14,6 +14,7 @@ import '../../../reports/domain/repositories/reports_repository.dart';
 import '../../domain/repositories/staff_repository.dart';
 import '../cubit/staff_reports_cubit.dart';
 import '../cubit/staff_reports_state.dart';
+import '../cubit/staff_workspace_cubit.dart';
 import '../widgets/staff_report_card.dart';
 import 'package:go_router/go_router.dart';
 
@@ -75,97 +76,106 @@ class _StaffReportsViewState extends State<_StaffReportsView> {
       appBar: AppBar(title: const Text('Assigned Reports')),
       body: CivicBackground(
         child: SafeArea(
-          child: BlocBuilder<StaffReportsCubit, StaffReportsState>(
-            builder: (context, state) {
-              if (_searchController.text != state.search) {
-                _searchController.text = state.search;
-                _searchController.selection = TextSelection.collapsed(
-                  offset: _searchController.text.length,
-                );
-              }
-              return RefreshIndicator(
-                onRefresh: context.read<StaffReportsCubit>().refresh,
-                child: CustomScrollView(
-                  controller: _scrollController,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    SliverPadding(
-                      padding: const EdgeInsets.all(AppSpacing.lg),
-                      sliver: SliverToBoxAdapter(
-                        child: AppResponsive(
-                          maxWidth: 1100,
-                          child: _FilterPanel(
-                            state: state,
-                            searchController: _searchController,
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (state.isInitialLoading)
-                      const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Padding(
-                          padding: EdgeInsets.all(AppSpacing.lg),
-                          child: AppResponsive(
-                            child: AppLoading(
-                              message: 'Loading assigned reports',
-                              rows: 4,
-                            ),
-                          ),
-                        ),
-                      )
-                    else if (state.status == StaffReportsStatus.failure &&
-                        state.reports.isEmpty)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.lg),
-                          child: AppResponsive(
-                            child: AppError(
-                              title: 'Unable to load assigned reports',
-                              message:
-                                  state.errorMessage ??
-                                  'Please try again later.',
-                              onRetry: context.read<StaffReportsCubit>().retry,
-                            ),
-                          ),
-                        ),
-                      )
-                    else if (state.reports.isEmpty)
-                      AppEmpty(
-                        title: state.hasActiveFilters
-                            ? 'No matching assigned reports'
-                            : 'No assigned reports',
-                        message: state.hasActiveFilters
-                            ? 'Adjust filters to review more department cases.'
-                            : 'Reports assigned to your department will appear here.',
-                        icon: Icons.assignment_ind_outlined,
-                      ).asSliver()
-                    else
+          child: BlocListener<StaffWorkspaceCubit, StaffWorkspaceState>(
+            listenWhen: (previous, current) =>
+                previous.reportRefreshRevision != current.reportRefreshRevision,
+            listener: (context, state) {
+              context.read<StaffReportsCubit>().refresh();
+            },
+            child: BlocBuilder<StaffReportsCubit, StaffReportsState>(
+              builder: (context, state) {
+                if (_searchController.text != state.search) {
+                  _searchController.text = state.search;
+                  _searchController.selection = TextSelection.collapsed(
+                    offset: _searchController.text.length,
+                  );
+                }
+                return RefreshIndicator(
+                  onRefresh: context.read<StaffReportsCubit>().refresh,
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
                       SliverPadding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.lg,
-                        ),
+                        padding: const EdgeInsets.all(AppSpacing.lg),
                         sliver: SliverToBoxAdapter(
                           child: AppResponsive(
                             maxWidth: 1100,
-                            child: _ReportCollection(state: state),
+                            child: _FilterPanel(
+                              state: state,
+                              searchController: _searchController,
+                            ),
                           ),
                         ),
                       ),
-                    SliverPadding(
-                      padding: const EdgeInsets.all(AppSpacing.lg),
-                      sliver: SliverToBoxAdapter(
-                        child: AppResponsive(
-                          maxWidth: 1100,
-                          child: _Footer(state: state),
+                      if (state.isInitialLoading)
+                        const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Padding(
+                            padding: EdgeInsets.all(AppSpacing.lg),
+                            child: AppResponsive(
+                              child: AppLoading(
+                                message: 'Loading assigned reports',
+                                rows: 4,
+                              ),
+                            ),
+                          ),
+                        )
+                      else if (state.status == StaffReportsStatus.failure &&
+                          state.reports.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpacing.lg),
+                            child: AppResponsive(
+                              child: AppError(
+                                title: 'Unable to load assigned reports',
+                                message:
+                                    state.errorMessage ??
+                                    'Please try again later.',
+                                onRetry: context
+                                    .read<StaffReportsCubit>()
+                                    .retry,
+                              ),
+                            ),
+                          ),
+                        )
+                      else if (state.reports.isEmpty)
+                        AppEmpty(
+                          title: state.hasActiveFilters
+                              ? 'No matching assigned reports'
+                              : 'No assigned reports',
+                          message: state.hasActiveFilters
+                              ? 'Adjust filters to review more department cases.'
+                              : 'Reports assigned to your department will appear here.',
+                          icon: Icons.assignment_ind_outlined,
+                        ).asSliver()
+                      else
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                          ),
+                          sliver: SliverToBoxAdapter(
+                            child: AppResponsive(
+                              maxWidth: 1100,
+                              child: _ReportCollection(state: state),
+                            ),
+                          ),
+                        ),
+                      SliverPadding(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        sliver: SliverToBoxAdapter(
+                          child: AppResponsive(
+                            maxWidth: 1100,
+                            child: _Footer(state: state),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),

@@ -18,4 +18,9 @@ abstract class StaffRepository {
   });
 
   Future<CitizenReportDetail> getAssignedReport(int id);
+
+  Future<CitizenReportDetail> updateAssignedReportStatus(
+    int id,
+    ReportStatus status,
+  );
 }

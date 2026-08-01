@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:civichub_mobile/core/network/api_exception.dart';
+import 'package:civichub_mobile/features/reports/domain/models/report_detail.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_status.dart';
 import 'package:civichub_mobile/features/reports/domain/repositories/reports_repository.dart';
+import 'package:civichub_mobile/features/staff/domain/models/staff_status_workflow.dart';
 import 'package:civichub_mobile/features/staff/domain/repositories/staff_repository.dart';
 import 'package:civichub_mobile/features/staff/presentation/cubit/staff_home_cubit.dart';
 import 'package:civichub_mobile/features/staff/presentation/cubit/staff_home_state.dart';
@@ -8,11 +12,32 @@ import 'package:civichub_mobile/features/staff/presentation/cubit/staff_report_d
 import 'package:civichub_mobile/features/staff/presentation/cubit/staff_report_detail_state.dart';
 import 'package:civichub_mobile/features/staff/presentation/cubit/staff_reports_cubit.dart';
 import 'package:civichub_mobile/features/staff/presentation/cubit/staff_reports_state.dart';
+import 'package:civichub_mobile/features/staff/presentation/cubit/staff_workspace_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 
 void main() {
+  group('StaffStatusWorkflow', () {
+    test('matches backend staff transition table', () {
+      expect(StaffStatusWorkflow.actionsFor(ReportStatus.pending), [
+        ReportStatus.received,
+        ReportStatus.rejected,
+      ]);
+      expect(StaffStatusWorkflow.actionsFor(ReportStatus.received), [
+        ReportStatus.inProgress,
+        ReportStatus.rejected,
+      ]);
+      expect(StaffStatusWorkflow.actionsFor(ReportStatus.inProgress), [
+        ReportStatus.resolved,
+        ReportStatus.rejected,
+      ]);
+      expect(StaffStatusWorkflow.actionsFor(ReportStatus.resolved), isEmpty);
+      expect(StaffStatusWorkflow.actionsFor(ReportStatus.rejected), isEmpty);
+      expect(StaffStatusWorkflow.actionsFor(ReportStatus.cancelled), isEmpty);
+    });
+  });
+
   group('StaffHomeCubit', () {
     test('loads summary, recent reports, and unread count', () async {
       final staffRepository = FakeStaffRepository();
@@ -53,6 +78,16 @@ void main() {
 
       expect(cubit.state.status, StaffHomeStatus.success);
       expect(staffRepository.summaryCalls, 2);
+    });
+  });
+
+  group('StaffWorkspaceCubit', () {
+    test('increments report refresh revision after workflow update', () {
+      final cubit = StaffWorkspaceCubit();
+
+      cubit.reportWorkflowUpdated();
+
+      expect(cubit.state.reportRefreshRevision, 1);
     });
   });
 
@@ -149,6 +184,75 @@ void main() {
       expect(cubit.state.status, StaffReportDetailStatus.success);
       expect(cubit.state.report?.id, 42);
       expect((staffRepository).detailCalls.single, 42);
+    });
+
+    test('updates status and exposes success message', () async {
+      final staffRepository = FakeStaffRepository();
+      final cubit = StaffReportDetailCubit(
+        staffRepository: staffRepository,
+        reportId: 42,
+      );
+      await cubit.load();
+
+      await cubit.updateStatus(ReportStatus.received);
+
+      expect(cubit.state.report?.status, ReportStatus.received);
+      expect(cubit.state.updateSuccessMessage, 'Report marked as received.');
+      expect(
+        staffRepository.statusUpdateCalls.single.status,
+        ReportStatus.received,
+      );
+    });
+
+    test('rejects unavailable transition without API call', () async {
+      final staffRepository = FakeStaffRepository();
+      final cubit = StaffReportDetailCubit(
+        staffRepository: staffRepository,
+        reportId: 42,
+      );
+      await cubit.load();
+
+      await cubit.updateStatus(ReportStatus.resolved);
+
+      expect(staffRepository.statusUpdateCalls, isEmpty);
+      expect(cubit.state.report?.status, ReportStatus.pending);
+    });
+
+    test('prevents duplicate status submissions', () async {
+      final completer = Completer<CitizenReportDetail>();
+      final staffRepository = FakeStaffRepository()
+        ..pendingUpdateStatusResponse = completer.future;
+      final cubit = StaffReportDetailCubit(
+        staffRepository: staffRepository,
+        reportId: 42,
+      );
+      await cubit.load();
+
+      final first = cubit.updateStatus(ReportStatus.received);
+      await cubit.updateStatus(ReportStatus.rejected);
+
+      expect(staffRepository.statusUpdateCalls, hasLength(1));
+      completer.complete(
+        sampleReportDetail(id: 42, status: ReportStatus.received),
+      );
+      await first;
+      expect(cubit.state.report?.status, ReportStatus.received);
+    });
+
+    test('reports update failure and keeps current detail', () async {
+      final staffRepository = FakeStaffRepository()
+        ..updateStatusError = ApiException.conflict;
+      final cubit = StaffReportDetailCubit(
+        staffRepository: staffRepository,
+        reportId: 42,
+      );
+      await cubit.load();
+
+      await cubit.updateStatus(ReportStatus.received);
+
+      expect(cubit.state.report?.status, ReportStatus.pending);
+      expect(cubit.state.updateErrorMessage, ApiException.conflict.message);
+      expect(cubit.state.isUpdatingStatus, isFalse);
     });
   });
 }

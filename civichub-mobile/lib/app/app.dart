@@ -22,6 +22,7 @@ import '../features/reports/domain/repositories/reports_repository.dart';
 import '../features/staff/data/datasources/staff_remote_data_source.dart';
 import '../features/staff/data/repositories/staff_repository_impl.dart';
 import '../features/staff/domain/repositories/staff_repository.dart';
+import '../features/staff/presentation/cubit/staff_workspace_cubit.dart';
 import 'routing/app_router.dart';
 
 class CivicHubApp extends StatefulWidget {
@@ -42,6 +43,7 @@ class _CivicHubAppState extends State<CivicHubApp> {
   late final NotificationsRepository _notificationsRepository;
   late final StaffRemoteDataSourceImpl _staffRemoteDataSource;
   late final StaffRepository _staffRepository;
+  late final StaffWorkspaceCubit _staffWorkspaceCubit;
   late final AuthCubit _authCubit;
   late final LoginCubit _loginCubit;
   late final GoRouter _router;
@@ -72,6 +74,7 @@ class _CivicHubAppState extends State<CivicHubApp> {
     _staffRepository = StaffRepositoryImpl(
       remoteDataSource: _staffRemoteDataSource,
     );
+    _staffWorkspaceCubit = StaffWorkspaceCubit();
     _authCubit = AuthCubit(authRepository: _authRepository);
     _loginCubit = LoginCubit(
       authRepository: _authRepository,
@@ -86,6 +89,7 @@ class _CivicHubAppState extends State<CivicHubApp> {
   void dispose() {
     _authCubit.close();
     _loginCubit.close();
+    _staffWorkspaceCubit.close();
     _apiClient.dio.close();
     super.dispose();
   }
@@ -119,6 +123,7 @@ class _CivicHubAppState extends State<CivicHubApp> {
         providers: [
           BlocProvider<AuthCubit>.value(value: _authCubit),
           BlocProvider<LoginCubit>.value(value: _loginCubit),
+          BlocProvider<StaffWorkspaceCubit>.value(value: _staffWorkspaceCubit),
         ],
         child: MaterialApp.router(
           title: 'CivicHub',

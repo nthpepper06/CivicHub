@@ -49,4 +49,16 @@ class StaffRepositoryImpl implements StaffRepository {
     final response = await _remoteDataSource.getAssignedReport(id);
     return response.toDomain();
   }
+
+  @override
+  Future<CitizenReportDetail> updateAssignedReportStatus(
+    int id,
+    ReportStatus status,
+  ) async {
+    final response = await _remoteDataSource.updateAssignedReportStatus(
+      id,
+      status,
+    );
+    return response.toDomain();
+  }
 }

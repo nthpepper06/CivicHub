@@ -1,0 +1,206 @@
+import 'package:civichub_mobile/features/reports/domain/models/report_status.dart';
+import 'package:civichub_mobile/features/staff/domain/repositories/staff_repository.dart';
+import 'package:civichub_mobile/features/staff/presentation/cubit/staff_workspace_cubit.dart';
+import 'package:civichub_mobile/features/staff/presentation/screens/staff_report_detail_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'support/fakes.dart';
+
+void main() {
+  setUp(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+  });
+
+  testWidgets('Staff detail renders report fields and allowed actions', (
+    tester,
+  ) async {
+    final repository = FakeStaffRepository();
+
+    await tester.pumpWidget(_App(repository: repository));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Broken sidewalk'), findsOneWidget);
+    expect(find.text('Uneven pavement near the bus stop.'), findsOneWidget);
+    expect(find.text('12 Nguyen Hue'), findsOneWidget);
+    expect(find.text('Nguyen Minh Anh'), findsOneWidget);
+    expect(find.text('Mark Received'), findsOneWidget);
+    expect(find.text('Mark Rejected'), findsOneWidget);
+    expect(find.text('Mark Resolved'), findsNothing);
+  });
+
+  testWidgets('Staff detail updates status and shows success feedback', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = FakeStaffRepository();
+
+    await tester.pumpWidget(_App(repository: repository));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Mark Received'));
+    await tester.tap(find.text('Mark Received'));
+    await tester.pumpAndSettle();
+
+    expect(repository.statusUpdateCalls.single.status, ReportStatus.received);
+    expect(find.text('Report marked as received.'), findsOneWidget);
+    expect(find.text('Received'), findsWidgets);
+  });
+
+  testWidgets('terminal resolved state renders completed workflow copy', (
+    tester,
+  ) async {
+    final repository = FakeStaffRepository()
+      ..assignedReportDetail = sampleReportDetail(
+        status: ReportStatus.resolved,
+      );
+
+    await tester.pumpWidget(_App(repository: repository));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Workflow completed'), findsOneWidget);
+    expect(
+      find.text(
+        'This report has reached its final status. No further staff action is required.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.lock_outline), findsNothing);
+  });
+
+  testWidgets('terminal rejected state renders case closed copy', (
+    tester,
+  ) async {
+    final repository = FakeStaffRepository()
+      ..assignedReportDetail = sampleReportDetail(
+        status: ReportStatus.rejected,
+      );
+
+    await tester.pumpWidget(_App(repository: repository));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Case closed'), findsOneWidget);
+    expect(
+      find.text(
+        'This report has been rejected and no further staff action is available.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('terminal cancelled state renders case cancelled copy', (
+    tester,
+  ) async {
+    final repository = FakeStaffRepository()
+      ..assignedReportDetail = sampleReportDetail(
+        status: ReportStatus.cancelled,
+      );
+
+    await tester.pumpWidget(_App(repository: repository));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Case cancelled'), findsOneWidget);
+    expect(
+      find.text('This report was cancelled and cannot be processed further.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('current-state section does not claim timeline history', (
+    tester,
+  ) async {
+    final repository = FakeStaffRepository();
+
+    await tester.pumpWidget(_App(repository: repository));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Current state'), findsOneWidget);
+    expect(find.text('Timeline'), findsNothing);
+    expect(find.text('Latest status from the report record.'), findsOneWidget);
+  });
+
+  testWidgets('empty attachments render compact no-attachments state', (
+    tester,
+  ) async {
+    final repository = FakeStaffRepository();
+
+    await tester.pumpWidget(_App(repository: repository));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Images'), findsOneWidget);
+    expect(find.text('No attachments'), findsOneWidget);
+  });
+
+  testWidgets('canceling terminal confirmation sends no request', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = FakeStaffRepository()
+      ..assignedReportDetail = sampleReportDetail(
+        status: ReportStatus.inProgress,
+      );
+
+    await tester.pumpWidget(_App(repository: repository));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Mark Resolved'));
+    await tester.tap(find.text('Mark Resolved'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mark this report as resolved?'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(repository.statusUpdateCalls, isEmpty);
+  });
+
+  testWidgets('confirming terminal confirmation sends exactly one request', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = FakeStaffRepository()
+      ..assignedReportDetail = sampleReportDetail(
+        status: ReportStatus.inProgress,
+      );
+
+    await tester.pumpWidget(_App(repository: repository));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Mark Resolved'));
+    await tester.tap(find.text('Mark Resolved'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm'));
+    await tester.pumpAndSettle();
+
+    expect(repository.statusUpdateCalls, hasLength(1));
+    expect(repository.statusUpdateCalls.single.status, ReportStatus.resolved);
+    expect(find.text('Report marked as resolved.'), findsOneWidget);
+  });
+}
+
+class _App extends StatelessWidget {
+  const _App({required this.repository});
+
+  final FakeStaffRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return RepositoryProvider<StaffRepository>.value(
+      value: repository,
+      child: BlocProvider(
+        create: (_) => StaffWorkspaceCubit(),
+        child: const MaterialApp(home: StaffReportDetailScreen(reportId: 42)),
+      ),
+    );
+  }
+}
