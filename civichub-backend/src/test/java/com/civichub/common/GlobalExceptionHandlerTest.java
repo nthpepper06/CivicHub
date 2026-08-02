@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.civichub.ai.exception.AIInvalidApiKeyException;
+import com.civichub.ai.exception.AITimeoutException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -57,6 +59,21 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.message").value("Resource already exists or violates data constraints"));
     }
 
+    @Test
+    void aiTimeoutShouldReturnSafeGatewayTimeout() throws Exception {
+        mockMvc.perform(get("/test/ai-timeout"))
+                .andExpect(status().isGatewayTimeout())
+                .andExpect(jsonPath("$.message").value("AI provider request timed out"));
+    }
+
+    @Test
+    void aiInvalidApiKeyShouldNotExposeSecret() throws Exception {
+        mockMvc.perform(get("/test/ai-invalid-key"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("AI provider authentication failed"))
+                .andExpect(jsonPath("$.message").value(not(containsString("secret-key"))));
+    }
+
     @RestController
     private static class TestController {
 
@@ -79,6 +96,16 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/test/generic-data-integrity")
         void genericDataIntegrity() {
             throw new DataIntegrityViolationException("duplicate key value violates unique constraint");
+        }
+
+        @GetMapping("/test/ai-timeout")
+        void aiTimeout() {
+            throw new AITimeoutException();
+        }
+
+        @GetMapping("/test/ai-invalid-key")
+        void aiInvalidKey() {
+            throw new AIInvalidApiKeyException();
         }
     }
 }

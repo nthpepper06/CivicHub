@@ -2,6 +2,7 @@ package com.civichub.report.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -11,6 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.civichub.common.exception.ResourceNotFoundException;
 import com.civichub.report.dto.response.ReportDetailResponse;
+import com.civichub.report.dto.response.ReportImageUploadResponse;
+import com.civichub.report.service.ReportImageUploadService;
 import com.civichub.report.service.ReportService;
 import com.civichub.security.CustomUserDetailsService;
 import com.civichub.security.JwtAuthenticationFilter;
@@ -24,6 +27,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(ReportController.class)
@@ -40,6 +44,9 @@ class ReportControllerTest {
 
     @MockBean
     private ReportService reportService;
+
+    @MockBean
+    private ReportImageUploadService reportImageUploadService;
 
     @MockBean
     private JwtService jwtService;
@@ -65,6 +72,40 @@ class ReportControllerTest {
                         .content(validCreateBody()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.id").value(99));
+    }
+
+    @Test
+    void authenticatedCitizenCanUploadReportImage() throws Exception {
+        MockMultipartFile image = new MockMultipartFile(
+                "file",
+                "street.png",
+                MediaType.IMAGE_PNG_VALUE,
+                "image-bytes".getBytes());
+        when(reportImageUploadService.upload(any())).thenReturn(ReportImageUploadResponse.builder()
+                .url("http://localhost:8080/uploads/report-images/street.png")
+                .fileName("street.png")
+                .contentType(MediaType.IMAGE_PNG_VALUE)
+                .size(11)
+                .build());
+
+        mockMvc.perform(multipart("/api/reports/images")
+                        .file(image)
+                        .with(user("citizen@example.com").roles("CITIZEN")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.url").value("http://localhost:8080/uploads/report-images/street.png"))
+                .andExpect(jsonPath("$.data.contentType").value(MediaType.IMAGE_PNG_VALUE));
+    }
+
+    @Test
+    void unauthenticatedUploadShouldReturnUnauthorized() throws Exception {
+        MockMultipartFile image = new MockMultipartFile(
+                "file",
+                "street.png",
+                MediaType.IMAGE_PNG_VALUE,
+                "image-bytes".getBytes());
+
+        mockMvc.perform(multipart("/api/reports/images").file(image))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

@@ -6,6 +6,7 @@ import 'package:civichub_mobile/core/network/api_client.dart';
 import 'package:civichub_mobile/core/network/api_exception.dart';
 import 'package:civichub_mobile/features/reports/data/datasources/reports_remote_data_source.dart';
 import 'package:civichub_mobile/features/reports/domain/models/create_report_request.dart';
+import 'package:civichub_mobile/features/reports/domain/models/report_image_upload_file.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_status.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -120,6 +121,42 @@ void main() {
       });
       expect(created.status, ReportStatus.pending);
       expect(created.images.single.url, 'https://example.com/a.jpg');
+    },
+  );
+
+  test(
+    'Remote data source uploads report image as multipart with auth',
+    () async {
+      final storage = MemoryAuthTokenStorage();
+      await storage.saveAccessToken('jwt-token');
+      final adapter = JsonAdapter(const {
+        'success': true,
+        'message': 'Report image uploaded',
+        'data': {
+          'url': 'http://localhost:8080/uploads/report-images/a.png',
+          'fileName': 'a.png',
+          'contentType': 'image/png',
+          'size': 4,
+        },
+      }, statusCode: 201);
+      final client = ApiClient(tokenStorage: storage);
+      client.dio.httpClientAdapter = adapter;
+      final dataSource = ReportsRemoteDataSourceImpl(apiClient: client);
+
+      final uploaded = await dataSource.uploadReportImage(
+        ReportImageUploadFile(
+          fileName: 'a.png',
+          contentType: 'image/png',
+          bytes: Uint8List.fromList([1, 2, 3, 4]),
+        ),
+      );
+
+      expect(adapter.request?.method, 'POST');
+      expect(adapter.request?.path, '/api/reports/images');
+      expect(adapter.request?.headers['Authorization'], 'Bearer jwt-token');
+      expect(adapter.request?.data, isA<FormData>());
+      expect(uploaded.url, 'http://localhost:8080/uploads/report-images/a.png');
+      expect(uploaded.contentType, 'image/png');
     },
   );
 

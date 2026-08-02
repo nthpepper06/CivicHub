@@ -485,7 +485,7 @@ void main() {
     await tester.tap(find.text('Roads').last);
     await tester.pumpAndSettle();
     final submitButton = find.widgetWithText(FilledButton, 'Submit Report');
-    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    await tester.ensureVisible(submitButton);
     await tester.pumpAndSettle();
     await tester.tap(submitButton);
     await tester.pump();
@@ -519,30 +519,25 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'Road hazard');
-    await tester.enterText(
-      find.byType(TextFormField).at(1),
-      'Large pothole near the bus stop',
-    );
+    await tester.enterText(find.byType(TextFormField).at(0), 'Ward 1');
     await tester.tap(find.byType(DropdownButtonFormField<int>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Roads').last);
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextFormField).at(2), 'Ward 1');
-    await tester.ensureVisible(find.byType(TextFormField).at(5));
+    await tester.ensureVisible(find.byType(TextFormField).at(3));
+    await tester.enterText(find.byType(TextFormField).at(3), 'Road hazard');
     await tester.enterText(
-      find.byType(TextFormField).at(5),
-      'https://example.com/report.jpg',
+      find.byType(TextFormField).at(4),
+      'Large pothole near the bus stop',
     );
-    await tester.ensureVisible(find.text('Submit Report'));
-    await tester.tap(find.text('Submit Report'));
+    final submitButton = find.widgetWithText(FilledButton, 'Submit Report');
+    await tester.ensureVisible(submitButton);
+    await tester.tap(submitButton);
     await tester.pumpAndSettle();
 
     expect(repository.createRequests.single.title, 'Road hazard');
     expect(repository.createRequests.single.categoryId, 7);
-    expect(repository.createRequests.single.imageUrls, [
-      'https://example.com/report.jpg',
-    ]);
+    expect(repository.createRequests.single.imageUrls, isEmpty);
     expect(find.text('Reports refreshed'), findsOneWidget);
   });
 
@@ -786,9 +781,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'Updated title');
+    await tester.ensureVisible(find.byType(TextFormField).at(3));
+    await tester.enterText(find.byType(TextFormField).at(3), 'Updated title');
     final updateButton = find.widgetWithText(FilledButton, 'Update Report');
-    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    await tester.ensureVisible(updateButton);
     await tester.pumpAndSettle();
     await tester.tap(updateButton);
     await tester.pumpAndSettle();

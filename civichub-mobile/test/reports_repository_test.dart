@@ -1,10 +1,14 @@
+import 'dart:typed_data';
+
 import 'package:civichub_mobile/features/reports/data/datasources/reports_remote_data_source.dart';
 import 'package:civichub_mobile/features/reports/data/models/category_response.dart';
 import 'package:civichub_mobile/features/reports/data/models/report_detail_response.dart';
+import 'package:civichub_mobile/features/reports/data/models/report_image_upload_response.dart';
 import 'package:civichub_mobile/features/reports/data/models/report_summary_response.dart';
 import 'package:civichub_mobile/features/reports/data/models/reports_page_response.dart';
 import 'package:civichub_mobile/features/reports/data/repositories/reports_repository_impl.dart';
 import 'package:civichub_mobile/features/reports/domain/models/create_report_request.dart';
+import 'package:civichub_mobile/features/reports/domain/models/report_image_upload_file.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_status.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -45,6 +49,18 @@ class FakeReportsRemoteDataSource implements ReportsRemoteDataSource {
         {'id': 1, 'url': 'https://example.com/a.jpg', 'displayOrder': 0},
       ],
     });
+  }
+
+  @override
+  Future<ReportImageUploadResponse> uploadReportImage(
+    ReportImageUploadFile file,
+  ) async {
+    return ReportImageUploadResponse(
+      url: 'https://uploads.test/${file.fileName}',
+      fileName: file.fileName,
+      contentType: file.contentType,
+      size: file.size,
+    );
   }
 
   @override
@@ -210,6 +226,32 @@ void main() {
       expect(remote.createRequests.single.categoryId, 7);
     },
   );
+
+  test('Repository uploads report image through remote data source', () async {
+    final remote = FakeReportsRemoteDataSource(
+      const ReportsPageResponse(
+        content: [],
+        page: 0,
+        size: 10,
+        totalElements: 0,
+        totalPages: 0,
+        first: true,
+        last: true,
+      ),
+    );
+    final repository = ReportsRepositoryImpl(remoteDataSource: remote);
+
+    final uploaded = await repository.uploadReportImage(
+      ReportImageUploadFile(
+        fileName: 'field.png',
+        contentType: 'image/png',
+        bytes: Uint8List.fromList([1, 2, 3]),
+      ),
+    );
+
+    expect(uploaded.url, 'https://uploads.test/field.png');
+    expect(uploaded.contentType, 'image/png');
+  });
 
   test('Repository maps detail fetch to domain model', () async {
     final remote = FakeReportsRemoteDataSource(

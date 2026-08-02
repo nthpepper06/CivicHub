@@ -6,13 +6,16 @@ import com.civichub.common.enums.ReportStatus;
 import com.civichub.report.dto.request.ReportCreateRequest;
 import com.civichub.report.dto.request.ReportUpdateRequest;
 import com.civichub.report.dto.response.ReportDetailResponse;
+import com.civichub.report.dto.response.ReportImageUploadResponse;
 import com.civichub.report.dto.response.ReportSummaryResponse;
+import com.civichub.report.service.ReportImageUploadService;
 import com.civichub.report.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/reports")
@@ -33,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ReportController {
 
     private final ReportService reportService;
+    private final ReportImageUploadService reportImageUploadService;
 
     @Operation(summary = "Create a citizen report")
     @PostMapping
@@ -40,6 +45,14 @@ public class ReportController {
             @Valid @RequestBody ReportCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Report created", reportService.createReport(request)));
+    }
+
+    @Operation(summary = "Upload a report image")
+    @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<ReportImageUploadResponse>> uploadReportImage(
+            @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Report image uploaded", reportImageUploadService.upload(file)));
     }
 
     @Operation(summary = "List current citizen reports")

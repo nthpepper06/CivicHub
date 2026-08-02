@@ -1,5 +1,6 @@
 package com.civichub.common;
 
+import com.civichub.ai.exception.AIException;
 import com.civichub.common.exception.AccountDisabledException;
 import com.civichub.common.exception.InvalidReportStateException;
 import com.civichub.common.exception.ResourceAlreadyExistsException;
@@ -112,6 +113,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ErrorResponse.of(exception.getMessage()));
+    }
+
+    @ExceptionHandler(AIException.class)
+    public ResponseEntity<ErrorResponse> handleAIException(AIException exception) {
+        log.warn("AI platform error code={} status={}", exception.getCode(), exception.getStatus());
+        return ResponseEntity.status(exception.getStatus())
                 .body(ErrorResponse.of(exception.getMessage()));
     }
 

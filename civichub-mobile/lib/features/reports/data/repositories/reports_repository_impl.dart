@@ -1,9 +1,11 @@
 import '../../domain/models/create_report_request.dart';
 import '../../domain/models/report_category.dart';
 import '../../domain/models/report_detail.dart';
+import '../../domain/models/report_image_upload_file.dart';
 import '../../domain/models/report_status.dart';
 import '../../domain/models/report_summary.dart';
 import '../../domain/models/reports_page.dart';
+import '../../domain/models/uploaded_report_image.dart';
 import '../../domain/repositories/reports_repository.dart';
 import '../datasources/reports_remote_data_source.dart';
 
@@ -22,6 +24,14 @@ class ReportsRepositoryImpl implements ReportsRepository {
   @override
   Future<CitizenReportDetail> createReport(CreateReportRequest request) async {
     final response = await _remoteDataSource.createReport(request);
+    return response.toDomain();
+  }
+
+  @override
+  Future<UploadedReportImage> uploadReportImage(
+    ReportImageUploadFile file,
+  ) async {
+    final response = await _remoteDataSource.uploadReportImage(file);
     return response.toDomain();
   }
 

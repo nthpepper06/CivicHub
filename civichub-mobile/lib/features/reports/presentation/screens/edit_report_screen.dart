@@ -1,23 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_empty.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_text_field.dart';
-import '../../../../core/widgets/civic_page_shell.dart';
 import '../../../../core/widgets/civic_background.dart';
+import '../../../../core/widgets/civic_page_shell.dart';
 import '../../../../core/widgets/location_picker.dart';
 import '../../domain/models/create_report_request.dart';
 import '../../domain/models/report_category.dart';
 import '../../domain/models/report_detail.dart';
+import '../../domain/models/report_image_upload_file.dart';
 import '../../domain/models/report_status.dart';
 import '../../domain/repositories/reports_repository.dart';
 import '../cubit/edit_report_cubit.dart';
 import '../cubit/edit_report_state.dart';
+import '../widgets/field_report_image_picker.dart';
 
 class EditReportScreen extends StatelessWidget {
   const EditReportScreen({
@@ -50,14 +54,21 @@ class _EditReportView extends StatefulWidget {
 }
 
 class _EditReportViewState extends State<_EditReportView> {
+  static const _maxImageBytes = 5 * 1024 * 1024;
+
   final _formKey = GlobalKey<FormState>();
+  final _imagePicker = ImagePicker();
   late final TextEditingController _titleController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _addressController;
   late final TextEditingController _latitudeController;
   late final TextEditingController _longitudeController;
-  late final List<TextEditingController> _imageControllers;
+  final _images = <FieldReportImage>[];
+
   bool _controllersInitialized = false;
+  bool _uploadingImages = false;
+  String? _imageErrorMessage;
+  int _imageSequence = 0;
 
   @override
   void initState() {
@@ -70,15 +81,12 @@ class _EditReportViewState extends State<_EditReportView> {
 
   @override
   void dispose() {
-    if (_hasControllers) {
+    if (_controllersInitialized) {
       _titleController.dispose();
       _descriptionController.dispose();
       _addressController.dispose();
       _latitudeController.dispose();
       _longitudeController.dispose();
-      for (final controller in _imageControllers) {
-        controller.dispose();
-      }
     }
     super.dispose();
   }
@@ -93,32 +101,200 @@ class _EditReportViewState extends State<_EditReportView> {
     _longitudeController = TextEditingController(
       text: report.longitude?.toString() ?? '',
     );
-    _imageControllers = report.images.isEmpty
-        ? [TextEditingController()]
-        : [
-            for (final image in report.images)
-              TextEditingController(text: image.url),
-          ];
+    _images
+      ..clear()
+      ..addAll([
+        for (final image in report.images)
+          FieldReportImage.remote(id: 'remote-${image.id}', url: image.url),
+      ]);
     _controllersInitialized = true;
   }
 
-  void _addImageUrlField() {
-    if (_imageControllers.length >= 5) {
+  Future<void> _takePhoto() async {
+    await _pickSingleImage(ImageSource.camera);
+  }
+
+  Future<void> _chooseGallery() async {
+    final remaining = maxFieldReportImages - _images.length;
+    if (remaining <= 0) {
+      _setImageError('You can attach up to $maxFieldReportImages images.');
+      return;
+    }
+    try {
+      final files = await _imagePicker.pickMultiImage(
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 82,
+        limit: remaining,
+        requestFullMetadata: false,
+      );
+      await _addPickedFiles(files.take(remaining));
+    } on PlatformException catch (error) {
+      _setImageError(_permissionMessage(error));
+    }
+  }
+
+  Future<void> _replaceImage(int index) async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: const Text('Retake with camera'),
+                onTap: () => Navigator.of(context).pop(ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Replace from gallery'),
+                onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (source == null) {
+      return;
+    }
+    try {
+      final file = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 82,
+        requestFullMetadata: false,
+      );
+      if (file == null) {
+        return;
+      }
+      final image = await _toFieldImage(file);
+      setState(() {
+        _images[index] = image;
+        _imageErrorMessage = null;
+      });
+    } on PlatformException catch (error) {
+      _setImageError(_permissionMessage(error));
+    } on FormatException catch (error) {
+      _setImageError(error.message);
+    }
+  }
+
+  Future<void> _pickSingleImage(ImageSource source) async {
+    if (_images.length >= maxFieldReportImages) {
+      _setImageError('You can attach up to $maxFieldReportImages images.');
+      return;
+    }
+    try {
+      final file = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 82,
+        requestFullMetadata: false,
+      );
+      if (file == null) {
+        return;
+      }
+      await _addPickedFiles([file]);
+    } on PlatformException catch (error) {
+      _setImageError(_permissionMessage(error));
+    }
+  }
+
+  Future<void> _addPickedFiles(Iterable<XFile> files) async {
+    final nextImages = <FieldReportImage>[];
+    for (final file in files) {
+      nextImages.add(await _toFieldImage(file));
+    }
+    if (nextImages.isEmpty) {
       return;
     }
     setState(() {
-      _imageControllers.add(TextEditingController());
+      _images.addAll(nextImages);
+      _imageErrorMessage = null;
     });
   }
 
-  void _removeImageUrlField(int index) {
-    if (_imageControllers.length == 1) {
-      _imageControllers.single.clear();
+  Future<FieldReportImage> _toFieldImage(XFile file) async {
+    final bytes = await file.readAsBytes();
+    if (bytes.lengthInBytes > _maxImageBytes) {
+      throw const FormatException('Image file must be 5 MB or smaller.');
+    }
+    final contentType = file.mimeType ?? _contentTypeFromName(file.name);
+    if (!_isSupportedContentType(contentType)) {
+      throw const FormatException(
+        'Only JPEG, PNG, or WebP images are supported.',
+      );
+    }
+    return FieldReportImage.local(
+      id: 'local-${_imageSequence++}',
+      fileName: file.name.isEmpty ? 'report-image.jpg' : file.name,
+      contentType: contentType,
+      bytes: bytes,
+    );
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _images.removeAt(index);
+      _imageErrorMessage = null;
+    });
+  }
+
+  void _moveImage(int from, int to) {
+    if (to < 0 || to >= _images.length) {
       return;
     }
     setState(() {
-      _imageControllers.removeAt(index).dispose();
+      final image = _images.removeAt(from);
+      _images.insert(to, image);
     });
+  }
+
+  Future<List<String>?> _uploadImages() async {
+    setState(() {
+      _uploadingImages = true;
+      _imageErrorMessage = null;
+    });
+    final repository = context.read<ReportsRepository>();
+    final urls = <String>[];
+    try {
+      for (final image in _images) {
+        final remoteUrl = image.url;
+        if (remoteUrl != null) {
+          urls.add(remoteUrl);
+          continue;
+        }
+        final bytes = image.bytes;
+        if (bytes == null) {
+          continue;
+        }
+        final uploaded = await repository.uploadReportImage(
+          ReportImageUploadFile(
+            fileName: image.fileName,
+            contentType: image.contentType,
+            bytes: bytes,
+          ),
+        );
+        urls.add(uploaded.url);
+      }
+      return urls;
+    } on ApiException catch (error) {
+      _setImageError(error.message);
+      return null;
+    } catch (_) {
+      _setImageError('Image upload failed. Please try again.');
+      return null;
+    } finally {
+      if (mounted) {
+        setState(() => _uploadingImages = false);
+      }
+    }
   }
 
   Future<void> _update(EditReportState state) async {
@@ -132,6 +308,11 @@ class _EditReportViewState extends State<_EditReportView> {
       return;
     }
 
+    final imageUrls = await _uploadImages();
+    if (imageUrls == null || !mounted) {
+      return;
+    }
+
     await context.read<EditReportCubit>().update(
       CreateReportRequest(
         title: _titleController.text,
@@ -140,10 +321,7 @@ class _EditReportViewState extends State<_EditReportView> {
         categoryId: categoryId,
         latitude: _nullableDouble(_latitudeController.text),
         longitude: _nullableDouble(_longitudeController.text),
-        imageUrls: _imageControllers
-            .map((controller) => controller.text.trim())
-            .where((url) => url.isNotEmpty)
-            .toList(),
+        imageUrls: imageUrls,
       ),
     );
   }
@@ -242,6 +420,7 @@ class _EditReportViewState extends State<_EditReportView> {
                   );
                 }
 
+                final busy = _isUpdating(state);
                 return Form(
                   key: _formKey,
                   child: CivicPageShell(
@@ -251,53 +430,27 @@ class _EditReportViewState extends State<_EditReportView> {
                       const CivicHeroPanel(
                         title: 'Case Update',
                         subtitle:
-                            'Refine this pending civic case before city processing begins.',
+                            'Adjust evidence, location, and details while this case is still pending.',
                         icon: Icons.edit_location_alt_outlined,
                       ),
                       const SizedBox(height: AppSpacing.lg),
                       CivicFormSection(
-                        title: 'Issue details',
-                        subtitle: 'Keep the title and description actionable.',
-                        icon: Icons.article_outlined,
+                        title: 'Images',
+                        subtitle:
+                            'Add, replace, remove, or reorder attached evidence.',
+                        icon: Icons.image_outlined,
                         children: [
-                          AppTextField(
-                            label: 'Title',
-                            controller: _titleController,
-                            textInputAction: TextInputAction.next,
-                            enabled: !_isUpdating(state),
-                            validator: (value) => _requiredMax(
-                              value,
-                              requiredMessage: 'Title is required',
-                              maxLength: 200,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.lg),
-                          AppTextField(
-                            label: 'Description',
-                            controller: _descriptionController,
-                            keyboardType: TextInputType.multiline,
-                            textInputAction: TextInputAction.newline,
-                            minLines: 4,
-                            maxLines: 6,
-                            enabled: !_isUpdating(state),
-                            validator: (value) => _requiredMax(
-                              value,
-                              requiredMessage: 'Description is required',
-                              maxLength: 5000,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      CivicFormSection(
-                        title: 'Classification',
-                        subtitle: 'Preserve accurate routing for city teams.',
-                        icon: Icons.category_outlined,
-                        children: [
-                          _CategoryPicker(
-                            categories: state.categories,
-                            selectedCategoryId: state.selectedCategoryId,
-                            enabled: !_isUpdating(state),
+                          FieldReportImagePicker(
+                            images: _images,
+                            enabled: !busy,
+                            uploading: _uploadingImages,
+                            errorMessage: _imageErrorMessage,
+                            onTakePhoto: _takePhoto,
+                            onChooseGallery: _chooseGallery,
+                            onRemove: _removeImage,
+                            onReplace: _replaceImage,
+                            onMoveUp: (index) => _moveImage(index, index - 1),
+                            onMoveDown: (index) => _moveImage(index, index + 1),
                           ),
                         ],
                       ),
@@ -312,21 +465,54 @@ class _EditReportViewState extends State<_EditReportView> {
                             addressController: _addressController,
                             latitudeController: _latitudeController,
                             longitudeController: _longitudeController,
-                            enabled: !_isUpdating(state),
+                            enabled: !busy,
                           ),
                         ],
                       ),
                       const SizedBox(height: AppSpacing.lg),
                       CivicFormSection(
-                        title: 'Media',
-                        subtitle: 'Keep relevant image references attached.',
-                        icon: Icons.image_outlined,
+                        title: 'Category',
+                        subtitle: 'Preserve accurate routing for city teams.',
+                        icon: Icons.category_outlined,
                         children: [
-                          _ImageUrlFields(
-                            controllers: _imageControllers,
-                            enabled: !_isUpdating(state),
-                            onAdd: _addImageUrlField,
-                            onRemove: _removeImageUrlField,
+                          _CategoryPicker(
+                            categories: state.categories,
+                            selectedCategoryId: state.selectedCategoryId,
+                            enabled: !busy,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      CivicFormSection(
+                        title: 'Description',
+                        subtitle: 'Keep the title and description actionable.',
+                        icon: Icons.article_outlined,
+                        children: [
+                          AppTextField(
+                            label: 'Title',
+                            controller: _titleController,
+                            textInputAction: TextInputAction.next,
+                            enabled: !busy,
+                            validator: (value) => _requiredMax(
+                              value,
+                              requiredMessage: 'Title is required',
+                              maxLength: 200,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          AppTextField(
+                            label: 'Description',
+                            controller: _descriptionController,
+                            keyboardType: TextInputType.multiline,
+                            textInputAction: TextInputAction.newline,
+                            minLines: 4,
+                            maxLines: 6,
+                            enabled: !busy,
+                            validator: (value) => _requiredMax(
+                              value,
+                              requiredMessage: 'Description is required',
+                              maxLength: 5000,
+                            ),
                           ),
                         ],
                       ),
@@ -339,11 +525,9 @@ class _EditReportViewState extends State<_EditReportView> {
                       ],
                       const SizedBox(height: AppSpacing.xl),
                       AppButton(
-                        label: _isUpdating(state)
-                            ? 'Updating...'
-                            : 'Update Report',
+                        label: busy ? 'Updating...' : 'Update Report',
                         icon: Icons.save_outlined,
-                        onPressed: state.canSubmit
+                        onPressed: state.canSubmit && !_uploadingImages
                             ? () => _update(state)
                             : null,
                       ),
@@ -359,7 +543,8 @@ class _EditReportViewState extends State<_EditReportView> {
   }
 
   bool _isUpdating(EditReportState state) {
-    return state.submitStatus == EditReportSubmitStatus.updating;
+    return state.submitStatus == EditReportSubmitStatus.updating ||
+        _uploadingImages;
   }
 
   String? _requiredMax(
@@ -385,7 +570,42 @@ class _EditReportViewState extends State<_EditReportView> {
     return double.tryParse(normalized);
   }
 
-  bool get _hasControllers => _controllersInitialized;
+  String _contentTypeFromName(String name) {
+    final normalized = name.toLowerCase();
+    if (normalized.endsWith('.png')) {
+      return 'image/png';
+    }
+    if (normalized.endsWith('.webp')) {
+      return 'image/webp';
+    }
+    return 'image/jpeg';
+  }
+
+  bool _isSupportedContentType(String contentType) {
+    return const {
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    }.contains(contentType);
+  }
+
+  String _permissionMessage(PlatformException error) {
+    final code = error.code.toLowerCase();
+    if (code.contains('camera')) {
+      return 'Camera is unavailable or permission was denied.';
+    }
+    if (code.contains('photo') || code.contains('gallery')) {
+      return 'Photo library permission was denied.';
+    }
+    return 'Unable to select an image. Please try again.';
+  }
+
+  void _setImageError(String message) {
+    if (!mounted) {
+      return;
+    }
+    setState(() => _imageErrorMessage = message);
+  }
 }
 
 class _CategoryPicker extends StatelessWidget {
@@ -412,72 +632,6 @@ class _CategoryPicker extends StatelessWidget {
           ? (value) => context.read<EditReportCubit>().selectCategory(value)
           : null,
       validator: (value) => value == null ? 'Category is required' : null,
-    );
-  }
-}
-
-class _ImageUrlFields extends StatelessWidget {
-  const _ImageUrlFields({
-    required this.controllers,
-    required this.enabled,
-    required this.onAdd,
-    required this.onRemove,
-  });
-
-  final List<TextEditingController> controllers;
-  final bool enabled;
-  final VoidCallback onAdd;
-  final ValueChanged<int> onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Image URLs',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(color: AppColors.muted),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        for (var index = 0; index < controllers.length; index++) ...[
-          TextFormField(
-            controller: controllers[index],
-            enabled: enabled,
-            keyboardType: TextInputType.url,
-            textInputAction: index == controllers.length - 1
-                ? TextInputAction.done
-                : TextInputAction.next,
-            decoration: InputDecoration(
-              hintText: 'Optional image URL',
-              prefixIcon: const Icon(Icons.link),
-              suffixIcon: IconButton(
-                tooltip: 'Remove image URL',
-                onPressed: enabled ? () => onRemove(index) : null,
-                icon: const Icon(Icons.close),
-              ),
-            ),
-            validator: (value) {
-              final normalized = value?.trim() ?? '';
-              if (normalized.isEmpty) {
-                return null;
-              }
-              if (normalized.length > 2000) {
-                return 'Must be 2000 characters or fewer';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: AppSpacing.sm),
-        ],
-        AppButton(
-          label: 'Add Image URL',
-          icon: Icons.add_photo_alternate_outlined,
-          variant: AppButtonVariant.outline,
-          onPressed: enabled && controllers.length < 5 ? onAdd : null,
-        ),
-      ],
     );
   }
 }

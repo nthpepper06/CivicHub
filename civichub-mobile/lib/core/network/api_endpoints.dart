@@ -4,6 +4,7 @@ class ApiEndpoints {
   static const authChangePassword = '/api/auth/change-password';
   static const categories = '/api/categories';
   static const reports = '/api/reports';
+  static const reportImages = '/api/reports/images';
   static const myReports = '/api/reports/my';
   static const notifications = '/api/notifications';
   static const unreadNotificationCount = '/api/notifications/unread-count';

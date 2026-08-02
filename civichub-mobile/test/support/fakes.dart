@@ -14,9 +14,11 @@ import 'package:civichub_mobile/features/notifications/domain/repositories/notif
 import 'package:civichub_mobile/features/reports/domain/models/create_report_request.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_category.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_detail.dart';
+import 'package:civichub_mobile/features/reports/domain/models/report_image_upload_file.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_status.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_summary.dart';
 import 'package:civichub_mobile/features/reports/domain/models/reports_page.dart';
+import 'package:civichub_mobile/features/reports/domain/models/uploaded_report_image.dart';
 import 'package:civichub_mobile/features/reports/domain/repositories/reports_repository.dart';
 import 'package:civichub_mobile/features/staff/domain/models/staff_dashboard_summary.dart';
 import 'package:civichub_mobile/features/staff/domain/repositories/staff_repository.dart';
@@ -173,6 +175,7 @@ class FakeReportsRepository implements ReportsRepository {
   final detailCalls = <int>[];
   final createRequests = <CreateReportRequest>[];
   final updateRequests = <({int id, CreateReportRequest request})>[];
+  final uploadedImages = <ReportImageUploadFile>[];
   final cancelCalls = <int>[];
   int categoryCalls = 0;
   Object? error;
@@ -206,6 +209,19 @@ class FakeReportsRepository implements ReportsRepository {
       return pendingCreateResponse!;
     }
     return _createdReport;
+  }
+
+  @override
+  Future<UploadedReportImage> uploadReportImage(
+    ReportImageUploadFile file,
+  ) async {
+    uploadedImages.add(file);
+    return UploadedReportImage(
+      url: 'https://uploads.test/${file.fileName}',
+      fileName: file.fileName,
+      contentType: file.contentType,
+      size: file.size,
+    );
   }
 
   @override

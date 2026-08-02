@@ -26,8 +26,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>CivicHub uses the camera when you choose to attach a photo to a civic report.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>CivicHub uses your location to help place civic reports on the map when you choose to share it.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>CivicHub uses your photo library when you choose images to attach to a civic report.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
