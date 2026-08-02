@@ -41,6 +41,23 @@ public class OpenAIProvider implements AIProvider {
         if (!StringUtils.hasText(properties.getApiKey())) {
             throw new AIInvalidApiKeyException();
         }
+        RuntimeException lastFailure = null;
+        int attempts = Math.max(1, properties.getRetryMaxAttempts());
+        for (int attempt = 1; attempt <= attempts; attempt++) {
+            try {
+                return completeOnce(request);
+            } catch (AITimeoutException | AIProviderUnavailableException exception) {
+                lastFailure = exception;
+                if (attempt == attempts) {
+                    throw exception;
+                }
+                backoff();
+            }
+        }
+        throw lastFailure == null ? new AIProviderUnavailableException(type().name()) : lastFailure;
+    }
+
+    private AIResponse completeOnce(AIRequest request) {
         try {
             OpenAIChatCompletionResponse response = restClient().post()
                     .uri("/chat/completions")
@@ -57,6 +74,15 @@ public class OpenAIProvider implements AIProvider {
             throw new AITimeoutException();
         } catch (RestClientResponseException exception) {
             throw mapStatus(exception.getStatusCode());
+        }
+    }
+
+    private void backoff() {
+        try {
+            Thread.sleep(properties.getRetryBackoff().toMillis());
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new AIProviderUnavailableException(type().name());
         }
     }
 

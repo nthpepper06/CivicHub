@@ -23,6 +23,8 @@ class EditReportCubit extends Cubit<EditReportState> {
   final ReportsRepository _reportsRepository;
   final int _reportId;
 
+  int get reportId => _reportId;
+
   Future<void> load() async {
     final currentReport = state.report;
     if (currentReport != null) {

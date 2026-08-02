@@ -8,11 +8,16 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_empty.dart';
 import '../../../../core/widgets/app_error.dart';
+import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/civic_background.dart';
 import '../../../../core/widgets/civic_page_shell.dart';
 import '../../../../core/widgets/location_picker.dart';
+import '../../../ai/domain/repositories/ai_assist_repository.dart';
+import '../../../ai/presentation/cubit/ai_suggestion_cubit.dart';
+import '../../../ai/presentation/cubit/ai_suggestion_state.dart';
+import '../../../ai/presentation/widgets/ai_suggestion_preview_dialog.dart';
 import '../../domain/models/create_report_request.dart';
 import '../../domain/models/report_category.dart';
 import '../../domain/models/report_detail.dart';
@@ -35,12 +40,21 @@ class EditReportScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => EditReportCubit(
-        reportsRepository: context.read<ReportsRepository>(),
-        reportId: reportId,
-        initialReport: initialReport,
-      )..load(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => EditReportCubit(
+            reportsRepository: context.read<ReportsRepository>(),
+            reportId: reportId,
+            initialReport: initialReport,
+          )..load(),
+        ),
+        BlocProvider(
+          create: (context) => AiSuggestionCubit(
+            aiAssistRepository: context.read<AiAssistRepository>(),
+          ),
+        ),
+      ],
       child: const _EditReportView(),
     );
   }
@@ -68,6 +82,7 @@ class _EditReportViewState extends State<_EditReportView> {
   bool _controllersInitialized = false;
   bool _uploadingImages = false;
   String? _imageErrorMessage;
+  String? _describingImageId;
   int _imageSequence = 0;
 
   @override
@@ -297,6 +312,140 @@ class _EditReportViewState extends State<_EditReportView> {
     }
   }
 
+  Future<String?> _ensureImageUrl(FieldReportImage image) async {
+    final remoteUrl = image.url;
+    if (remoteUrl != null) {
+      return remoteUrl;
+    }
+    final bytes = image.bytes;
+    if (bytes == null) {
+      return null;
+    }
+    setState(() {
+      _describingImageId = image.id;
+      _imageErrorMessage = null;
+    });
+    try {
+      final uploaded = await context
+          .read<ReportsRepository>()
+          .uploadReportImage(
+            ReportImageUploadFile(
+              fileName: image.fileName,
+              contentType: image.contentType,
+              bytes: bytes,
+            ),
+          );
+      final index = _images.indexWhere((candidate) => candidate.id == image.id);
+      if (index != -1 && mounted) {
+        setState(() {
+          _images[index] = FieldReportImage.remote(
+            id: image.id,
+            url: uploaded.url,
+          );
+        });
+      }
+      return uploaded.url;
+    } on ApiException catch (error) {
+      _setImageError(error.message);
+      return null;
+    } catch (_) {
+      _setImageError('Image upload failed. Please try again.');
+      return null;
+    }
+  }
+
+  Future<void> _describeImage(int index) async {
+    if (index < 0 || index >= _images.length) {
+      return;
+    }
+    final title = _titleController.text.trim();
+    if (title.isEmpty) {
+      AppFeedback.show(
+        context,
+        message: 'Add a title before asking AI to describe the image.',
+        type: AppFeedbackType.info,
+      );
+      return;
+    }
+    final image = _images[index];
+    final imageUrl = await _ensureImageUrl(image);
+    if (imageUrl == null || !mounted) {
+      setState(() => _describingImageId = null);
+      return;
+    }
+    final reportId = context.read<EditReportCubit>().reportId;
+    final cubit = context.read<AiSuggestionCubit>();
+    await cubit.describeImage(
+      title: title,
+      imageUrl: imageUrl,
+      location: _addressController.text,
+      reportId: reportId,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() => _describingImageId = null);
+    final state = cubit.state;
+    if (state.status == AiSuggestionStatus.success &&
+        state.imageSuggestion != null) {
+      await showAiImageContextDialog(
+        context: context,
+        suggestion: state.imageSuggestion!.suggestion,
+        confidence: state.imageSuggestion!.confidence,
+      );
+      cubit.reset();
+      return;
+    }
+    AppFeedback.show(
+      context,
+      message: state.errorMessage ?? 'AI image context is unavailable.',
+      type: AppFeedbackType.warning,
+    );
+  }
+
+  Future<void> _improveDescription() async {
+    final title = _titleController.text.trim();
+    final description = _descriptionController.text.trim();
+    if (title.isEmpty || description.isEmpty) {
+      AppFeedback.show(
+        context,
+        message: 'Add a title and description before requesting a suggestion.',
+        type: AppFeedbackType.info,
+      );
+      return;
+    }
+    final reportId = context.read<EditReportCubit>().reportId;
+    final cubit = context.read<AiSuggestionCubit>();
+    await cubit.improveReportDescription(
+      title: title,
+      description: description,
+      reportId: reportId,
+    );
+    if (!mounted) {
+      return;
+    }
+    final state = cubit.state;
+    if (state.status == AiSuggestionStatus.success &&
+        state.textSuggestion != null) {
+      final accepted = await showAiSuggestionPreviewDialog(
+        context: context,
+        title: 'Improve description?',
+        suggestion: state.textSuggestion!.suggestion,
+        metadata: 'AI suggestions are optional. Review before accepting.',
+      );
+      if (accepted && mounted) {
+        _descriptionController.text = state.textSuggestion!.suggestion;
+      }
+      cubit.reset();
+      return;
+    }
+    AppFeedback.show(
+      context,
+      message: state.errorMessage ?? 'AI suggestion is unavailable.',
+      type: AppFeedbackType.warning,
+    );
+  }
+
   Future<void> _update(EditReportState state) async {
     final form = _formKey.currentState;
     if (form == null || !form.validate()) {
@@ -445,12 +594,14 @@ class _EditReportViewState extends State<_EditReportView> {
                             enabled: !busy,
                             uploading: _uploadingImages,
                             errorMessage: _imageErrorMessage,
+                            describingImageId: _describingImageId,
                             onTakePhoto: _takePhoto,
                             onChooseGallery: _chooseGallery,
                             onRemove: _removeImage,
                             onReplace: _replaceImage,
                             onMoveUp: (index) => _moveImage(index, index - 1),
                             onMoveDown: (index) => _moveImage(index, index + 1),
+                            onDescribe: _describeImage,
                           ),
                         ],
                       ),
@@ -513,6 +664,24 @@ class _EditReportViewState extends State<_EditReportView> {
                               requiredMessage: 'Description is required',
                               maxLength: 5000,
                             ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          BlocBuilder<AiSuggestionCubit, AiSuggestionState>(
+                            builder: (context, aiState) {
+                              return Align(
+                                alignment: Alignment.centerLeft,
+                                child: AppButton(
+                                  label: aiState.isLoading
+                                      ? 'Improving...'
+                                      : 'Improve Description',
+                                  icon: Icons.auto_awesome_outlined,
+                                  variant: AppButtonVariant.outline,
+                                  onPressed: !busy && !aiState.isLoading
+                                      ? _improveDescription
+                                      : null,
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),

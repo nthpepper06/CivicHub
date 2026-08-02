@@ -28,16 +28,20 @@ public class DatabaseCompatibilityService {
             "db/manual/20260722_sync_notification_type_check.sql";
     private static final String REPORT_RESOLUTION_WORKFLOW_SCRIPT =
             "db/manual/20260802_create_report_resolution_workflow.sql";
+    private static final String AI_EXECUTION_AUDITS_SCRIPT =
+            "db/manual/20260802_create_ai_execution_audits.sql";
 
     private final ObjectProvider<DataSource> dataSourceProvider;
     private final AtomicBoolean auditLogActionConstraintSynchronized = new AtomicBoolean(false);
     private final AtomicBoolean notificationTypeConstraintSynchronized = new AtomicBoolean(false);
     private final AtomicBoolean reportResolutionWorkflowSynchronized = new AtomicBoolean(false);
+    private final AtomicBoolean aiExecutionAuditsSynchronized = new AtomicBoolean(false);
 
     public void synchronizeCompatibilityConstraintsIfNeeded() throws Exception {
         synchronizeAuditLogActionConstraintIfNeeded();
         synchronizeNotificationTypeConstraintIfNeeded();
         synchronizeReportResolutionWorkflowIfNeeded();
+        synchronizeAIExecutionAuditsIfNeeded();
     }
 
     public void synchronizeAuditLogActionConstraintIfNeeded() throws Exception {
@@ -133,6 +137,36 @@ public class DatabaseCompatibilityService {
         }
     }
 
+    public void synchronizeAIExecutionAuditsIfNeeded() throws Exception {
+        if (aiExecutionAuditsSynchronized.get()) {
+            return;
+        }
+
+        synchronized (aiExecutionAuditsSynchronized) {
+            if (aiExecutionAuditsSynchronized.get()) {
+                return;
+            }
+
+            DataSource dataSource = dataSourceProvider.getIfAvailable();
+            if (dataSource == null || !isPostgreSql(dataSource)) {
+                aiExecutionAuditsSynchronized.set(true);
+                return;
+            }
+
+            if (isPostgreSqlWithTable(dataSource, "ai_execution_audits")) {
+                aiExecutionAuditsSynchronized.set(true);
+                log.debug("AI execution audit table is already current.");
+                return;
+            }
+
+            ResourceDatabasePopulator populator = new ResourceDatabasePopulator(
+                    new ClassPathResource(AI_EXECUTION_AUDITS_SCRIPT));
+            populator.execute(dataSource);
+            aiExecutionAuditsSynchronized.set(true);
+            log.info("Synchronized AI execution audit table.");
+        }
+    }
+
     private boolean isPostgreSqlWithAuditLogTable(DataSource dataSource) throws Exception {
         return isPostgreSqlWithTable(dataSource, "audit_logs");
     }
@@ -153,6 +187,13 @@ public class DatabaseCompatibilityService {
                     return resultSet.next() && resultSet.getBoolean(1);
                 }
             }
+        }
+    }
+
+    private boolean isPostgreSql(DataSource dataSource) throws Exception {
+        try (Connection connection = dataSource.getConnection()) {
+            String productName = connection.getMetaData().getDatabaseProductName();
+            return productName != null && productName.toLowerCase().contains("postgresql");
         }
     }
 

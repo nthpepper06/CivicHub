@@ -1,5 +1,6 @@
 package com.civichub.ai.logging;
 
+import com.civichub.ai.dto.AIRequest;
 import com.civichub.ai.dto.AIResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -8,21 +9,33 @@ import org.springframework.stereotype.Component;
 @Component
 public class AILogger {
 
-    public void success(String provider, long latencyMs, AIResponse response) {
+    public void success(String provider, long latencyMs, AIRequest request, AIResponse response) {
         Integer totalTokens = response == null || response.getUsage() == null
                 ? null
                 : response.getUsage().getTotalTokens();
         log.info(
-                "ai_request provider={} latencyMs={} success=true totalTokens={}",
+                "ai_request requestId={} correlationId={} taskType={} templateId={} schemaId={} provider={} model={} latencyMs={} success=true totalTokens={}",
+                request == null ? null : request.getCorrelationId(),
+                request == null ? null : request.getCorrelationId(),
+                request == null ? null : request.getTaskType(),
+                request == null ? null : request.getTemplateId(),
+                request == null ? null : request.getOutputSchemaId(),
                 provider,
+                response == null ? null : response.getModel(),
                 latencyMs,
                 totalTokens);
     }
 
-    public void failure(String provider, long latencyMs, String code) {
+    public void failure(String provider, long latencyMs, AIRequest request, String code) {
         log.warn(
-                "ai_request provider={} latencyMs={} success=false errorCode={}",
+                "ai_request requestId={} correlationId={} taskType={} templateId={} schemaId={} provider={} model={} latencyMs={} success=false errorCode={}",
+                request == null ? null : request.getCorrelationId(),
+                request == null ? null : request.getCorrelationId(),
+                request == null ? null : request.getTaskType(),
+                request == null ? null : request.getTemplateId(),
+                request == null ? null : request.getOutputSchemaId(),
                 provider,
+                request == null ? null : request.getModel(),
                 latencyMs,
                 code);
     }

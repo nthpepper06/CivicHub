@@ -53,6 +53,8 @@ class FieldReportImagePicker extends StatelessWidget {
     required this.onReplace,
     required this.onMoveUp,
     required this.onMoveDown,
+    this.onDescribe,
+    this.describingImageId,
     this.errorMessage,
     super.key,
   });
@@ -66,6 +68,8 @@ class FieldReportImagePicker extends StatelessWidget {
   final ValueChanged<int> onReplace;
   final ValueChanged<int> onMoveUp;
   final ValueChanged<int> onMoveDown;
+  final ValueChanged<int>? onDescribe;
+  final String? describingImageId;
   final String? errorMessage;
 
   @override
@@ -164,6 +168,10 @@ class FieldReportImagePicker extends StatelessWidget {
                     onReplace: () => onReplace(index),
                     onMoveUp: () => onMoveUp(index),
                     onMoveDown: () => onMoveDown(index),
+                    onDescribe: onDescribe == null
+                        ? null
+                        : () => onDescribe!(index),
+                    describing: describingImageId == images[index].id,
                   );
                 },
               );
@@ -215,6 +223,8 @@ class _ImageTile extends StatelessWidget {
     required this.onReplace,
     required this.onMoveUp,
     required this.onMoveDown,
+    this.onDescribe,
+    this.describing = false,
   });
 
   final FieldReportImage image;
@@ -227,6 +237,8 @@ class _ImageTile extends StatelessWidget {
   final VoidCallback onReplace;
   final VoidCallback onMoveUp;
   final VoidCallback onMoveDown;
+  final VoidCallback? onDescribe;
+  final bool describing;
 
   @override
   Widget build(BuildContext context) {
@@ -272,6 +284,18 @@ class _ImageTile extends StatelessWidget {
                   Wrap(
                     spacing: AppSpacing.xs,
                     children: [
+                      IconButton(
+                        tooltip: 'Describe image',
+                        onPressed: enabled && !describing ? onDescribe : null,
+                        icon: describing
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.auto_awesome_outlined),
+                      ),
                       IconButton(
                         tooltip: 'Replace image',
                         onPressed: enabled ? onReplace : null,

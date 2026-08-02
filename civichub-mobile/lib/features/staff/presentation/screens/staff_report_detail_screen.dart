@@ -18,6 +18,10 @@ import '../../../../core/widgets/civic_background.dart';
 import '../../../../core/widgets/location_map.dart';
 import '../../../../core/widgets/location_preview_card.dart';
 import '../../../../core/widgets/premium_surface.dart';
+import '../../../ai/domain/repositories/ai_assist_repository.dart';
+import '../../../ai/presentation/cubit/ai_suggestion_cubit.dart';
+import '../../../ai/presentation/cubit/ai_suggestion_state.dart';
+import '../../../ai/presentation/widgets/ai_suggestion_preview_dialog.dart';
 import '../../../reports/domain/models/report_detail.dart';
 import '../../../reports/domain/models/report_image_upload_file.dart';
 import '../../../reports/domain/models/report_status.dart';
@@ -43,11 +47,20 @@ class StaffReportDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => StaffReportDetailCubit(
-        staffRepository: context.read<StaffRepository>(),
-        reportId: reportId,
-      )..load(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => StaffReportDetailCubit(
+            staffRepository: context.read<StaffRepository>(),
+            reportId: reportId,
+          )..load(),
+        ),
+        BlocProvider(
+          create: (context) => AiSuggestionCubit(
+            aiAssistRepository: context.read<AiAssistRepository>(),
+          ),
+        ),
+      ],
       child: _StaffReportDetailView(focus: focus),
     );
   }
@@ -661,7 +674,7 @@ class _StatusWorkflowPanel extends StatelessWidget {
                 child: FilledButton(
                   onPressed: state.isUpdatingStatus
                       ? null
-                      : () => _handleStatusAction(context, action),
+                      : () => _handleStatusAction(context, report, action),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -694,6 +707,7 @@ class _StatusWorkflowPanel extends StatelessWidget {
 
   Future<void> _handleStatusAction(
     BuildContext context,
+    CitizenReportDetail report,
     ReportStatus action,
   ) async {
     final confirmed = await _confirmTerminalAction(context, action);
@@ -706,7 +720,10 @@ class _StatusWorkflowPanel extends StatelessWidget {
     }
     final resolution = await showDialog<_ResolutionDraft>(
       context: context,
-      builder: (context) => const _ResolutionDialog(),
+      builder: (dialogContext) => BlocProvider.value(
+        value: context.read<AiSuggestionCubit>(),
+        child: _ResolutionDialog(report: report),
+      ),
     );
     if (!context.mounted || resolution == null) {
       return;
@@ -846,7 +863,9 @@ class _ResolutionDraft {
 }
 
 class _ResolutionDialog extends StatefulWidget {
-  const _ResolutionDialog();
+  const _ResolutionDialog({required this.report});
+
+  final CitizenReportDetail report;
 
   @override
   State<_ResolutionDialog> createState() => _ResolutionDialogState();
@@ -898,6 +917,32 @@ class _ResolutionDialogState extends State<_ResolutionDialog> {
                         labelText: 'Resolution summary',
                         hintText: 'Briefly summarize the final resolution',
                       ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    BlocBuilder<AiSuggestionCubit, AiSuggestionState>(
+                      builder: (context, aiState) {
+                        return Align(
+                          alignment: Alignment.centerLeft,
+                          child: OutlinedButton.icon(
+                            onPressed: _uploading || aiState.isLoading
+                                ? null
+                                : _improveSummary,
+                            icon: aiState.isLoading
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.auto_awesome_outlined),
+                            label: Text(
+                              aiState.isLoading
+                                  ? 'Improving...'
+                                  : 'Improve Summary',
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: AppSpacing.md),
                     TextField(
@@ -1059,6 +1104,41 @@ class _ResolutionDialogState extends State<_ResolutionDialog> {
     setState(() {
       final image = _images.removeAt(from);
       _images.insert(to, image);
+    });
+  }
+
+  Future<void> _improveSummary() async {
+    final summary = _summaryController.text.trim();
+    if (summary.isEmpty) {
+      setState(() => _error = 'Add a summary before requesting a suggestion.');
+      return;
+    }
+    final cubit = context.read<AiSuggestionCubit>();
+    await cubit.improveResolutionSummary(
+      title: widget.report.title,
+      summary: summary,
+      reportId: widget.report.id,
+    );
+    if (!mounted) {
+      return;
+    }
+    final state = cubit.state;
+    if (state.status == AiSuggestionStatus.success &&
+        state.textSuggestion != null) {
+      final accepted = await showAiSuggestionPreviewDialog(
+        context: context,
+        title: 'Improve resolution summary?',
+        suggestion: state.textSuggestion!.suggestion,
+        metadata: 'AI suggestions are optional. Review before accepting.',
+      );
+      if (accepted && mounted) {
+        _summaryController.text = state.textSuggestion!.suggestion;
+      }
+      cubit.reset();
+      return;
+    }
+    setState(() {
+      _error = state.errorMessage ?? 'AI suggestion is unavailable.';
     });
   }
 

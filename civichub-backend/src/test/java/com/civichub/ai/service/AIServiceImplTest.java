@@ -13,6 +13,7 @@ import com.civichub.ai.dto.AIUsage;
 import com.civichub.ai.exception.AITimeoutException;
 import com.civichub.ai.logging.AILogger;
 import com.civichub.ai.model.AIProviderType;
+import com.civichub.ai.ops.service.AIAuditService;
 import com.civichub.ai.provider.AIProvider;
 import com.civichub.ai.provider.AIProviderRegistry;
 import org.junit.jupiter.api.Test;
@@ -22,8 +23,9 @@ class AIServiceImplTest {
 
     private final AIProviderRegistry registry = Mockito.mock(AIProviderRegistry.class);
     private final AILogger logger = Mockito.mock(AILogger.class);
+    private final AIAuditService auditService = Mockito.mock(AIAuditService.class);
     private final AIProvider provider = Mockito.mock(AIProvider.class);
-    private final AIServiceImpl service = new AIServiceImpl(registry, logger);
+    private final AIServiceImpl service = new AIServiceImpl(registry, logger, auditService);
 
     @Test
     void routesRequestsThroughConfiguredProvider() {
@@ -45,7 +47,8 @@ class AIServiceImplTest {
 
         assertThat(result).isSameAs(response);
         verify(provider).complete(request);
-        verify(logger).success(eq("LOCAL"), anyLong(), eq(response));
+        verify(logger).success(eq("LOCAL"), anyLong(), eq(request), eq(response));
+        verify(auditService).record(Mockito.argThat(record -> record.getStatus().name().equals("SUCCESS")));
     }
 
     @Test
@@ -57,6 +60,8 @@ class AIServiceImplTest {
         when(registry.activeProvider()).thenReturn(provider);
 
         assertThatThrownBy(() -> service.complete(request)).isInstanceOf(AITimeoutException.class);
-        verify(logger).failure(eq("LOCAL"), anyLong(), eq("AI_TIMEOUT"));
+        verify(logger).failure(eq("LOCAL"), anyLong(), eq(request), eq("AI_TIMEOUT"));
+        verify(auditService).record(Mockito.argThat(record -> record.getStatus().name().equals("FAILURE")
+                && "AI_TIMEOUT".equals(record.getErrorCode())));
     }
 }

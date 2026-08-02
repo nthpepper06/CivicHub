@@ -1,3 +1,4 @@
+import 'package:civichub_mobile/features/ai/domain/repositories/ai_assist_repository.dart';
 import 'package:civichub_mobile/features/reports/domain/models/report_status.dart';
 import 'package:civichub_mobile/features/reports/domain/repositories/reports_repository.dart';
 import 'package:civichub_mobile/features/staff/domain/repositories/staff_repository.dart';
@@ -277,6 +278,9 @@ class _App extends StatelessWidget {
         RepositoryProvider<StaffRepository>.value(value: repository),
         RepositoryProvider<ReportsRepository>.value(
           value: FakeReportsRepository(),
+        ),
+        RepositoryProvider<AiAssistRepository>.value(
+          value: FakeAiAssistRepository(),
         ),
       ],
       child: BlocProvider(

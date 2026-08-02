@@ -6,6 +6,7 @@ import 'package:civichub_mobile/core/network/api_exception.dart';
 import 'package:civichub_mobile/core/storage/auth_token_storage.dart';
 import 'package:civichub_mobile/core/widgets/app_network_image.dart';
 import 'package:civichub_mobile/core/widgets/location_preview_card.dart';
+import 'package:civichub_mobile/features/ai/domain/repositories/ai_assist_repository.dart';
 import 'package:civichub_mobile/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:civichub_mobile/features/auth/data/models/login_response.dart';
 import 'package:civichub_mobile/features/auth/domain/models/citizen_profile.dart';
@@ -111,6 +112,9 @@ Future<GoRouter> pumpRouterApp(
     MultiRepositoryProvider(
       providers: [
         RepositoryProvider<ReportsRepository>.value(value: repository),
+        RepositoryProvider<AiAssistRepository>.value(
+          value: FakeAiAssistRepository(),
+        ),
         RepositoryProvider<AuthRepository>.value(value: stack.repository),
         RepositoryProvider<NotificationsRepository>.value(
           value: FakeNotificationsRepository(),
@@ -138,6 +142,12 @@ void main() {
         providers: [
           RepositoryProvider<ReportsRepository>.value(
             value: FakeReportsRepository(),
+          ),
+          RepositoryProvider<AiAssistRepository>.value(
+            value: FakeAiAssistRepository(),
+          ),
+          RepositoryProvider<AiAssistRepository>.value(
+            value: FakeAiAssistRepository(),
           ),
           RepositoryProvider<NotificationsRepository>.value(
             value: FakeNotificationsRepository(),
@@ -264,6 +274,12 @@ void main() {
       MultiRepositoryProvider(
         providers: [
           RepositoryProvider<ReportsRepository>.value(value: repository),
+          RepositoryProvider<AiAssistRepository>.value(
+            value: FakeAiAssistRepository(),
+          ),
+          RepositoryProvider<AiAssistRepository>.value(
+            value: FakeAiAssistRepository(),
+          ),
         ],
         child: BlocProvider.value(
           value: stack.authCubit,
@@ -294,6 +310,9 @@ void main() {
       MultiRepositoryProvider(
         providers: [
           RepositoryProvider<ReportsRepository>.value(value: repository),
+          RepositoryProvider<AiAssistRepository>.value(
+            value: FakeAiAssistRepository(),
+          ),
         ],
         child: BlocProvider.value(
           value: stack.authCubit,
@@ -317,6 +336,9 @@ void main() {
       MultiRepositoryProvider(
         providers: [
           RepositoryProvider<ReportsRepository>.value(value: repository),
+          RepositoryProvider<AiAssistRepository>.value(
+            value: FakeAiAssistRepository(),
+          ),
         ],
         child: BlocProvider.value(
           value: stack.authCubit,
@@ -352,6 +374,9 @@ void main() {
       MultiRepositoryProvider(
         providers: [
           RepositoryProvider<ReportsRepository>.value(value: repository),
+          RepositoryProvider<AiAssistRepository>.value(
+            value: FakeAiAssistRepository(),
+          ),
         ],
         child: MultiBlocProvider(
           providers: [
@@ -400,6 +425,12 @@ void main() {
           RepositoryProvider<ReportsRepository>.value(
             value: FakeReportsRepository(),
           ),
+          RepositoryProvider<AiAssistRepository>.value(
+            value: FakeAiAssistRepository(),
+          ),
+          RepositoryProvider<AiAssistRepository>.value(
+            value: FakeAiAssistRepository(),
+          ),
           RepositoryProvider<NotificationsRepository>.value(
             value: FakeNotificationsRepository(),
           ),
@@ -436,6 +467,9 @@ void main() {
       MultiRepositoryProvider(
         providers: [
           RepositoryProvider<ReportsRepository>.value(value: repository),
+          RepositoryProvider<AiAssistRepository>.value(
+            value: FakeAiAssistRepository(),
+          ),
           RepositoryProvider<NotificationsRepository>.value(
             value: FakeNotificationsRepository(),
           ),
@@ -474,6 +508,9 @@ void main() {
           RepositoryProvider<ReportsRepository>.value(
             value: FakeReportsRepository(),
           ),
+          RepositoryProvider<AiAssistRepository>.value(
+            value: FakeAiAssistRepository(),
+          ),
         ],
         child: const MaterialApp(home: CreateReportScreen()),
       ),
@@ -507,6 +544,9 @@ void main() {
       MultiRepositoryProvider(
         providers: [
           RepositoryProvider<ReportsRepository>.value(value: repository),
+          RepositoryProvider<AiAssistRepository>.value(
+            value: FakeAiAssistRepository(),
+          ),
         ],
         child: MaterialApp(
           routes: {
@@ -552,6 +592,9 @@ void main() {
         providers: [
           RepositoryProvider<ReportsRepository>.value(
             value: FakeReportsRepository(),
+          ),
+          RepositoryProvider<AiAssistRepository>.value(
+            value: FakeAiAssistRepository(),
           ),
         ],
         child: const MaterialApp(home: CreateReportScreen()),
@@ -766,6 +809,9 @@ void main() {
       MultiRepositoryProvider(
         providers: [
           RepositoryProvider<ReportsRepository>.value(value: repository),
+          RepositoryProvider<AiAssistRepository>.value(
+            value: FakeAiAssistRepository(),
+          ),
         ],
         child: MaterialApp(
           routes: {

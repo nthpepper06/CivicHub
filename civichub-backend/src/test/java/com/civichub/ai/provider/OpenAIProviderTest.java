@@ -15,6 +15,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -85,6 +86,45 @@ class OpenAIProviderTest {
         OpenAIProvider provider = new OpenAIProvider(properties(), RestClient.builder());
 
         assertThatThrownBy(() -> provider.complete(request())).isInstanceOf(AIQuotaExceededException.class);
+    }
+
+    @Test
+    void transientProviderFailureIsRetriedBeforeSuccess() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        AtomicReference<String> authorization = new AtomicReference<>();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1/chat/completions", exchange -> {
+            int attempt = attempts.incrementAndGet();
+            if (attempt == 1) {
+                handle(exchange, 503, "{\"error\":{\"message\":\"temporary\"}}", requestBody, authorization);
+                return;
+            }
+            handle(exchange, 200, """
+                    {
+                      "id": "chatcmpl-test",
+                      "model": "gpt-test",
+                      "choices": [
+                        {
+                          "message": {
+                            "role": "assistant",
+                            "content": "{\\"summary\\":\\"Recovered after retry.\\"}"
+                          }
+                        }
+                      ]
+                    }
+                    """, requestBody, authorization);
+        });
+        server.start();
+        AIProperties properties = properties();
+        properties.setRetryMaxAttempts(2);
+        properties.setRetryBackoff(Duration.ofMillis(1));
+        OpenAIProvider provider = new OpenAIProvider(properties, RestClient.builder());
+
+        AIResponse response = provider.complete(request());
+
+        assertThat(attempts).hasValue(2);
+        assertThat(response.getOutput()).contains("Recovered after retry");
     }
 
     private void startServer(

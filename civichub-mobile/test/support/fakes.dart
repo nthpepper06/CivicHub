@@ -7,6 +7,9 @@ import 'package:civichub_mobile/features/auth/data/models/profile_update_request
 import 'package:civichub_mobile/features/auth/domain/models/auth_enums.dart';
 import 'package:civichub_mobile/features/auth/domain/models/auth_session.dart';
 import 'package:civichub_mobile/features/auth/domain/models/citizen_profile.dart';
+import 'package:civichub_mobile/features/ai/domain/models/ai_image_context_suggestion.dart';
+import 'package:civichub_mobile/features/ai/domain/models/ai_text_suggestion.dart';
+import 'package:civichub_mobile/features/ai/domain/repositories/ai_assist_repository.dart';
 import 'package:civichub_mobile/features/notifications/domain/models/citizen_notification.dart';
 import 'package:civichub_mobile/features/notifications/domain/models/notification_type.dart';
 import 'package:civichub_mobile/features/notifications/domain/models/notifications_page.dart';
@@ -320,6 +323,77 @@ class FakeReportsRepository implements ReportsRepository {
       return sampleReportsPage(content: const [], page: page, last: true);
     }
     return _pages.removeAt(0);
+  }
+}
+
+class FakeAiAssistRepository implements AiAssistRepository {
+  AiTextSuggestion textSuggestion = const AiTextSuggestion(
+    requestId: 'ai-text-1',
+    suggestion: 'Improved AI suggestion.',
+    provider: 'OPENAI',
+    model: 'gpt-test',
+  );
+  AiImageContextSuggestion imageSuggestion = const AiImageContextSuggestion(
+    requestId: 'ai-image-1',
+    suggestion: 'The image appears to show report context.',
+    provider: 'OPENAI',
+    model: 'gpt-test',
+  );
+  Object? textError;
+  Object? imageError;
+  Future<AiTextSuggestion>? pendingTextSuggestion;
+  Future<AiImageContextSuggestion>? pendingImageSuggestion;
+  int improveDescriptionCalls = 0;
+  int improveResolutionCalls = 0;
+  int describeImageCalls = 0;
+
+  @override
+  Future<AiTextSuggestion> improveReportDescription({
+    required String title,
+    required String description,
+    int? reportId,
+  }) async {
+    improveDescriptionCalls += 1;
+    if (textError != null) {
+      throw textError!;
+    }
+    if (pendingTextSuggestion != null) {
+      return pendingTextSuggestion!;
+    }
+    return textSuggestion;
+  }
+
+  @override
+  Future<AiImageContextSuggestion> describeImage({
+    required String title,
+    required String imageUrl,
+    String? location,
+    int? reportId,
+  }) async {
+    describeImageCalls += 1;
+    if (imageError != null) {
+      throw imageError!;
+    }
+    if (pendingImageSuggestion != null) {
+      return pendingImageSuggestion!;
+    }
+    return imageSuggestion;
+  }
+
+  @override
+  Future<AiTextSuggestion> improveResolutionSummary({
+    required String title,
+    required String summary,
+    int? reportId,
+  }) async {
+    improveResolutionCalls += 1;
+    if (textError != null) {
+      throw textError!;
+    }
+    if (pendingTextSuggestion != null) {
+      return pendingTextSuggestion!;
+    }
+    return textSuggestion;
   }
 }
 

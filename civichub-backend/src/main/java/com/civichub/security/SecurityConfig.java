@@ -1,8 +1,10 @@
 package com.civichub.security;
 
+import com.civichub.ai.ops.rate.AIRateLimitFilter;
 import lombok.RequiredArgsConstructor;
 import java.util.Arrays;
 import java.util.List;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -36,13 +38,14 @@ public class SecurityConfig {
     private final CustomUserDetailsService customUserDetailsService;
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
     private final RestAccessDeniedHandler restAccessDeniedHandler;
+    private final ObjectProvider<AIRateLimitFilter> aiRateLimitFilterProvider;
 
     @Value("${app.cors.allowed-origin-patterns:http://localhost:*,http://127.0.0.1:*}")
     private String allowedOriginPatterns;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        return http
+        HttpSecurity configured = http
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -62,6 +65,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers("/api/notifications/**")
                         .authenticated()
+                        .requestMatchers("/api/ai/**")
+                        .authenticated()
                         .requestMatchers("/api/internal/ai/**")
                         .hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/admin/**")
@@ -74,8 +79,12 @@ public class SecurityConfig {
                         .authenticationEntryPoint(restAuthenticationEntryPoint)
                         .accessDeniedHandler(restAccessDeniedHandler))
                 .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .build();
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        AIRateLimitFilter aiRateLimitFilter = aiRateLimitFilterProvider.getIfAvailable();
+        if (aiRateLimitFilter != null) {
+            configured.addFilterAfter(aiRateLimitFilter, JwtAuthenticationFilter.class);
+        }
+        return configured.build();
     }
 
     @Bean

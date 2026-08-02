@@ -8,6 +8,11 @@ class ApiEndpoints {
   static const myReports = '/api/reports/my';
   static const notifications = '/api/notifications';
   static const unreadNotificationCount = '/api/notifications/unread-count';
+  static const aiReportDescriptionSuggestion =
+      '/api/ai/reports/description-suggestion';
+  static const aiImageContext = '/api/ai/reports/image-context';
+  static const aiStaffResolutionSummarySuggestion =
+      '/api/ai/staff/resolution-summary-suggestion';
   static const staffDashboardSummary = '/api/staff/dashboard/summary';
   static const staffDashboardRecent = '/api/staff/dashboard/recent';
   static const staffReports = '/api/staff/reports';

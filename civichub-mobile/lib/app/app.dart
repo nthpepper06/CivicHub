@@ -8,6 +8,9 @@ import '../core/network/api_client.dart';
 import '../core/storage/auth_token_storage.dart';
 import '../core/storage/secure_auth_token_storage.dart';
 import '../core/theme/app_theme.dart';
+import '../features/ai/data/datasources/ai_assist_remote_data_source.dart';
+import '../features/ai/data/repositories/ai_assist_repository_impl.dart';
+import '../features/ai/domain/repositories/ai_assist_repository.dart';
 import '../features/auth/data/datasources/auth_remote_data_source.dart';
 import '../features/auth/data/repositories/auth_repository_impl.dart';
 import '../features/auth/domain/repositories/auth_repository.dart';
@@ -37,6 +40,8 @@ class _CivicHubAppState extends State<CivicHubApp> {
   late final ApiClient _apiClient;
   late final AuthRemoteDataSourceImpl _remoteDataSource;
   late final AuthRepository _authRepository;
+  late final AiAssistRemoteDataSourceImpl _aiAssistRemoteDataSource;
+  late final AiAssistRepository _aiAssistRepository;
   late final ReportsRemoteDataSourceImpl _reportsRemoteDataSource;
   late final ReportsRepository _reportsRepository;
   late final NotificationsRemoteDataSourceImpl _notificationsRemoteDataSource;
@@ -57,6 +62,12 @@ class _CivicHubAppState extends State<CivicHubApp> {
     _authRepository = AuthRepositoryImpl(
       remoteDataSource: _remoteDataSource,
       tokenStorage: _tokenStorage,
+    );
+    _aiAssistRemoteDataSource = AiAssistRemoteDataSourceImpl(
+      apiClient: _apiClient,
+    );
+    _aiAssistRepository = AiAssistRepositoryImpl(
+      remoteDataSource: _aiAssistRemoteDataSource,
     );
     _reportsRemoteDataSource = ReportsRemoteDataSourceImpl(
       apiClient: _apiClient,
@@ -104,6 +115,12 @@ class _CivicHubAppState extends State<CivicHubApp> {
           value: _remoteDataSource,
         ),
         RepositoryProvider<AuthRepository>.value(value: _authRepository),
+        RepositoryProvider<AiAssistRemoteDataSource>.value(
+          value: _aiAssistRemoteDataSource,
+        ),
+        RepositoryProvider<AiAssistRepository>.value(
+          value: _aiAssistRepository,
+        ),
         RepositoryProvider<ReportsRemoteDataSource>.value(
           value: _reportsRemoteDataSource,
         ),

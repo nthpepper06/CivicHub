@@ -27,6 +27,10 @@ public class AIProviderRegistry {
         return provider;
     }
 
+    public List<AIProviderType> availableProviderTypes() {
+        return List.copyOf(providersByType().keySet());
+    }
+
     private Map<AIProviderType, AIProvider> providersByType() {
         Map<AIProviderType, AIProvider> mapped = new EnumMap<>(AIProviderType.class);
         for (AIProvider provider : providers) {

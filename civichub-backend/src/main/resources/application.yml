@@ -42,6 +42,13 @@ app:
     temperature: ${AI_TEMPERATURE:0.2}
     timeout: ${AI_TIMEOUT:30s}
     max-tokens: ${AI_MAX_TOKENS:1024}
+    enabled: ${AI_ENABLED:true}
+    retry-max-attempts: ${AI_RETRY_MAX_ATTEMPTS:2}
+    retry-backoff: ${AI_RETRY_BACKOFF:200ms}
+    rate-limit-requests: ${AI_RATE_LIMIT_REQUESTS:20}
+    rate-limit-window: ${AI_RATE_LIMIT_WINDOW:1m}
+    input-token-cost-per-thousand: ${AI_INPUT_TOKEN_COST_PER_THOUSAND:0}
+    output-token-cost-per-thousand: ${AI_OUTPUT_TOKEN_COST_PER_THOUSAND:0}
     tasks:
       REPORT_SUMMARY:
         enabled: ${AI_TASK_REPORT_SUMMARY_ENABLED:true}
