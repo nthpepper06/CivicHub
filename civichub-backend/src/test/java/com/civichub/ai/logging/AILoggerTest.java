@@ -37,4 +37,16 @@ class AILoggerTest {
         assertThat(output).contains("success=false");
         assertThat(output).contains("errorCode=AI_TIMEOUT");
     }
+
+    @Test
+    void pipelineLogsIncludeStageButNotImageContent(CapturedOutput output) {
+        logger.pipelineStage("pipe-1", "LOCAL", "validation", 7, true);
+        logger.pipelineFailure("pipe-1", "LOCAL", "storage", 8, "AI_STORAGE_UNAVAILABLE");
+
+        assertThat(output).contains("ai_pipeline");
+        assertThat(output).contains("requestId=pipe-1");
+        assertThat(output).contains("stage=validation");
+        assertThat(output).contains("stage=storage");
+        assertThat(output).doesNotContain("raw image bytes");
+    }
 }

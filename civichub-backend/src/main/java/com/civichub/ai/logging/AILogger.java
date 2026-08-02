@@ -26,4 +26,24 @@ public class AILogger {
                 latencyMs,
                 code);
     }
+
+    public void pipelineStage(String requestId, String provider, String stage, long latencyMs, boolean success) {
+        log.info(
+                "ai_pipeline requestId={} provider={} stage={} latencyMs={} success={}",
+                requestId,
+                provider,
+                stage,
+                latencyMs,
+                success);
+    }
+
+    public void pipelineFailure(String requestId, String provider, String stage, long latencyMs, String code) {
+        log.warn(
+                "ai_pipeline requestId={} provider={} stage={} latencyMs={} success=false errorCode={}",
+                requestId,
+                provider,
+                stage,
+                latencyMs,
+                code);
+    }
 }
