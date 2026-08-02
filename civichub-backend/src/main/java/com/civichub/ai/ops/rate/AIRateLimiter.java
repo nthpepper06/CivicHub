@@ -5,6 +5,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -14,6 +15,7 @@ public class AIRateLimiter {
     private final Clock clock;
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
+    @Autowired
     public AIRateLimiter(AIProperties properties) {
         this(properties, Clock.systemUTC());
     }
