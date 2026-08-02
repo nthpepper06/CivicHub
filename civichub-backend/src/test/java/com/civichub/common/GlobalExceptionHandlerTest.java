@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.civichub.ai.exception.AIInvalidApiKeyException;
 import com.civichub.ai.exception.AITimeoutException;
+import com.civichub.ai.exception.PromptVariableMissingException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -74,6 +75,14 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.message").value(not(containsString("secret-key"))));
     }
 
+    @Test
+    void promptVariableMissingShouldReturnSafeMessage() throws Exception {
+        mockMvc.perform(get("/test/prompt-variable-missing"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Required prompt variable is missing"))
+                .andExpect(jsonPath("$.message").value(not(containsString("description"))));
+    }
+
     @RestController
     private static class TestController {
 
@@ -106,6 +115,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/test/ai-invalid-key")
         void aiInvalidKey() {
             throw new AIInvalidApiKeyException();
+        }
+
+        @GetMapping("/test/prompt-variable-missing")
+        void promptVariableMissing() {
+            throw new PromptVariableMissingException("description");
         }
     }
 }

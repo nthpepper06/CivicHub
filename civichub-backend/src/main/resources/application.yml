@@ -41,6 +41,13 @@ app:
     temperature: ${AI_TEMPERATURE:0.2}
     timeout: ${AI_TIMEOUT:30s}
     max-tokens: ${AI_MAX_TOKENS:1024}
+    tasks:
+      REPORT_SUMMARY:
+        enabled: ${AI_TASK_REPORT_SUMMARY_ENABLED:true}
+        template-version: ${AI_TASK_REPORT_SUMMARY_TEMPLATE_VERSION:v1}
+      IMAGE_CONTEXT:
+        enabled: ${AI_TASK_IMAGE_CONTEXT_ENABLED:true}
+        template-version: ${AI_TASK_IMAGE_CONTEXT_TEMPLATE_VERSION:v1}
 
 springdoc:
   api-docs:

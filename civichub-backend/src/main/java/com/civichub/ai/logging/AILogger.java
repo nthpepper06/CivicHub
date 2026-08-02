@@ -46,4 +46,48 @@ public class AILogger {
                 latencyMs,
                 code);
     }
+
+    public void taskSuccess(
+            String requestId,
+            String taskType,
+            String templateId,
+            String templateVersion,
+            String outputSchema,
+            String provider,
+            String model,
+            long latencyMs) {
+        log.info(
+                "ai_task requestId={} taskType={} templateId={} templateVersion={} outputSchema={} provider={} model={} latencyMs={} success=true",
+                requestId,
+                taskType,
+                templateId,
+                templateVersion,
+                outputSchema,
+                provider,
+                model,
+                latencyMs);
+    }
+
+    public void taskFailure(
+            String requestId,
+            String taskType,
+            String templateId,
+            String templateVersion,
+            String outputSchema,
+            String provider,
+            String model,
+            long latencyMs,
+            String code) {
+        log.warn(
+                "ai_task requestId={} taskType={} templateId={} templateVersion={} outputSchema={} provider={} model={} latencyMs={} success=false errorCode={}",
+                requestId,
+                taskType,
+                templateId,
+                templateVersion,
+                outputSchema,
+                provider,
+                model,
+                latencyMs,
+                code);
+    }
 }

@@ -49,4 +49,17 @@ class AILoggerTest {
         assertThat(output).contains("stage=storage");
         assertThat(output).doesNotContain("raw image bytes");
     }
+
+    @Test
+    void taskLogsIncludeMetadataButNotRenderedPrompt(CapturedOutput output) {
+        logger.taskSuccess("req-1", "REPORT_SUMMARY", "REPORT_SUMMARY_V1", "v1", "report_summary:v1", "LOCAL", "local", 12);
+        logger.taskFailure("req-2", "IMAGE_CONTEXT", "IMAGE_CONTEXT_V1", "v1", "image_context:v1", "LOCAL", "local", 13, "AI_TIMEOUT");
+
+        assertThat(output).contains("ai_task");
+        assertThat(output).contains("taskType=REPORT_SUMMARY");
+        assertThat(output).contains("templateId=REPORT_SUMMARY_V1");
+        assertThat(output).contains("outputSchema=report_summary:v1");
+        assertThat(output).doesNotContain("Broken streetlight");
+        assertThat(output).doesNotContain("System:");
+    }
 }
