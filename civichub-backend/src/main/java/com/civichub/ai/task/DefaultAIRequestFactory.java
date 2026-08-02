@@ -52,6 +52,7 @@ public class DefaultAIRequestFactory implements AIRequestFactory {
         metadata.put("outputSchemaId", outputDefinition.getSchemaId());
         metadata.put("outputSchemaVersion", outputDefinition.getVersion());
         metadata.put("outputSchemaType", outputDefinition.getType().name());
+        metadata.put("jsonSchema", jsonSchema(outputDefinition));
         metadata.put("outputFields", outputDefinition.getFields().stream()
                 .map(AIOutputField::getName)
                 .toList());
@@ -102,5 +103,43 @@ public class DefaultAIRequestFactory implements AIRequestFactory {
         if (properties.getTemplateVersion() != null && !StringUtils.hasText(properties.getTemplateVersion())) {
             throw new com.civichub.ai.exception.PromptRenderingException("Invalid AI task template version");
         }
+    }
+
+    private Map<String, Object> jsonSchema(AIStructuredOutputDefinition definition) {
+        if (definition.getType() == com.civichub.ai.output.AIOutputType.PLAIN_TEXT) {
+            return Map.of("type", "string");
+        }
+        Map<String, Object> properties = new java.util.LinkedHashMap<>();
+        java.util.List<String> required = new java.util.ArrayList<>();
+        for (AIOutputField field : definition.getFields()) {
+            Map<String, Object> fieldSchema = new java.util.LinkedHashMap<>();
+            fieldSchema.put("type", jsonType(field.getType()));
+            if (field.getMaxLength() != null) {
+                fieldSchema.put("maxLength", field.getMaxLength());
+            }
+            if (field.getEnumValues() != null && !field.getEnumValues().isEmpty()) {
+                fieldSchema.put("enum", field.getEnumValues());
+            }
+            properties.put(field.getName(), fieldSchema);
+            if (field.isRequired()) {
+                required.add(field.getName());
+            }
+        }
+        return Map.of(
+                "type", "object",
+                "properties", properties,
+                "required", required,
+                "additionalProperties", false);
+    }
+
+    private String jsonType(com.civichub.ai.output.AIOutputFieldType type) {
+        return switch (type) {
+            case STRING -> "string";
+            case INTEGER -> "integer";
+            case NUMBER -> "number";
+            case BOOLEAN -> "boolean";
+            case ARRAY -> "array";
+            case OBJECT -> "object";
+        };
     }
 }

@@ -62,6 +62,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers("/api/notifications/**")
                         .authenticated()
+                        .requestMatchers("/api/internal/ai/**")
+                        .hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/admin/**")
                         .hasRole("ADMIN")
                         .requestMatchers("/api/staff/**")

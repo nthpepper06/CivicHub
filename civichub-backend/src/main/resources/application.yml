@@ -37,6 +37,7 @@ app:
   ai:
     provider: ${AI_PROVIDER:LOCAL}
     api-key: ${AI_API_KEY:}
+    base-url: ${AI_BASE_URL:https://api.openai.com/v1}
     model: ${AI_MODEL:local}
     temperature: ${AI_TEMPERATURE:0.2}
     timeout: ${AI_TIMEOUT:30s}

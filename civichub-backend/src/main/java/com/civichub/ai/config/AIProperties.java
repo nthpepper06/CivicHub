@@ -14,6 +14,7 @@ public class AIProperties {
 
     private String provider = "LOCAL";
     private String apiKey;
+    private String baseUrl = "https://api.openai.com/v1";
     private String model = "local";
     private Double temperature = 0.2;
     private Duration timeout = Duration.ofSeconds(30);
