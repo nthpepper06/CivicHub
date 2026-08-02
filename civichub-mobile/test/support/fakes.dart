@@ -177,6 +177,8 @@ class FakeReportsRepository implements ReportsRepository {
   final updateRequests = <({int id, CreateReportRequest request})>[];
   final uploadedImages = <ReportImageUploadFile>[];
   final cancelCalls = <int>[];
+  final confirmCalls = <int>[];
+  final ratingCalls = <({int id, int rating, String? comment})>[];
   int categoryCalls = 0;
   Object? error;
   Object? categoryError;
@@ -267,6 +269,24 @@ class FakeReportsRepository implements ReportsRepository {
     }
     detailReport = sampleReportDetail(id: id, status: ReportStatus.cancelled);
     return detailReport!;
+  }
+
+  @override
+  Future<CitizenReportDetail> confirmResolution(int id) async {
+    confirmCalls.add(id);
+    return detailReport ??
+        sampleReportDetail(id: id, status: ReportStatus.resolved);
+  }
+
+  @override
+  Future<CitizenReportDetail> rateResolution(
+    int id, {
+    required int rating,
+    String? comment,
+  }) async {
+    ratingCalls.add((id: id, rating: rating, comment: comment));
+    return detailReport ??
+        sampleReportDetail(id: id, status: ReportStatus.resolved);
   }
 
   @override
@@ -497,8 +517,12 @@ class FakeStaffRepository implements StaffRepository {
   @override
   Future<CitizenReportDetail> updateAssignedReportStatus(
     int id,
-    ReportStatus status,
-  ) async {
+    ReportStatus status, {
+    String? resolutionSummary,
+    String? workPerformed,
+    String? publicNote,
+    List<String> resolutionImageUrls = const [],
+  }) async {
     statusUpdateCalls.add((id: id, status: status));
     if (updateStatusError != null) {
       throw updateStatusError!;

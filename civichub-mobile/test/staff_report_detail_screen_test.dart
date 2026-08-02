@@ -1,4 +1,5 @@
 import 'package:civichub_mobile/features/reports/domain/models/report_status.dart';
+import 'package:civichub_mobile/features/reports/domain/repositories/reports_repository.dart';
 import 'package:civichub_mobile/features/staff/domain/repositories/staff_repository.dart';
 import 'package:civichub_mobile/features/staff/presentation/cubit/staff_workspace_cubit.dart';
 import 'package:civichub_mobile/features/staff/presentation/screens/staff_report_detail_screen.dart';
@@ -125,7 +126,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Current state'), findsOneWidget);
-    expect(find.text('Timeline'), findsNothing);
+    expect(find.text('Timeline'), findsOneWidget);
     expect(find.text('Latest status from the report record.'), findsOneWidget);
   });
 
@@ -190,6 +191,12 @@ void main() {
     await tester.tap(resolveButton);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Confirm'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Resolution summary'),
+      'Issue resolved',
+    );
+    await tester.tap(find.text('Submit Resolution'));
     await tester.pumpAndSettle();
 
     expect(repository.statusUpdateCalls, hasLength(1));
@@ -265,8 +272,13 @@ class _App extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RepositoryProvider<StaffRepository>.value(
-      value: repository,
+    return MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider<StaffRepository>.value(value: repository),
+        RepositoryProvider<ReportsRepository>.value(
+          value: FakeReportsRepository(),
+        ),
+      ],
       child: BlocProvider(
         create: (_) => StaffWorkspaceCubit(),
         child: const MaterialApp(home: StaffReportDetailScreen(reportId: 42)),

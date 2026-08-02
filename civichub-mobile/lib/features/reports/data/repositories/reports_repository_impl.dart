@@ -57,6 +57,26 @@ class ReportsRepositoryImpl implements ReportsRepository {
   }
 
   @override
+  Future<CitizenReportDetail> confirmResolution(int id) async {
+    final response = await _remoteDataSource.confirmResolution(id);
+    return response.toDomain();
+  }
+
+  @override
+  Future<CitizenReportDetail> rateResolution(
+    int id, {
+    required int rating,
+    String? comment,
+  }) async {
+    final response = await _remoteDataSource.rateResolution(
+      id,
+      rating: rating,
+      comment: comment,
+    );
+    return response.toDomain();
+  }
+
+  @override
   Future<ReportsPage<CitizenReportSummary>> getMyReports({
     required int page,
     required int size,

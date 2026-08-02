@@ -593,7 +593,7 @@ void main() {
 
     expect(find.text('Broken sidewalk'), findsOneWidget);
     expect(find.text('Uneven pavement near the bus stop.'), findsOneWidget);
-    expect(find.text('No images'), findsOneWidget);
+    expect(find.text('No before photos'), findsOneWidget);
     expect(find.byType(LocationPreviewCard), findsOneWidget);
   });
 
@@ -622,7 +622,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Images'), findsOneWidget);
+    expect(find.text('Before photos'), findsOneWidget);
     expect(find.byType(AppNetworkImage), findsOneWidget);
   });
 

@@ -24,6 +24,10 @@ abstract class StaffRepository {
 
   Future<CitizenReportDetail> updateAssignedReportStatus(
     int id,
-    ReportStatus status,
-  );
+    ReportStatus status, {
+    String? resolutionSummary,
+    String? workPerformed,
+    String? publicNote,
+    List<String> resolutionImageUrls,
+  });
 }

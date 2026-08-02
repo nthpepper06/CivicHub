@@ -1,0 +1,15 @@
+package com.civichub.common.enums;
+
+public enum ReportTimelineEventType {
+    REPORT_CREATED,
+    DEPARTMENT_ASSIGNED,
+    STAFF_ACCEPTED,
+    STATUS_IN_PROGRESS,
+    STAFF_NOTE_ADDED,
+    RESOLUTION_IMAGES_UPLOADED,
+    RESOLVED,
+    REJECTED,
+    CANCELLED,
+    CITIZEN_CONFIRMED,
+    RATING_SUBMITTED
+}

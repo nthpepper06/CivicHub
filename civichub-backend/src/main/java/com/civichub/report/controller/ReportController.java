@@ -4,6 +4,7 @@ import com.civichub.common.ApiResponse;
 import com.civichub.common.PageResponse;
 import com.civichub.common.enums.ReportStatus;
 import com.civichub.report.dto.request.ReportCreateRequest;
+import com.civichub.report.dto.request.ReportRatingRequest;
 import com.civichub.report.dto.request.ReportUpdateRequest;
 import com.civichub.report.dto.response.ReportDetailResponse;
 import com.civichub.report.dto.response.ReportImageUploadResponse;
@@ -88,5 +89,23 @@ public class ReportController {
     @PatchMapping("/my/{id}/cancel")
     public ResponseEntity<ApiResponse<ReportDetailResponse>> cancelMyReport(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success("Report cancelled", reportService.cancelMyReport(id)));
+    }
+
+    @Operation(summary = "Confirm current citizen resolved report")
+    @PatchMapping("/my/{id}/confirm-resolution")
+    public ResponseEntity<ApiResponse<ReportDetailResponse>> confirmMyReportResolution(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Report resolution confirmed",
+                reportService.confirmMyReportResolution(id)));
+    }
+
+    @Operation(summary = "Rate current citizen resolved report")
+    @PostMapping("/my/{id}/rating")
+    public ResponseEntity<ApiResponse<ReportDetailResponse>> rateMyReportResolution(
+            @PathVariable Long id,
+            @Valid @RequestBody ReportRatingRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Report resolution rated",
+                reportService.rateMyReportResolution(id, request)));
     }
 }

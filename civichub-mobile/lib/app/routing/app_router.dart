@@ -177,7 +177,12 @@ class AppRouter {
             if (id == null) {
               return const MaterialPage(child: _InvalidReportRouteScreen());
             }
-            return MaterialPage(child: ReportDetailScreen(reportId: id));
+            return MaterialPage(
+              child: ReportDetailScreen(
+                reportId: id,
+                focus: state.uri.queryParameters['focus'],
+              ),
+            );
           },
         ),
         GoRoute(
@@ -192,7 +197,12 @@ class AppRouter {
                 ),
               );
             }
-            return MaterialPage(child: StaffReportDetailScreen(reportId: id));
+            return MaterialPage(
+              child: StaffReportDetailScreen(
+                reportId: id,
+                focus: state.uri.queryParameters['focus'],
+              ),
+            );
           },
         ),
         GoRoute(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/routing/app_routes.dart';
 import '../../../../core/location/location_point.dart';
@@ -18,7 +19,10 @@ import '../../../../core/widgets/location_map.dart';
 import '../../../../core/widgets/location_preview_card.dart';
 import '../../../../core/widgets/premium_surface.dart';
 import '../../../reports/domain/models/report_detail.dart';
+import '../../../reports/domain/models/report_image_upload_file.dart';
 import '../../../reports/domain/models/report_status.dart';
+import '../../../reports/domain/repositories/reports_repository.dart';
+import '../../../reports/presentation/widgets/field_report_image_picker.dart';
 import '../../../reports/presentation/widgets/report_status_chip.dart';
 import '../../domain/repositories/staff_repository.dart';
 import '../cubit/staff_report_detail_cubit.dart';
@@ -28,9 +32,14 @@ import '../widgets/staff_section_header.dart';
 import '../workflow/staff_queue_session.dart';
 
 class StaffReportDetailScreen extends StatelessWidget {
-  const StaffReportDetailScreen({required this.reportId, super.key});
+  const StaffReportDetailScreen({
+    required this.reportId,
+    this.focus,
+    super.key,
+  });
 
   final int reportId;
+  final String? focus;
 
   @override
   Widget build(BuildContext context) {
@@ -39,13 +48,15 @@ class StaffReportDetailScreen extends StatelessWidget {
         staffRepository: context.read<StaffRepository>(),
         reportId: reportId,
       )..load(),
-      child: const _StaffReportDetailView(),
+      child: _StaffReportDetailView(focus: focus),
     );
   }
 }
 
 class _StaffReportDetailView extends StatelessWidget {
-  const _StaffReportDetailView();
+  const _StaffReportDetailView({this.focus});
+
+  final String? focus;
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +86,9 @@ class _StaffReportDetailView extends StatelessWidget {
         return Scaffold(
           appBar: AppBar(title: const Text('Assigned Report')),
           body: CivicBackground(
-            child: SafeArea(child: _DetailBody(state: state)),
+            child: SafeArea(
+              child: _DetailBody(state: state, focus: focus),
+            ),
           ),
         );
       },
@@ -84,9 +97,10 @@ class _StaffReportDetailView extends StatelessWidget {
 }
 
 class _DetailBody extends StatelessWidget {
-  const _DetailBody({required this.state});
+  const _DetailBody({required this.state, this.focus});
 
   final StaffReportDetailState state;
+  final String? focus;
 
   @override
   Widget build(BuildContext context) {
@@ -129,7 +143,11 @@ class _DetailBody extends StatelessWidget {
             sliver: SliverToBoxAdapter(
               child: AppResponsive(
                 maxWidth: 1180,
-                child: _ResponsiveDetail(report: report, state: state),
+                child: _ResponsiveDetail(
+                  report: report,
+                  state: state,
+                  focus: focus,
+                ),
               ),
             ),
           ),
@@ -140,10 +158,15 @@ class _DetailBody extends StatelessWidget {
 }
 
 class _ResponsiveDetail extends StatelessWidget {
-  const _ResponsiveDetail({required this.report, required this.state});
+  const _ResponsiveDetail({
+    required this.report,
+    required this.state,
+    this.focus,
+  });
 
   final CitizenReportDetail report;
   final StaffReportDetailState state;
+  final String? focus;
 
   @override
   Widget build(BuildContext context) {
@@ -154,6 +177,10 @@ class _ResponsiveDetail extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _HeroPanel(report: report),
+            if (focus == 'resolution' || focus == 'timeline') ...[
+              const SizedBox(height: AppSpacing.lg),
+              _StaffFocusNotice(focus: focus!),
+            ],
             const SizedBox(height: AppSpacing.lg),
             _QueueNavigationPanel(reportId: report.id),
             const SizedBox(height: AppSpacing.lg),
@@ -169,6 +196,8 @@ class _ResponsiveDetail extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.lg),
             _ImagesPanel(images: report.images),
+            const SizedBox(height: AppSpacing.lg),
+            _ResolutionReadbackPanel(resolution: report.resolution),
           ],
         );
         final side = Column(
@@ -177,6 +206,8 @@ class _ResponsiveDetail extends StatelessWidget {
             _StatusWorkflowPanel(state: state),
             const SizedBox(height: AppSpacing.lg),
             _CurrentStatePanel(report: report),
+            const SizedBox(height: AppSpacing.lg),
+            _TimelinePanel(events: report.timeline),
           ],
         );
         if (!useColumns) {
@@ -669,7 +700,24 @@ class _StatusWorkflowPanel extends StatelessWidget {
     if (!context.mounted || !confirmed) {
       return;
     }
-    await context.read<StaffReportDetailCubit>().updateStatus(action);
+    if (action != ReportStatus.resolved) {
+      await context.read<StaffReportDetailCubit>().updateStatus(action);
+      return;
+    }
+    final resolution = await showDialog<_ResolutionDraft>(
+      context: context,
+      builder: (context) => const _ResolutionDialog(),
+    );
+    if (!context.mounted || resolution == null) {
+      return;
+    }
+    await context.read<StaffReportDetailCubit>().updateStatus(
+      action,
+      resolutionSummary: resolution.summary,
+      workPerformed: resolution.workPerformed,
+      publicNote: resolution.publicNote,
+      resolutionImageUrls: resolution.imageUrls,
+    );
   }
 
   Future<bool> _confirmTerminalAction(
@@ -751,6 +799,332 @@ class _WorkflowClosed extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _StaffFocusNotice extends StatelessWidget {
+  const _StaffFocusNotice({required this.focus});
+
+  final String focus;
+
+  @override
+  Widget build(BuildContext context) {
+    return PremiumSurface(
+      child: Row(
+        children: [
+          const Icon(Icons.notification_important_outlined),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              focus == 'resolution'
+                  ? 'Opened from a resolution notification.'
+                  : 'Opened from a timeline notification.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.muted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResolutionDraft {
+  const _ResolutionDraft({
+    required this.summary,
+    this.workPerformed,
+    this.publicNote,
+    this.imageUrls = const [],
+  });
+
+  final String summary;
+  final String? workPerformed;
+  final String? publicNote;
+  final List<String> imageUrls;
+}
+
+class _ResolutionDialog extends StatefulWidget {
+  const _ResolutionDialog();
+
+  @override
+  State<_ResolutionDialog> createState() => _ResolutionDialogState();
+}
+
+class _ResolutionDialogState extends State<_ResolutionDialog> {
+  final _summaryController = TextEditingController();
+  final _workController = TextEditingController();
+  final _noteController = TextEditingController();
+  final _picker = ImagePicker();
+  final _images = <FieldReportImage>[];
+  String? _error;
+  bool _uploading = false;
+
+  @override
+  void dispose() {
+    _summaryController.dispose();
+    _workController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog.fullscreen(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Resolve Report'),
+          actions: [
+            TextButton(
+              onPressed: _uploading ? null : () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            children: [
+              AppResponsive(
+                maxWidth: 760,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: _summaryController,
+                      maxLength: 1000,
+                      decoration: const InputDecoration(
+                        labelText: 'Resolution summary',
+                        hintText: 'Briefly summarize the final resolution',
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    TextField(
+                      controller: _workController,
+                      minLines: 3,
+                      maxLines: 5,
+                      decoration: const InputDecoration(
+                        labelText: 'Work performed',
+                        hintText: 'Describe the work completed by staff',
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    TextField(
+                      controller: _noteController,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Public note',
+                        hintText: 'Optional note visible to the citizen',
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    FieldReportImagePicker(
+                      images: _images,
+                      enabled: !_uploading,
+                      uploading: _uploading,
+                      errorMessage: _error,
+                      onTakePhoto: () => _pick(ImageSource.camera),
+                      onChooseGallery: _pickGallery,
+                      onRemove: _remove,
+                      onReplace: _replace,
+                      onMoveUp: (index) => _move(index, index - 1),
+                      onMoveDown: (index) => _move(index, index + 1),
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    FilledButton.icon(
+                      onPressed: _uploading ? null : _submit,
+                      icon: _uploading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.check_circle_outline),
+                      label: const Text('Submit Resolution'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pick(ImageSource source) async {
+    if (_images.length >= maxFieldReportImages) {
+      setState(
+        () => _error = 'You can attach up to $maxFieldReportImages images.',
+      );
+      return;
+    }
+    final picked = await _picker.pickImage(
+      source: source,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 82,
+      requestFullMetadata: false,
+    );
+    if (picked == null) {
+      return;
+    }
+    final image = await _toFieldImage(picked);
+    if (image == null || !mounted) {
+      return;
+    }
+    setState(() {
+      _error = null;
+      _images.add(image);
+    });
+  }
+
+  Future<void> _pickGallery() async {
+    final remaining = maxFieldReportImages - _images.length;
+    if (remaining <= 0) {
+      setState(
+        () => _error = 'You can attach up to $maxFieldReportImages images.',
+      );
+      return;
+    }
+    final picked = await _picker.pickMultiImage(
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 82,
+      requestFullMetadata: false,
+    );
+    final next = <FieldReportImage>[];
+    for (final file in picked.take(remaining)) {
+      final image = await _toFieldImage(file);
+      if (image != null) {
+        next.add(image);
+      }
+    }
+    if (!mounted || next.isEmpty) {
+      return;
+    }
+    setState(() {
+      _error = null;
+      _images.addAll(next);
+    });
+  }
+
+  Future<FieldReportImage?> _toFieldImage(XFile file) async {
+    final bytes = await file.readAsBytes();
+    if (bytes.length > 5 * 1024 * 1024) {
+      setState(() => _error = 'Each image must be 5 MB or smaller.');
+      return null;
+    }
+    final contentType = file.mimeType ?? _contentTypeFor(file.name);
+    if (!{'image/jpeg', 'image/png', 'image/webp'}.contains(contentType)) {
+      setState(() => _error = 'Only JPEG, PNG, or WebP images are supported.');
+      return null;
+    }
+    return FieldReportImage.local(
+      id: '${DateTime.now().microsecondsSinceEpoch}-${file.name}',
+      fileName: file.name,
+      contentType: contentType,
+      bytes: bytes,
+    );
+  }
+
+  void _remove(int index) {
+    setState(() => _images.removeAt(index));
+  }
+
+  Future<void> _replace(int index) async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 82,
+      requestFullMetadata: false,
+    );
+    if (picked == null) {
+      return;
+    }
+    final image = await _toFieldImage(picked);
+    if (image == null || !mounted) {
+      return;
+    }
+    setState(() => _images[index] = image);
+  }
+
+  void _move(int from, int to) {
+    if (to < 0 || to >= _images.length) {
+      return;
+    }
+    setState(() {
+      final image = _images.removeAt(from);
+      _images.insert(to, image);
+    });
+  }
+
+  Future<void> _submit() async {
+    final summary = _summaryController.text.trim();
+    if (summary.isEmpty) {
+      setState(() => _error = 'Resolution summary is required.');
+      return;
+    }
+    setState(() {
+      _uploading = true;
+      _error = null;
+    });
+    try {
+      final repository = context.read<ReportsRepository>();
+      final urls = <String>[];
+      for (final image in _images) {
+        final bytes = image.bytes;
+        if (bytes == null) {
+          continue;
+        }
+        final uploaded = await repository.uploadReportImage(
+          ReportImageUploadFile(
+            fileName: image.fileName,
+            contentType: image.contentType,
+            bytes: bytes,
+          ),
+        );
+        urls.add(uploaded.url);
+      }
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(
+        _ResolutionDraft(
+          summary: summary,
+          workPerformed: _optional(_workController.text),
+          publicNote: _optional(_noteController.text),
+          imageUrls: urls,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _uploading = false;
+        _error = 'Resolution images could not be uploaded. Try again.';
+      });
+    }
+  }
+
+  String _contentTypeFor(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.png')) {
+      return 'image/png';
+    }
+    if (lower.endsWith('.webp')) {
+      return 'image/webp';
+    }
+    return 'image/jpeg';
+  }
+
+  String? _optional(String value) {
+    final normalized = value.trim();
+    return normalized.isEmpty ? null : normalized;
   }
 }
 
@@ -972,6 +1346,119 @@ class _ImagesPanel extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _ResolutionReadbackPanel extends StatelessWidget {
+  const _ResolutionReadbackPanel({required this.resolution});
+
+  final ReportResolution? resolution;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = resolution;
+    return PremiumSurface(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const StaffSectionHeader(
+            title: 'Resolution',
+            icon: Icons.task_alt_outlined,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (data == null)
+            Text(
+              'Resolution notes and after photos will appear after the report is resolved.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+            )
+          else ...[
+            _ResolutionLine(label: 'Summary', value: data.summary),
+            _ResolutionLine(label: 'Work performed', value: data.workPerformed),
+            _ResolutionLine(label: 'Public note', value: data.publicNote),
+            const SizedBox(height: AppSpacing.md),
+            _ImagesPanel(images: data.images),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TimelinePanel extends StatelessWidget {
+  const _TimelinePanel({required this.events});
+
+  final List<ReportTimelineEvent> events;
+
+  @override
+  Widget build(BuildContext context) {
+    return PremiumSurface(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const StaffSectionHeader(title: 'Timeline', icon: Icons.timeline),
+          const SizedBox(height: AppSpacing.md),
+          if (events.isEmpty)
+            Text(
+              'No persisted timeline events yet.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+            )
+          else
+            for (final event in events) ...[
+              Text(
+                event.title.isEmpty ? event.type : event.title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              if (event.description != null)
+                Text(
+                  event.description!,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
+                ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ResolutionLine extends StatelessWidget {
+  const _ResolutionLine({required this.label, required this.value});
+
+  final String label;
+  final String? value;
+
+  @override
+  Widget build(BuildContext context) {
+    if (value == null || value!.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppColors.muted,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(value!, style: Theme.of(context).textTheme.bodyMedium),
+        ],
+      ),
     );
   }
 }

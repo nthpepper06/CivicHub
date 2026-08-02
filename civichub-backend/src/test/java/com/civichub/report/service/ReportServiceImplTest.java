@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -20,12 +21,18 @@ import com.civichub.department.repository.DepartmentRepository;
 import com.civichub.notification.service.NotificationService;
 import com.civichub.report.dto.request.ReportCreateRequest;
 import com.civichub.report.dto.request.ReportDepartmentAssignRequest;
+import com.civichub.report.dto.request.ReportRatingRequest;
 import com.civichub.report.dto.request.ReportStatusUpdateRequest;
 import com.civichub.report.dto.request.ReportUpdateRequest;
 import com.civichub.report.dto.response.ReportDetailResponse;
 import com.civichub.report.entity.Report;
+import com.civichub.report.entity.ReportRating;
+import com.civichub.report.entity.ReportResolution;
 import com.civichub.report.mapper.ReportMapper;
+import com.civichub.report.repository.ReportRatingRepository;
 import com.civichub.report.repository.ReportRepository;
+import com.civichub.report.repository.ReportResolutionRepository;
+import com.civichub.report.repository.ReportTimelineEventRepository;
 import com.civichub.security.CivicHubUserPrincipal;
 import com.civichub.user.entity.User;
 import com.civichub.user.repository.UserRepository;
@@ -71,6 +78,15 @@ class ReportServiceImplTest {
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private ReportTimelineEventRepository timelineEventRepository;
+
+    @Mock
+    private ReportResolutionRepository resolutionRepository;
+
+    @Mock
+    private ReportRatingRepository ratingRepository;
+
     private ReportServiceImpl reportService;
 
     @BeforeEach
@@ -82,7 +98,15 @@ class ReportServiceImplTest {
                 departmentRepository,
                 reportMapper,
                 notificationService,
-                auditService);
+                auditService,
+                timelineEventRepository,
+                resolutionRepository,
+                ratingRepository);
+
+        lenient().when(timelineEventRepository.findByReportIdOrderByCreatedAtAscIdAsc(any()))
+                .thenReturn(List.of());
+        lenient().when(resolutionRepository.findByReportId(any())).thenReturn(Optional.empty());
+        lenient().when(ratingRepository.findByReportId(any())).thenReturn(Optional.empty());
     }
 
     @AfterEach
@@ -390,6 +414,73 @@ class ReportServiceImplTest {
                 ReportStatus.RECEIVED,
                 ReportStatus.IN_PROGRESS);
         verify(auditService).recordReportStatusChanged(99L, "Report", ReportStatus.RECEIVED, ReportStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void resolvingReportShouldPersistResolutionDetailsAndTimeline() {
+        authenticate(2L, UserRole.STAFF);
+        Department department = department(5L, true);
+        Report report = report(ReportStatus.IN_PROGRESS, department);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(staff(2L, department)));
+        when(departmentRepository.findById(5L)).thenReturn(Optional.of(department));
+        when(reportRepository.findDetailByIdAndDepartmentId(99L, 5L)).thenReturn(Optional.of(report));
+        when(reportRepository.save(report)).thenReturn(report);
+        when(reportMapper.toDetailResponse(report)).thenReturn(ReportDetailResponse.builder().id(99L).build());
+
+        ReportStatusUpdateRequest request = new ReportStatusUpdateRequest(ReportStatus.RESOLVED);
+        request.setResolutionSummary("Pothole repaired");
+        request.setWorkPerformed("Filled and compacted the road surface.");
+        request.setPublicNote("The road is safe to use.");
+        request.setResolutionImageUrls(List.of("https://uploads.test/after.jpg"));
+
+        reportService.updateStaffReportStatus(99L, request);
+
+        assertThat(report.getStatus()).isEqualTo(ReportStatus.RESOLVED);
+        assertThat(report.getResolvedAt()).isNotNull();
+        ArgumentCaptor<ReportResolution> resolutionCaptor = ArgumentCaptor.forClass(ReportResolution.class);
+        verify(resolutionRepository).save(resolutionCaptor.capture());
+        ReportResolution resolution = resolutionCaptor.getValue();
+        assertThat(resolution.getSummary()).isEqualTo("Pothole repaired");
+        assertThat(resolution.getImages()).extracting("imageUrl")
+                .containsExactly("https://uploads.test/after.jpg");
+        verify(timelineEventRepository, org.mockito.Mockito.atLeastOnce()).save(any());
+    }
+
+    @Test
+    void citizenCanConfirmResolvedReportResolution() {
+        authenticate(1L, UserRole.CITIZEN);
+        Report report = report(ReportStatus.RESOLVED, department(5L, true));
+        ReportResolution resolution = ReportResolution.builder()
+                .id(7L)
+                .report(report)
+                .summary("Fixed")
+                .build();
+        when(reportRepository.findDetailByIdAndUserId(99L, 1L)).thenReturn(Optional.of(report));
+        when(resolutionRepository.findByReportId(99L)).thenReturn(Optional.of(resolution));
+        when(reportMapper.toDetailResponse(report)).thenReturn(ReportDetailResponse.builder().id(99L).build());
+
+        reportService.confirmMyReportResolution(99L);
+
+        assertThat(resolution.getCitizenConfirmedAt()).isNotNull();
+        verify(resolutionRepository).save(resolution);
+        verify(timelineEventRepository).save(any());
+    }
+
+    @Test
+    void citizenCanRateResolvedReportResolution() {
+        authenticate(1L, UserRole.CITIZEN);
+        Report report = report(ReportStatus.RESOLVED, department(5L, true));
+        when(reportRepository.findDetailByIdAndUserId(99L, 1L)).thenReturn(Optional.of(report));
+        when(ratingRepository.findByReportId(99L)).thenReturn(Optional.empty());
+        when(reportMapper.toDetailResponse(report)).thenReturn(ReportDetailResponse.builder().id(99L).build());
+
+        reportService.rateMyReportResolution(99L, new ReportRatingRequest(5, "Great work"));
+
+        ArgumentCaptor<ReportRating> ratingCaptor = ArgumentCaptor.forClass(ReportRating.class);
+        verify(ratingRepository).save(ratingCaptor.capture());
+        assertThat(ratingCaptor.getValue().getRating()).isEqualTo(5);
+        assertThat(ratingCaptor.getValue().getComment()).isEqualTo("Great work");
+        verify(timelineEventRepository).save(any());
     }
 
     @Test

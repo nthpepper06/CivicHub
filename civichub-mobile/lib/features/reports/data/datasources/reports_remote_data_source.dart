@@ -31,6 +31,14 @@ abstract class ReportsRemoteDataSource {
 
   Future<ReportDetailResponse> cancelMyReport(int id);
 
+  Future<ReportDetailResponse> confirmResolution(int id);
+
+  Future<ReportDetailResponse> rateResolution(
+    int id, {
+    required int rating,
+    String? comment,
+  });
+
   Future<ReportsPageResponse<ReportSummaryResponse>> getMyReports({
     required int page,
     required int size,
@@ -163,6 +171,45 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     try {
       final response = await _apiClient.dio.patch<Map<String, dynamic>>(
         ApiEndpoints.myReportCancel(id),
+      );
+      final data = _responseData(response.data);
+      return ReportDetailResponse.fromJson(data);
+    } on DioException catch (error) {
+      throw _apiClient.mapDioError(error);
+    } on ApiException {
+      rethrow;
+    } on FormatException {
+      throw ApiException.invalidResponse;
+    }
+  }
+
+  @override
+  Future<ReportDetailResponse> confirmResolution(int id) async {
+    try {
+      final response = await _apiClient.dio.patch<Map<String, dynamic>>(
+        ApiEndpoints.myReportConfirmResolution(id),
+      );
+      final data = _responseData(response.data);
+      return ReportDetailResponse.fromJson(data);
+    } on DioException catch (error) {
+      throw _apiClient.mapDioError(error);
+    } on ApiException {
+      rethrow;
+    } on FormatException {
+      throw ApiException.invalidResponse;
+    }
+  }
+
+  @override
+  Future<ReportDetailResponse> rateResolution(
+    int id, {
+    required int rating,
+    String? comment,
+  }) async {
+    try {
+      final response = await _apiClient.dio.post<Map<String, dynamic>>(
+        ApiEndpoints.myReportRating(id),
+        data: {'rating': rating, 'comment': comment},
       );
       final data = _responseData(response.data);
       return ReportDetailResponse.fromJson(data);

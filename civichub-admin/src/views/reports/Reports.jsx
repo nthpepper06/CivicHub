@@ -541,6 +541,8 @@ const Reports = () => {
               </CRow>
 
               {Array.isArray(detail.images) && detail.images.length ? (
+                <>
+                  <h6>Before photos</h6>
                 <CRow className="g-3">
                   {detail.images.map((image) => (
                     <CCol sm={6} lg={4} key={image.id || image.url}>
@@ -566,12 +568,89 @@ const Reports = () => {
                     </CCol>
                   ))}
                 </CRow>
+                </>
               ) : (
-                <EmptyState title="No attachments" />
+                <EmptyState title="No before photos" />
               )}
 
               <hr />
-              <h6>Timeline</h6>
+              <h6>Resolution</h6>
+              {detail.resolution ? (
+                <>
+                  <CRow className="g-3 mb-3">
+                    <CCol md={6}>
+                      <div className="small text-body-secondary">Summary</div>
+                      <div>{detail.resolution.summary || '-'}</div>
+                    </CCol>
+                    <CCol md={6}>
+                      <div className="small text-body-secondary">Resolved by</div>
+                      <div>{detail.resolution.resolvedByName || '-'}</div>
+                    </CCol>
+                    <CCol md={6}>
+                      <div className="small text-body-secondary">Work performed</div>
+                      <div>{detail.resolution.workPerformed || '-'}</div>
+                    </CCol>
+                    <CCol md={6}>
+                      <div className="small text-body-secondary">Public note</div>
+                      <div>{detail.resolution.publicNote || '-'}</div>
+                    </CCol>
+                  </CRow>
+                  {Array.isArray(detail.resolution.images) && detail.resolution.images.length ? (
+                    <>
+                      <h6 className="small text-body-secondary">After photos</h6>
+                      <CRow className="g-3">
+                        {detail.resolution.images.map((image) => (
+                          <CCol sm={6} lg={4} key={image.id || image.url}>
+                            <CImage
+                              src={image.url}
+                              alt="Resolution attachment"
+                              fluid
+                              rounded
+                              className="mb-2"
+                            />
+                            <CButton
+                              color="secondary"
+                              variant="outline"
+                              size="sm"
+                              component="a"
+                              href={image.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              download
+                            >
+                              Download
+                            </CButton>
+                          </CCol>
+                        ))}
+                      </CRow>
+                    </>
+                  ) : (
+                    <EmptyState title="No after photos" />
+                  )}
+                </>
+              ) : (
+                <EmptyState title="No resolution details" />
+              )}
+
+              {detail.rating ? (
+                <>
+                  <hr />
+                  <h6>Citizen feedback</h6>
+                  <CRow className="g-3 mb-3">
+                    <CCol md={4}>
+                      <div className="small text-body-secondary">Rating</div>
+                      <div>{detail.rating.rating} / 5</div>
+                    </CCol>
+                    <CCol md={8}>
+                      <div className="small text-body-secondary">Comment</div>
+                      <div>{detail.rating.comment || '-'}</div>
+                    </CCol>
+                  </CRow>
+                </>
+              ) : null}
+
+              <hr />
+              <h6>Audit timeline</h6>
               {timelineLoading ? (
                 <LoadingState label="Loading timeline..." />
               ) : timeline.length ? (

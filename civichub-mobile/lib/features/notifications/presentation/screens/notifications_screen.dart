@@ -354,7 +354,11 @@ class _NotificationTile extends StatelessWidget {
               final route = role == UserRole.staff
                   ? AppRoutes.staffReportDetailPath(reportId)
                   : AppRoutes.reportDetailPath(reportId);
-              await context.push(route);
+              final focus =
+                  notification.type.apiValue == 'REPORT_STATUS_CHANGED'
+                  ? 'resolution'
+                  : 'timeline';
+              await context.push('$route?focus=$focus');
             },
       borderColor: isUnread ? accent.withValues(alpha: 0.28) : AppColors.line,
       padding: EdgeInsets.zero,

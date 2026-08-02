@@ -59,7 +59,13 @@ class StaffReportDetailCubit extends Cubit<StaffReportDetailState> {
     }
   }
 
-  Future<void> updateStatus(ReportStatus nextStatus) async {
+  Future<void> updateStatus(
+    ReportStatus nextStatus, {
+    String? resolutionSummary,
+    String? workPerformed,
+    String? publicNote,
+    List<String> resolutionImageUrls = const [],
+  }) async {
     if (state.isUpdatingStatus ||
         !state.availableActions.contains(nextStatus)) {
       return;
@@ -75,6 +81,10 @@ class StaffReportDetailCubit extends Cubit<StaffReportDetailState> {
       final report = await _staffRepository.updateAssignedReportStatus(
         _reportId,
         nextStatus,
+        resolutionSummary: resolutionSummary,
+        workPerformed: workPerformed,
+        publicNote: publicNote,
+        resolutionImageUrls: resolutionImageUrls,
       );
       emit(
         state.copyWith(

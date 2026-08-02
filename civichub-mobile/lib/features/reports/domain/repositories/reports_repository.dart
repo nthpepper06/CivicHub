@@ -23,6 +23,14 @@ abstract class ReportsRepository {
 
   Future<CitizenReportDetail> cancelMyReport(int id);
 
+  Future<CitizenReportDetail> confirmResolution(int id);
+
+  Future<CitizenReportDetail> rateResolution(
+    int id, {
+    required int rating,
+    String? comment,
+  });
+
   Future<ReportsPage<CitizenReportSummary>> getMyReports({
     required int page,
     required int size,

@@ -14,6 +14,9 @@ class ApiEndpoints {
 
   static String myReportDetail(int id) => '/api/reports/my/$id';
   static String myReportCancel(int id) => '/api/reports/my/$id/cancel';
+  static String myReportConfirmResolution(int id) =>
+      '/api/reports/my/$id/confirm-resolution';
+  static String myReportRating(int id) => '/api/reports/my/$id/rating';
   static String markNotificationRead(int id) => '/api/notifications/$id/read';
   static String staffReportDetail(int id) => '/api/staff/reports/$id';
   static String staffReportStatus(int id) => '/api/staff/reports/$id/status';

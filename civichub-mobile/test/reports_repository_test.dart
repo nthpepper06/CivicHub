@@ -104,6 +104,28 @@ class FakeReportsRemoteDataSource implements ReportsRemoteDataSource {
   }
 
   @override
+  Future<ReportDetailResponse> confirmResolution(int id) async {
+    return getMyReport(id);
+  }
+
+  @override
+  Future<ReportDetailResponse> rateResolution(
+    int id, {
+    required int rating,
+    String? comment,
+  }) async {
+    return ReportDetailResponse.fromJson({
+      'id': id,
+      'title': 'Road hazard',
+      'description': 'Large pothole',
+      'address': 'Ward 1',
+      'status': 'RESOLVED',
+      'images': const [],
+      'rating': {'id': 5, 'rating': rating, 'comment': comment},
+    });
+  }
+
+  @override
   Future<ReportsPageResponse<ReportSummaryResponse>> getMyReports({
     required int page,
     required int size,

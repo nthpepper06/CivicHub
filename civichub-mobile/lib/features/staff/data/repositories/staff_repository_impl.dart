@@ -59,11 +59,19 @@ class StaffRepositoryImpl implements StaffRepository {
   @override
   Future<CitizenReportDetail> updateAssignedReportStatus(
     int id,
-    ReportStatus status,
-  ) async {
+    ReportStatus status, {
+    String? resolutionSummary,
+    String? workPerformed,
+    String? publicNote,
+    List<String> resolutionImageUrls = const [],
+  }) async {
     final response = await _remoteDataSource.updateAssignedReportStatus(
       id,
       status,
+      resolutionSummary: resolutionSummary,
+      workPerformed: workPerformed,
+      publicNote: publicNote,
+      resolutionImageUrls: resolutionImageUrls,
     );
     return response.toDomain();
   }

@@ -119,8 +119,12 @@ class _FakeStaffRemoteDataSource implements StaffRemoteDataSource {
   @override
   Future<ReportDetailResponse> updateAssignedReportStatus(
     int id,
-    ReportStatus status,
-  ) async {
+    ReportStatus status, {
+    String? resolutionSummary,
+    String? workPerformed,
+    String? publicNote,
+    List<String> resolutionImageUrls = const [],
+  }) async {
     updatedId = id;
     updatedStatus = status;
     return ReportDetailResponse(

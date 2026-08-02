@@ -7,6 +7,7 @@ import com.civichub.common.PageResponse;
 import com.civichub.common.CsvUtils;
 import com.civichub.common.enums.Priority;
 import com.civichub.common.enums.ReportStatus;
+import com.civichub.common.enums.ReportTimelineEventType;
 import com.civichub.common.enums.UserStatus;
 import com.civichub.common.exception.InvalidReportStateException;
 import com.civichub.common.exception.ResourceNotFoundException;
@@ -15,14 +16,26 @@ import com.civichub.department.repository.DepartmentRepository;
 import com.civichub.notification.service.NotificationService;
 import com.civichub.report.dto.request.ReportCreateRequest;
 import com.civichub.report.dto.request.ReportDepartmentAssignRequest;
+import com.civichub.report.dto.request.ReportRatingRequest;
 import com.civichub.report.dto.request.ReportStatusUpdateRequest;
 import com.civichub.report.dto.request.ReportUpdateRequest;
 import com.civichub.report.dto.response.ReportDetailResponse;
+import com.civichub.report.dto.response.ReportImageResponse;
+import com.civichub.report.dto.response.ReportRatingResponse;
+import com.civichub.report.dto.response.ReportResolutionResponse;
 import com.civichub.report.dto.response.ReportSummaryResponse;
+import com.civichub.report.dto.response.ReportTimelineEventResponse;
 import com.civichub.report.entity.Report;
 import com.civichub.report.entity.ReportImage;
+import com.civichub.report.entity.ReportRating;
+import com.civichub.report.entity.ReportResolution;
+import com.civichub.report.entity.ReportResolutionImage;
+import com.civichub.report.entity.ReportTimelineEvent;
 import com.civichub.report.mapper.ReportMapper;
+import com.civichub.report.repository.ReportRatingRepository;
 import com.civichub.report.repository.ReportRepository;
+import com.civichub.report.repository.ReportResolutionRepository;
+import com.civichub.report.repository.ReportTimelineEventRepository;
 import com.civichub.report.specification.ReportSpecification;
 import com.civichub.security.CivicHubUserPrincipal;
 import com.civichub.user.entity.User;
@@ -30,6 +43,7 @@ import com.civichub.user.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -66,6 +80,9 @@ public class ReportServiceImpl implements ReportService {
     private final ReportMapper reportMapper;
     private final NotificationService notificationService;
     private final AuditService auditService;
+    private final ReportTimelineEventRepository timelineEventRepository;
+    private final ReportResolutionRepository resolutionRepository;
+    private final ReportRatingRepository ratingRepository;
 
     @Override
     @Transactional
@@ -87,7 +104,14 @@ public class ReportServiceImpl implements ReportService {
                 .build();
         replaceImages(report, request.getImageUrls());
 
-        return reportMapper.toDetailResponse(reportRepository.save(report));
+        Report savedReport = reportRepository.save(report);
+        recordTimelineEvent(
+                savedReport,
+                ReportTimelineEventType.REPORT_CREATED,
+                "Report created",
+                "Citizen created the report.",
+                user);
+        return toDetailResponse(savedReport);
     }
 
     @Override
@@ -110,7 +134,7 @@ public class ReportServiceImpl implements ReportService {
     @Override
     @Transactional(readOnly = true)
     public ReportDetailResponse getMyReport(Long id) {
-        return reportMapper.toDetailResponse(getOwnedReport(id));
+        return toDetailResponse(getOwnedReport(id));
     }
 
     @Override
@@ -128,7 +152,7 @@ public class ReportServiceImpl implements ReportService {
         report.setCategory(category);
         replaceImages(report, request.getImageUrls());
 
-        return reportMapper.toDetailResponse(reportRepository.save(report));
+        return toDetailResponse(reportRepository.save(report));
     }
 
     @Override
@@ -139,7 +163,60 @@ public class ReportServiceImpl implements ReportService {
         report.setStatus(ReportStatus.CANCELLED);
         Report savedReport = reportRepository.save(report);
         auditService.recordReportCancelled(savedReport.getId(), savedReport.getTitle());
-        return reportMapper.toDetailResponse(savedReport);
+        recordTimelineEvent(
+                savedReport,
+                ReportTimelineEventType.CANCELLED,
+                "Report cancelled",
+                "Citizen cancelled the pending report.",
+                report.getUser());
+        return toDetailResponse(savedReport);
+    }
+
+    @Override
+    @Transactional
+    public ReportDetailResponse confirmMyReportResolution(Long id) {
+        Report report = getOwnedReport(id);
+        if (!ReportStatus.RESOLVED.equals(report.getStatus())) {
+            throw new InvalidReportStateException("Only resolved reports can be confirmed");
+        }
+        ReportResolution resolution = resolutionRepository.findByReportId(report.getId())
+                .orElseThrow(() -> new InvalidReportStateException("Resolution details are not available"));
+        if (resolution.getCitizenConfirmedAt() == null) {
+            resolution.setCitizenConfirmedAt(LocalDateTime.now());
+            resolutionRepository.save(resolution);
+            recordTimelineEvent(
+                    report,
+                    ReportTimelineEventType.CITIZEN_CONFIRMED,
+                    "Citizen confirmed resolution",
+                    "Citizen confirmed the report resolution.",
+                    report.getUser());
+        }
+        return toDetailResponse(report);
+    }
+
+    @Override
+    @Transactional
+    public ReportDetailResponse rateMyReportResolution(Long id, ReportRatingRequest request) {
+        Report report = getOwnedReport(id);
+        if (!ReportStatus.RESOLVED.equals(report.getStatus())) {
+            throw new InvalidReportStateException("Only resolved reports can be rated");
+        }
+        User user = report.getUser();
+        ReportRating rating = ratingRepository.findByReportId(report.getId())
+                .orElseGet(() -> ReportRating.builder()
+                        .report(report)
+                        .user(user)
+                        .build());
+        rating.setRating(request.getRating());
+        rating.setComment(normalizeOptional(request.getComment()));
+        ratingRepository.save(rating);
+        recordTimelineEvent(
+                report,
+                ReportTimelineEventType.RATING_SUBMITTED,
+                "Rating submitted",
+                "Citizen rated the completed resolution.",
+                user);
+        return toDetailResponse(report);
     }
 
     @Override
@@ -168,7 +245,7 @@ public class ReportServiceImpl implements ReportService {
         Long departmentId = getCurrentStaffDepartmentId();
         Report report = reportRepository.findDetailByIdAndDepartmentId(id, departmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Report not found"));
-        return reportMapper.toDetailResponse(report);
+        return toDetailResponse(report);
     }
 
     @Override
@@ -183,11 +260,13 @@ public class ReportServiceImpl implements ReportService {
         report.setStatus(nextStatus);
         if (ReportStatus.RESOLVED.equals(nextStatus)) {
             report.setResolvedAt(LocalDateTime.now());
+            upsertResolution(report, request);
         }
         Report savedReport = reportRepository.save(report);
         notificationService.createReportStatusChangedNotification(savedReport, oldStatus, nextStatus);
         auditService.recordReportStatusChanged(savedReport.getId(), savedReport.getTitle(), oldStatus, nextStatus);
-        return reportMapper.toDetailResponse(savedReport);
+        recordStatusTimelineEvent(savedReport, oldStatus, nextStatus);
+        return toDetailResponse(savedReport);
     }
 
     @Override
@@ -260,7 +339,7 @@ public class ReportServiceImpl implements ReportService {
     @Override
     @Transactional(readOnly = true)
     public ReportDetailResponse getAdminReport(Long id) {
-        return reportMapper.toDetailResponse(findReportDetail(id));
+        return toDetailResponse(findReportDetail(id));
     }
 
     @Override
@@ -275,13 +354,19 @@ public class ReportServiceImpl implements ReportService {
         Department oldDepartment = report.getDepartment();
         Long currentDepartmentId = oldDepartment == null ? null : oldDepartment.getId();
         if (department.getId().equals(currentDepartmentId)) {
-            return reportMapper.toDetailResponse(report);
+            return toDetailResponse(report);
         }
         report.setDepartment(department);
         Report savedReport = reportRepository.save(report);
         notificationService.createReportAssignedNotifications(savedReport, department);
         auditService.recordReportAssignment(savedReport.getId(), savedReport.getTitle(), oldDepartment, department);
-        return reportMapper.toDetailResponse(savedReport);
+        recordTimelineEvent(
+                savedReport,
+                ReportTimelineEventType.DEPARTMENT_ASSIGNED,
+                oldDepartment == null ? "Department assigned" : "Department reassigned",
+                "Report assigned to %s.".formatted(department.getName()),
+                currentUserOrNull());
+        return toDetailResponse(savedReport);
     }
 
     @Override
@@ -293,10 +378,14 @@ public class ReportServiceImpl implements ReportService {
         validateTransition(oldStatus, nextStatus);
         report.setStatus(nextStatus);
         report.setResolvedAt(ReportStatus.RESOLVED.equals(nextStatus) ? LocalDateTime.now() : null);
+        if (ReportStatus.RESOLVED.equals(nextStatus)) {
+            upsertResolution(report, request);
+        }
         Report savedReport = reportRepository.save(report);
         notificationService.createReportStatusChangedNotification(savedReport, oldStatus, nextStatus);
         auditService.recordReportStatusChanged(savedReport.getId(), savedReport.getTitle(), oldStatus, nextStatus);
-        return reportMapper.toDetailResponse(savedReport);
+        recordStatusTimelineEvent(savedReport, oldStatus, nextStatus);
+        return toDetailResponse(savedReport);
     }
 
     private Report getOwnedReport(Long id) {
@@ -396,6 +485,160 @@ public class ReportServiceImpl implements ReportService {
         }
     }
 
+    private void upsertResolution(Report report, ReportStatusUpdateRequest request) {
+        String summary = normalizeRequired(
+                request.getResolutionSummary(),
+                "Resolution summary is required when resolving a report");
+        ReportResolution resolution = resolutionRepository.findByReportId(report.getId())
+                .orElseGet(() -> ReportResolution.builder()
+                        .report(report)
+                        .resolvedBy(currentUserOrNull())
+                        .build());
+        resolution.setSummary(summary);
+        resolution.setWorkPerformed(normalizeOptional(request.getWorkPerformed()));
+        resolution.setPublicNote(normalizeOptional(request.getPublicNote()));
+        resolution.setResolvedBy(currentUserOrNull());
+        replaceResolutionImages(resolution, request.getResolutionImageUrls());
+        resolutionRepository.save(resolution);
+
+        recordTimelineEvent(
+                report,
+                ReportTimelineEventType.STAFF_NOTE_ADDED,
+                "Resolution note added",
+                "Staff added resolution details.",
+                resolution.getResolvedBy());
+        if (request.getResolutionImageUrls() != null && !request.getResolutionImageUrls().isEmpty()) {
+            recordTimelineEvent(
+                    report,
+                    ReportTimelineEventType.RESOLUTION_IMAGES_UPLOADED,
+                    "Resolution photos uploaded",
+                    "Staff attached resolution evidence photos.",
+                    resolution.getResolvedBy());
+        }
+    }
+
+    private void replaceResolutionImages(ReportResolution resolution, java.util.List<String> imageUrls) {
+        resolution.clearImages();
+        if (imageUrls == null || imageUrls.isEmpty()) {
+            return;
+        }
+        LinkedHashSet<String> normalizedUrls = new LinkedHashSet<>();
+        for (String imageUrl : imageUrls) {
+            String normalized = normalizeRequired(imageUrl, "Resolution image URL is required");
+            if (!normalizedUrls.add(normalized)) {
+                throw new InvalidReportStateException("Duplicate resolution image URL is not allowed");
+            }
+        }
+
+        int displayOrder = 0;
+        for (String imageUrl : normalizedUrls) {
+            resolution.addImage(ReportResolutionImage.builder()
+                    .imageUrl(imageUrl)
+                    .displayOrder(displayOrder++)
+                    .build());
+        }
+    }
+
+    private void recordStatusTimelineEvent(Report report, ReportStatus oldStatus, ReportStatus nextStatus) {
+        ReportTimelineEventType eventType = switch (nextStatus) {
+            case RECEIVED -> ReportTimelineEventType.STAFF_ACCEPTED;
+            case IN_PROGRESS -> ReportTimelineEventType.STATUS_IN_PROGRESS;
+            case RESOLVED -> ReportTimelineEventType.RESOLVED;
+            case REJECTED -> ReportTimelineEventType.REJECTED;
+            case CANCELLED -> ReportTimelineEventType.CANCELLED;
+            case PENDING -> ReportTimelineEventType.REPORT_CREATED;
+        };
+        recordTimelineEvent(
+                report,
+                eventType,
+                "Status changed to %s".formatted(nextStatus.name()),
+                "Report changed from %s to %s.".formatted(oldStatus.name(), nextStatus.name()),
+                currentUserOrNull());
+    }
+
+    private void recordTimelineEvent(
+            Report report,
+            ReportTimelineEventType eventType,
+            String title,
+            String description,
+            User actor) {
+        timelineEventRepository.save(ReportTimelineEvent.builder()
+                .report(report)
+                .eventType(eventType)
+                .title(title)
+                .description(description)
+                .actor(actor)
+                .actorRole(actor == null ? null : actor.getRole())
+                .actorName(actor == null ? null : actor.getFullName())
+                .build());
+    }
+
+    private ReportDetailResponse toDetailResponse(Report report) {
+        ReportDetailResponse response = reportMapper.toDetailResponse(report);
+        response.setTimeline(timelineEventRepository.findByReportIdOrderByCreatedAtAscIdAsc(report.getId())
+                .stream()
+                .map(this::toTimelineResponse)
+                .toList());
+        response.setResolution(resolutionRepository.findByReportId(report.getId())
+                .map(this::toResolutionResponse)
+                .orElse(null));
+        response.setRating(ratingRepository.findByReportId(report.getId())
+                .map(this::toRatingResponse)
+                .orElse(null));
+        return response;
+    }
+
+    private ReportTimelineEventResponse toTimelineResponse(ReportTimelineEvent event) {
+        return ReportTimelineEventResponse.builder()
+                .id(event.getId())
+                .type(event.getEventType())
+                .title(event.getTitle())
+                .description(event.getDescription())
+                .actorRole(event.getActorRole())
+                .actorName(event.getActorName())
+                .createdAt(event.getCreatedAt())
+                .build();
+    }
+
+    private ReportResolutionResponse toResolutionResponse(ReportResolution resolution) {
+        return ReportResolutionResponse.builder()
+                .id(resolution.getId())
+                .summary(resolution.getSummary())
+                .workPerformed(resolution.getWorkPerformed())
+                .publicNote(resolution.getPublicNote())
+                .resolvedByName(resolution.getResolvedBy() == null ? null : resolution.getResolvedBy().getFullName())
+                .resolvedAt(resolution.getCreatedAt())
+                .citizenConfirmedAt(resolution.getCitizenConfirmedAt())
+                .images(resolution.getImages()
+                        .stream()
+                        .sorted(Comparator.comparingInt(ReportResolutionImage::getDisplayOrder))
+                        .map(image -> ReportImageResponse.builder()
+                                .id(image.getId())
+                                .url(image.getImageUrl())
+                                .displayOrder(image.getDisplayOrder())
+                                .build())
+                        .toList())
+                .build();
+    }
+
+    private ReportRatingResponse toRatingResponse(ReportRating rating) {
+        return ReportRatingResponse.builder()
+                .id(rating.getId())
+                .rating(rating.getRating())
+                .comment(rating.getComment())
+                .createdAt(rating.getCreatedAt())
+                .updatedAt(rating.getUpdatedAt())
+                .build();
+    }
+
+    private User currentUserOrNull() {
+        try {
+            return userRepository.findById(currentPrincipal().getUserId()).orElse(null);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
     private Pageable pageable(int page, int size, String sortBy, String direction) {
         int normalizedPage = Math.max(page, 0);
         int normalizedSize = size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
@@ -423,5 +666,10 @@ public class ReportServiceImpl implements ReportService {
             throw new IllegalArgumentException(message);
         }
         return normalized;
+    }
+
+    private String normalizeOptional(String value) {
+        String normalized = value == null ? "" : value.trim();
+        return normalized.isBlank() ? null : normalized;
     }
 }

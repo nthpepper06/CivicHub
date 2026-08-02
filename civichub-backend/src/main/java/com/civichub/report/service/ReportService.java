@@ -4,6 +4,7 @@ import com.civichub.common.PageResponse;
 import com.civichub.common.enums.ReportStatus;
 import com.civichub.report.dto.request.ReportCreateRequest;
 import com.civichub.report.dto.request.ReportDepartmentAssignRequest;
+import com.civichub.report.dto.request.ReportRatingRequest;
 import com.civichub.report.dto.request.ReportStatusUpdateRequest;
 import com.civichub.report.dto.request.ReportUpdateRequest;
 import com.civichub.report.dto.response.ReportDetailResponse;
@@ -28,6 +29,10 @@ public interface ReportService {
     ReportDetailResponse updateMyReport(Long id, ReportUpdateRequest request);
 
     ReportDetailResponse cancelMyReport(Long id);
+
+    ReportDetailResponse confirmMyReportResolution(Long id);
+
+    ReportDetailResponse rateMyReportResolution(Long id, ReportRatingRequest request);
 
     PageResponse<ReportSummaryResponse> getStaffReports(
             int page,

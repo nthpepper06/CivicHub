@@ -26,9 +26,10 @@ import '../cubit/report_detail_state.dart';
 import '../widgets/report_status_chip.dart';
 
 class ReportDetailScreen extends StatelessWidget {
-  const ReportDetailScreen({required this.reportId, super.key});
+  const ReportDetailScreen({required this.reportId, this.focus, super.key});
 
   final int reportId;
+  final String? focus;
 
   @override
   Widget build(BuildContext context) {
@@ -37,22 +38,26 @@ class ReportDetailScreen extends StatelessWidget {
         reportsRepository: context.read<ReportsRepository>(),
         reportId: reportId,
       )..load(),
-      child: const _ReportDetailView(),
+      child: _ReportDetailView(focus: focus),
     );
   }
 }
 
 class _ReportDetailView extends StatelessWidget {
-  const _ReportDetailView();
+  const _ReportDetailView({this.focus});
+
+  final String? focus;
 
   @override
   Widget build(BuildContext context) {
-    return const _ReportDetailScaffold();
+    return _ReportDetailScaffold(focus: focus);
   }
 }
 
 class _ReportDetailScaffold extends StatefulWidget {
-  const _ReportDetailScaffold();
+  const _ReportDetailScaffold({this.focus});
+
+  final String? focus;
 
   @override
   State<_ReportDetailScaffold> createState() => _ReportDetailScaffoldState();
@@ -73,13 +78,14 @@ class _ReportDetailScaffoldState extends State<_ReportDetailScaffold> {
       child: BlocListener<ReportDetailCubit, ReportDetailState>(
         listenWhen: (previous, current) =>
             previous.actionSucceeded != current.actionSucceeded ||
-            previous.actionErrorMessage != current.actionErrorMessage,
+            previous.actionErrorMessage != current.actionErrorMessage ||
+            previous.actionSuccessMessage != current.actionSuccessMessage,
         listener: (context, state) {
           if (state.actionSucceeded) {
             _changed = true;
             AppFeedback.show(
               context,
-              message: 'Report cancelled.',
+              message: state.actionSuccessMessage ?? 'Report updated.',
               type: AppFeedbackType.success,
             );
           } else if (state.actionErrorMessage != null) {
@@ -168,6 +174,8 @@ class _ReportDetailScaffoldState extends State<_ReportDetailScaffold> {
                     ReportDetailStatus.success => _DetailContent(
                       report: state.report,
                       isCancelling: state.isCancelling,
+                      isSubmittingFeedback: state.isSubmittingFeedback,
+                      focus: widget.focus,
                     ),
                   },
                 ),
@@ -253,11 +261,47 @@ class _CancellingNotice extends StatelessWidget {
   }
 }
 
+class _DeepLinkFocusNotice extends StatelessWidget {
+  const _DeepLinkFocusNotice({required this.focus});
+
+  final String focus;
+
+  @override
+  Widget build(BuildContext context) {
+    return PremiumSurface(
+      child: Row(
+        children: [
+          const Icon(Icons.notification_important_outlined),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              focus == 'resolution'
+                  ? 'Opened from a resolution notification.'
+                  : 'Opened from a timeline notification.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.muted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DetailContent extends StatelessWidget {
-  const _DetailContent({required this.report, required this.isCancelling});
+  const _DetailContent({
+    required this.report,
+    required this.isCancelling,
+    required this.isSubmittingFeedback,
+    this.focus,
+  });
 
   final CitizenReportDetail? report;
   final bool isCancelling;
+  final bool isSubmittingFeedback;
+  final String? focus;
 
   @override
   Widget build(BuildContext context) {
@@ -289,6 +333,10 @@ class _DetailContent extends StatelessWidget {
                 const _ReadOnlyNotice(),
                 const SizedBox(height: AppSpacing.lg),
               ],
+              if (focus == 'resolution' || focus == 'timeline') ...[
+                _DeepLinkFocusNotice(focus: focus!),
+                const SizedBox(height: AppSpacing.lg),
+              ],
               PremiumSurface(
                 gradient: AppGradients.cityHero,
                 padding: const EdgeInsets.all(AppSpacing.xl),
@@ -315,6 +363,22 @@ class _DetailContent extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
+              _TimelineSection(events: detail.timeline),
+              const SizedBox(height: AppSpacing.lg),
+              _ImagesSection(
+                title: 'Before photos',
+                emptyTitle: 'No before photos',
+                emptyMessage: 'This report does not include initial photos.',
+                images: detail.images,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              _ResolutionSection(resolution: detail.resolution),
+              const SizedBox(height: AppSpacing.lg),
+              _FeedbackSection(
+                report: detail,
+                isSubmitting: isSubmittingFeedback,
+              ),
+              const SizedBox(height: AppSpacing.lg),
               LocationPreviewCard(
                 address: detail.address,
                 point: _locationPoint(detail),
@@ -333,14 +397,12 @@ class _DetailContent extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.lg),
               _Section(
-                title: 'Timeline',
+                title: 'Metadata',
                 children: [
                   _InfoRow(label: 'Created', value: _date(detail.createdAt)),
                   _InfoRow(label: 'Updated', value: _date(detail.updatedAt)),
                 ],
               ),
-              const SizedBox(height: AppSpacing.lg),
-              _ImagesSection(images: detail.images),
             ],
           ),
         ),
@@ -468,17 +530,234 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-class _ImagesSection extends StatelessWidget {
-  const _ImagesSection({required this.images});
+class _TimelineSection extends StatelessWidget {
+  const _TimelineSection({required this.events});
 
+  final List<ReportTimelineEvent> events;
+
+  @override
+  Widget build(BuildContext context) {
+    if (events.isEmpty) {
+      return const AppEmpty(
+        title: 'No timeline yet',
+        message: 'Lifecycle events will appear here as this report progresses.',
+        icon: Icons.timeline_outlined,
+      );
+    }
+    return _Section(
+      title: 'Timeline',
+      children: [
+        for (final event in events) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.radio_button_checked, size: 18),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      event.title.isEmpty ? event.type : event.title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (event.description != null) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        event.description!,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.muted,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      [
+                        if (event.actorName != null) event.actorName,
+                        _dateLabel(event.createdAt),
+                      ].whereType<String>().join(' • '),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+      ],
+    );
+  }
+}
+
+class _ResolutionSection extends StatelessWidget {
+  const _ResolutionSection({required this.resolution});
+
+  final ReportResolution? resolution;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = resolution;
+    if (data == null) {
+      return const AppEmpty(
+        title: 'No resolution yet',
+        message:
+            'Resolution notes and after photos will appear after staff completes the work.',
+        icon: Icons.task_alt_outlined,
+      );
+    }
+    return _Section(
+      title: 'Resolution',
+      children: [
+        _InfoRow(label: 'Summary', value: data.summary),
+        _InfoRow(label: 'Work performed', value: data.workPerformed),
+        _InfoRow(label: 'Public note', value: data.publicNote),
+        _InfoRow(label: 'Resolved by', value: data.resolvedByName),
+        _InfoRow(label: 'Resolved at', value: _dateLabel(data.resolvedAt)),
+        const SizedBox(height: AppSpacing.md),
+        _ImagesSection(
+          title: 'After photos',
+          emptyTitle: 'No after photos',
+          emptyMessage: 'Staff did not attach resolution photos.',
+          images: data.images,
+        ),
+      ],
+    );
+  }
+}
+
+class _FeedbackSection extends StatefulWidget {
+  const _FeedbackSection({required this.report, required this.isSubmitting});
+
+  final CitizenReportDetail report;
+  final bool isSubmitting;
+
+  @override
+  State<_FeedbackSection> createState() => _FeedbackSectionState();
+}
+
+class _FeedbackSectionState extends State<_FeedbackSection> {
+  int _rating = 5;
+  final _commentController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    final rating = widget.report.rating;
+    if (rating != null && rating.rating > 0) {
+      _rating = rating.rating;
+      _commentController.text = rating.comment ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final report = widget.report;
+    if (report.status != ReportStatus.resolved) {
+      return const SizedBox.shrink();
+    }
+    final resolution = report.resolution;
+    return _Section(
+      title: 'Citizen feedback',
+      children: [
+        if (resolution?.isConfirmed == true)
+          _InfoRow(
+            label: 'Confirmation',
+            value:
+                'Confirmed at ${_dateLabel(resolution?.citizenConfirmedAt) ?? 'unknown time'}',
+          )
+        else
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: widget.isSubmitting
+                  ? null
+                  : context.read<ReportDetailCubit>().confirmResolution,
+              icon: const Icon(Icons.verified_outlined),
+              label: const Text('Confirm Resolution'),
+            ),
+          ),
+        const SizedBox(height: AppSpacing.md),
+        Row(
+          children: [
+            for (var index = 1; index <= 5; index++)
+              IconButton(
+                tooltip: 'Rate $index stars',
+                onPressed: widget.isSubmitting
+                    ? null
+                    : () => setState(() => _rating = index),
+                icon: Icon(
+                  index <= _rating ? Icons.star : Icons.star_border,
+                  color: AppColors.warning,
+                ),
+              ),
+          ],
+        ),
+        TextField(
+          controller: _commentController,
+          minLines: 2,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            labelText: 'Optional comment',
+            hintText: 'Share feedback about the resolution',
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: widget.isSubmitting
+                ? null
+                : () => context.read<ReportDetailCubit>().rateResolution(
+                    _rating,
+                    comment: _commentController.text,
+                  ),
+            icon: widget.isSubmitting
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.rate_review_outlined),
+            label: Text(
+              report.rating == null ? 'Submit Rating' : 'Update Rating',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ImagesSection extends StatelessWidget {
+  const _ImagesSection({
+    required this.title,
+    required this.emptyTitle,
+    required this.emptyMessage,
+    required this.images,
+  });
+
+  final String title;
+  final String emptyTitle;
+  final String emptyMessage;
   final List<ReportImage> images;
 
   @override
   Widget build(BuildContext context) {
     if (images.isEmpty) {
-      return const AppEmpty(
-        title: 'No images',
-        message: 'This report does not include image attachments.',
+      return AppEmpty(
+        title: emptyTitle,
+        message: emptyMessage,
         icon: Icons.image_not_supported_outlined,
       );
     }
@@ -486,7 +765,7 @@ class _ImagesSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Images', style: Theme.of(context).textTheme.titleMedium),
+        Text(title, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: AppSpacing.md),
         for (final image in images) ...[
           ClipRRect(
@@ -516,4 +795,16 @@ class _ImagesSection extends StatelessWidget {
       ],
     );
   }
+}
+
+String? _dateLabel(DateTime? value) {
+  if (value == null) {
+    return null;
+  }
+  final local = value.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '${local.year}-$month-$day $hour:$minute';
 }

@@ -12,7 +12,9 @@ class ReportDetailState extends Equatable {
     this.errorMessage,
     this.errorKind,
     this.isCancelling = false,
+    this.isSubmittingFeedback = false,
     this.actionErrorMessage,
+    this.actionSuccessMessage,
     this.actionSucceeded = false,
   });
 
@@ -21,7 +23,9 @@ class ReportDetailState extends Equatable {
   final String? errorMessage;
   final ApiErrorKind? errorKind;
   final bool isCancelling;
+  final bool isSubmittingFeedback;
   final String? actionErrorMessage;
+  final String? actionSuccessMessage;
   final bool actionSucceeded;
 
   bool get isUnauthorized =>
@@ -34,7 +38,9 @@ class ReportDetailState extends Equatable {
     Object? errorMessage = _unchanged,
     Object? errorKind = _unchanged,
     bool? isCancelling,
+    bool? isSubmittingFeedback,
     Object? actionErrorMessage = _unchanged,
+    Object? actionSuccessMessage = _unchanged,
     bool? actionSucceeded,
   }) {
     return ReportDetailState(
@@ -49,9 +55,13 @@ class ReportDetailState extends Equatable {
           ? this.errorKind
           : errorKind as ApiErrorKind?,
       isCancelling: isCancelling ?? this.isCancelling,
+      isSubmittingFeedback: isSubmittingFeedback ?? this.isSubmittingFeedback,
       actionErrorMessage: actionErrorMessage == _unchanged
           ? this.actionErrorMessage
           : actionErrorMessage as String?,
+      actionSuccessMessage: actionSuccessMessage == _unchanged
+          ? this.actionSuccessMessage
+          : actionSuccessMessage as String?,
       actionSucceeded: actionSucceeded ?? this.actionSucceeded,
     );
   }
@@ -63,7 +73,9 @@ class ReportDetailState extends Equatable {
     errorMessage,
     errorKind,
     isCancelling,
+    isSubmittingFeedback,
     actionErrorMessage,
+    actionSuccessMessage,
     actionSucceeded,
   ];
 }

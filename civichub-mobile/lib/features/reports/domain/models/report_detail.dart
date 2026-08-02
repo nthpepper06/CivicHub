@@ -18,6 +18,9 @@ class CitizenReportDetail extends Equatable {
     this.citizenId,
     this.citizenName,
     this.images = const [],
+    this.resolution,
+    this.rating,
+    this.timeline = const [],
     this.createdAt,
     this.updatedAt,
   });
@@ -36,6 +39,9 @@ class CitizenReportDetail extends Equatable {
   final int? citizenId;
   final String? citizenName;
   final List<ReportImage> images;
+  final ReportResolution? resolution;
+  final ReportRating? rating;
+  final List<ReportTimelineEvent> timeline;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -55,6 +61,9 @@ class CitizenReportDetail extends Equatable {
     citizenId,
     citizenName,
     images,
+    resolution,
+    rating,
+    timeline,
     createdAt,
     updatedAt,
   ];
@@ -69,4 +78,90 @@ class ReportImage extends Equatable {
 
   @override
   List<Object?> get props => [id, url, displayOrder];
+}
+
+class ReportResolution extends Equatable {
+  const ReportResolution({
+    this.id,
+    required this.summary,
+    this.workPerformed,
+    this.publicNote,
+    this.resolvedByName,
+    this.resolvedAt,
+    this.citizenConfirmedAt,
+    this.images = const [],
+  });
+
+  final int? id;
+  final String summary;
+  final String? workPerformed;
+  final String? publicNote;
+  final String? resolvedByName;
+  final DateTime? resolvedAt;
+  final DateTime? citizenConfirmedAt;
+  final List<ReportImage> images;
+
+  bool get isConfirmed => citizenConfirmedAt != null;
+
+  @override
+  List<Object?> get props => [
+    id,
+    summary,
+    workPerformed,
+    publicNote,
+    resolvedByName,
+    resolvedAt,
+    citizenConfirmedAt,
+    images,
+  ];
+}
+
+class ReportRating extends Equatable {
+  const ReportRating({
+    this.id,
+    required this.rating,
+    this.comment,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  final int? id;
+  final int rating;
+  final String? comment;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  @override
+  List<Object?> get props => [id, rating, comment, createdAt, updatedAt];
+}
+
+class ReportTimelineEvent extends Equatable {
+  const ReportTimelineEvent({
+    this.id,
+    required this.type,
+    required this.title,
+    this.description,
+    this.actorRole,
+    this.actorName,
+    this.createdAt,
+  });
+
+  final int? id;
+  final String type;
+  final String title;
+  final String? description;
+  final String? actorRole;
+  final String? actorName;
+  final DateTime? createdAt;
+
+  @override
+  List<Object?> get props => [
+    id,
+    type,
+    title,
+    description,
+    actorRole,
+    actorName,
+    createdAt,
+  ];
 }

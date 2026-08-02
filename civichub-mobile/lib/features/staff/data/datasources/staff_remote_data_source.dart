@@ -31,8 +31,12 @@ abstract class StaffRemoteDataSource {
 
   Future<ReportDetailResponse> updateAssignedReportStatus(
     int id,
-    ReportStatus status,
-  );
+    ReportStatus status, {
+    String? resolutionSummary,
+    String? workPerformed,
+    String? publicNote,
+    List<String> resolutionImageUrls,
+  });
 }
 
 class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
@@ -140,12 +144,24 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   @override
   Future<ReportDetailResponse> updateAssignedReportStatus(
     int id,
-    ReportStatus status,
-  ) async {
+    ReportStatus status, {
+    String? resolutionSummary,
+    String? workPerformed,
+    String? publicNote,
+    List<String> resolutionImageUrls = const [],
+  }) async {
     try {
       final response = await _apiClient.dio.patch<Map<String, dynamic>>(
         ApiEndpoints.staffReportStatus(id),
-        data: {'status': status.apiValue},
+        data: _cleanParams({
+          'status': status.apiValue,
+          'resolutionSummary': resolutionSummary,
+          'workPerformed': workPerformed,
+          'publicNote': publicNote,
+          'resolutionImageUrls': resolutionImageUrls.isEmpty
+              ? null
+              : resolutionImageUrls,
+        }),
       );
       return ReportDetailResponse.fromJson(_responseData(response.data));
     } on DioException catch (error) {

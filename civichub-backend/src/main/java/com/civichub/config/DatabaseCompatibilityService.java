@@ -26,14 +26,18 @@ public class DatabaseCompatibilityService {
             "db/manual/20260722_sync_audit_log_action_check.sql";
     private static final String NOTIFICATION_TYPE_CONSTRAINT_SCRIPT =
             "db/manual/20260722_sync_notification_type_check.sql";
+    private static final String REPORT_RESOLUTION_WORKFLOW_SCRIPT =
+            "db/manual/20260802_create_report_resolution_workflow.sql";
 
     private final ObjectProvider<DataSource> dataSourceProvider;
     private final AtomicBoolean auditLogActionConstraintSynchronized = new AtomicBoolean(false);
     private final AtomicBoolean notificationTypeConstraintSynchronized = new AtomicBoolean(false);
+    private final AtomicBoolean reportResolutionWorkflowSynchronized = new AtomicBoolean(false);
 
     public void synchronizeCompatibilityConstraintsIfNeeded() throws Exception {
         synchronizeAuditLogActionConstraintIfNeeded();
         synchronizeNotificationTypeConstraintIfNeeded();
+        synchronizeReportResolutionWorkflowIfNeeded();
     }
 
     public void synchronizeAuditLogActionConstraintIfNeeded() throws Exception {
@@ -93,6 +97,39 @@ public class DatabaseCompatibilityService {
             populator.execute(dataSource);
             notificationTypeConstraintSynchronized.set(true);
             log.info("Synchronized notification type check constraint.");
+        }
+    }
+
+    public void synchronizeReportResolutionWorkflowIfNeeded() throws Exception {
+        if (reportResolutionWorkflowSynchronized.get()) {
+            return;
+        }
+
+        synchronized (reportResolutionWorkflowSynchronized) {
+            if (reportResolutionWorkflowSynchronized.get()) {
+                return;
+            }
+
+            DataSource dataSource = dataSourceProvider.getIfAvailable();
+            if (dataSource == null || !isPostgreSqlWithTable(dataSource, "reports")) {
+                reportResolutionWorkflowSynchronized.set(true);
+                return;
+            }
+
+            if (isPostgreSqlWithTable(dataSource, "report_timeline_events")
+                    && isPostgreSqlWithTable(dataSource, "report_resolutions")
+                    && isPostgreSqlWithTable(dataSource, "report_resolution_images")
+                    && isPostgreSqlWithTable(dataSource, "report_ratings")) {
+                reportResolutionWorkflowSynchronized.set(true);
+                log.debug("Report resolution workflow tables are already current.");
+                return;
+            }
+
+            ResourceDatabasePopulator populator = new ResourceDatabasePopulator(
+                    new ClassPathResource(REPORT_RESOLUTION_WORKFLOW_SCRIPT));
+            populator.execute(dataSource);
+            reportResolutionWorkflowSynchronized.set(true);
+            log.info("Synchronized report resolution workflow tables.");
         }
     }
 

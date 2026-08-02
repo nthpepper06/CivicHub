@@ -31,6 +31,9 @@ public class ReportDetailResponse {
     private Long citizenId;
     private String citizenName;
     private List<ReportImageResponse> images;
+    private ReportResolutionResponse resolution;
+    private ReportRatingResponse rating;
+    private List<ReportTimelineEventResponse> timeline;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
